@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 #
-# Magic Rust Template — full local install (Laravel API + Next.js frontend).
+# Magic Rust Template — full local install.
 #
-# From your website (set RUST_TEMPLATE_REPO to your public Git URL, or pass --repo):
-#
-#   curl -fsSL https://YOURDOMAIN.com/install.sh | bash -s -- --repo https://github.com/YOU/rust-template.git
-#
-# Or host this file at raw.githubusercontent.com/.../scripts/install.sh and use:
-#
-#   curl -fsSL https://raw.githubusercontent.com/YOU/rust-template/main/scripts/install.sh | bash -s -- --repo https://github.com/YOU/rust-template.git
-#
-# Defaults:
-#   - MySQL: use --docker-db for a local MariaDB container, or set --db-url / env MYSQL_* (see --help).
-#   - Clone target: ./rust-template (override with --dir).
-#
+#   curl -fsSL https://magicservices.co/rust-template/install.sh
+
 set -e
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.2.0"
 DEFAULT_CLONE_DIR="rust-template"
 DOCKER_MYSQL_CONTAINER="rust-template-mysql"
 DOCKER_MYSQL_IMAGE="${DOCKER_MYSQL_IMAGE:-mariadb:11}"
@@ -32,6 +22,10 @@ USE_DOCKER_DB=0
 DB_URL_INPUT=""
 SKIP_SYSTEM=0
 SKIP_FRONTEND_BUILD=0
+SKIP_IONCUBE=0
+FORCE_IONCUBE=0
+MIGRATE_MYSQL=0
+NO_MIGRATE_PROMPT=0
 usage() {
     cat <<'EOF'
 Usage: install.sh [options]
@@ -41,6 +35,10 @@ Usage: install.sh [options]
   --dir PATH          Install / use this directory (default: ./rust-template when cloning)
   --docker-db         Start MariaDB in Docker and configure Laravel to use it
   --db-url URL        mysql://user:pass@host:port/database (skips --docker-db)
+  --ioncube           Always try to install ionCube Loader (Debian/Ubuntu + sudo)
+  --skip-ioncube      Never install ionCube Loader
+  --migrate-mysql     Copy data from an existing MySQL/MariaDB into the target DB (interactive)
+  --no-migrate-prompt Do not ask whether to migrate (non-interactive installs skip migration unless --migrate-mysql)
   --skip-system       Do not try to install OS packages (apt)
   --no-frontend-build Skip `npm run build` (faster; run later in frontend/)
   --help              Show this help
@@ -48,6 +46,8 @@ Usage: install.sh [options]
 Environment:
   RUST_TEMPLATE_REPO   Same as --repo
   RUST_TEMPLATE_BRANCH Same as --branch
+  INSTALL_IONCUBE=1     Same as --ioncube
+  CI=1                  Disables interactive “migrate database?” prompt
 
 Examples:
   bash scripts/install.sh --repo https://github.com/org/rust-template.git --docker-db
@@ -115,7 +115,7 @@ ensure_debian_packages() {
     log "Installing Debian/Ubuntu packages (php-cli, mysql client libs, git, Node via NodeSource if needed)…"
     $SUDO apt-get update -qq
     $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-        ca-certificates curl git unzip \
+        ca-certificates curl git unzip mariadb-client \
         php-cli php-mysql php-xml php-mbstring php-curl php-zip php-bcmath php-intl php-sqlite3 \
         >/dev/null 2>&1 || {
         warn "Some apt packages failed; ensure PHP 8.2+ with pdo_mysql, mbstring, xml, curl, zip, bcmath are installed."
@@ -127,6 +127,220 @@ ensure_debian_packages() {
         $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs >/dev/null 2>&1 || \
             warn "Node 20 install failed; install Node 20+ from https://nodejs.org"
     fi
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local yn yl
+    read -r -p "[install] ${prompt} [y/N] " yn || return 1
+    yl="$(printf '%s' "$yn" | tr '[:upper:]' '[:lower:]')"
+    case "$yl" in
+        y|yes) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+ensure_mysql_client_tools() {
+    need_cmd mysql || die "mysql client not found. On Debian/Ubuntu: sudo apt install mariadb-client"
+    need_cmd mysqldump || die "mysqldump not found. On Debian/Ubuntu: sudo apt install mariadb-client"
+}
+
+# List non-system databases on a server (one name per line).
+mysql_list_user_databases() {
+    local host="$1" port="$2" user="$3" pass="$4"
+    MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SHOW DATABASES" 2>/dev/null \
+        | grep -v -E '^(information_schema|mysql|performance_schema|sys)$' | grep -v '^$' || true
+}
+
+mysql_test_connection() {
+    local host="$1" port="$2" user="$3" pass="$4"
+    MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SELECT 1" >/dev/null 2>&1
+}
+
+# Interactive: copy one source database into the already-configured target (replaces target contents).
+maybe_migrate_mysql_into_target() {
+    local do_migrate=0
+    if [[ "$MIGRATE_MYSQL" -eq 1 ]]; then
+        do_migrate=1
+    elif [[ "$NO_MIGRATE_PROMPT" -eq 1 ]] || [[ "${CI:-}" == "true" ]] || [[ "${CI:-}" == "1" ]]; then
+        return 0
+    elif [[ -t 0 ]] && [[ -t 1 ]] && prompt_yes_no "Copy data from an existing MySQL/MariaDB database into this install’s target database?"; then
+        do_migrate=1
+    fi
+    [[ "$do_migrate" -eq 1 ]] || return 0
+
+    ensure_mysql_client_tools
+
+    local src_host src_port src_user src_pass
+    log "MySQL data migration — connect to the **source** server (old Rust Template DB, or any MySQL you want to copy from)."
+    read -r -p "[install] Source MySQL host [127.0.0.1]: " src_host
+    src_host="${src_host:-127.0.0.1}"
+    read -r -p "[install] Source MySQL port [3306]: " src_port
+    src_port="${src_port:-3306}"
+    read -r -p "[install] Source MySQL user: " src_user
+    [[ -n "$src_user" ]] || die "Source user is required."
+    read -r -s -p "[install] Source MySQL password: " src_pass
+    echo ""
+    mysql_test_connection "$src_host" "$src_port" "$src_user" "$src_pass" || die "Cannot connect to source MySQL. Check host, port, user, and password."
+
+    local -a dbs=()
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && dbs+=("$line")
+    done < <(mysql_list_user_databases "$src_host" "$src_port" "$src_user" "$src_pass")
+
+    [[ "${#dbs[@]}" -gt 0 ]] || die "No user databases found on the source (only system schemas). Nothing to migrate."
+
+    local src_db=""
+    if [[ "${#dbs[@]}" -eq 1 ]]; then
+        src_db="${dbs[0]}"
+        log "Only one user database on the source: ${src_db}"
+        if ! prompt_yes_no "Use this database as the copy source?"; then
+            die "Migration cancelled."
+        fi
+    else
+        log "Several user databases found on the source. Pick which one to copy **from**:"
+        local i
+        for i in "${!dbs[@]}"; do
+            printf '  %d) %s\n' "$((i + 1))" "${dbs[$i]}"
+        done
+        local pick
+        while true; do
+            read -r -p "[install] Enter number (1-${#dbs[@]}): " pick
+            if [[ "$pick" =~ ^[0-9]+$ ]] && [[ "$pick" -ge 1 ]] && [[ "$pick" -le "${#dbs[@]}" ]]; then
+                src_db="${dbs[$((pick - 1))]}"
+                break
+            fi
+            warn "Invalid choice."
+        done
+    fi
+
+    if [[ "$src_host" == "$MYSQL_HOST" ]] && [[ "$src_port" == "$MYSQL_PORT" ]] && [[ "$src_db" == "$MYSQL_DATABASE" ]]; then
+        die "Source and target are the same database. Pick a different target in --db-url or choose another source."
+    fi
+
+    mysql_test_connection "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_USER" "$MYSQL_PASSWORD" || die "Cannot connect to **target** MySQL (the database configured for this install)."
+
+    warn "This will **replace all tables** in the target database:"
+    warn "  ${MYSQL_DATABASE} on ${MYSQL_HOST}:${MYSQL_PORT}"
+    read -r -p "[install] Type YES to continue: " confirm
+    [[ "$confirm" == "YES" ]] || die "Migration cancelled."
+
+    log "Dumping ${src_db} from ${src_host}:${src_port} and importing into ${MYSQL_DATABASE}…"
+    if ! MYSQL_PWD="$src_pass" mysqldump -h"$src_host" -P"$src_port" -u"$src_user" \
+        --single-transaction --quick --routines --events --set-gtid-purged=OFF \
+        "$src_db" | MYSQL_PWD="$MYSQL_PASSWORD" mysql -h"$MYSQL_HOST" -P"$MYSQL_PORT" -u"$MYSQL_USER" "$MYSQL_DATABASE"; then
+        die "mysqldump or mysql import failed."
+    fi
+    log "MySQL data migration finished."
+}
+
+backend_appears_ioncube_encoded() {
+    local f="$1/backend/bootstrap/app.php"
+    [[ -f "$f" ]] || return 1
+    head -c 500 "$f" | grep -q 'get-loader\.ioncube\.com\|ionCube Loader\|//00[0-9a-f]\{2\}cd'
+}
+
+ioncube_loader_active() {
+    php -r 'exit(extension_loaded("ionCube Loader") ? 0 : 1);' 2>/dev/null
+}
+
+ensure_ioncube_loader() {
+    local root="$1"
+    if [[ "$SKIP_IONCUBE" -eq 1 ]]; then
+        return 0
+    fi
+    if [[ "${INSTALL_IONCUBE:-}" == "1" ]] || [[ "${INSTALL_IONCUBE:-}" == "true" ]]; then
+        FORCE_IONCUBE=1
+    fi
+    if [[ "$FORCE_IONCUBE" -eq 0 ]] && ! backend_appears_ioncube_encoded "$root"; then
+        log "Skipping ionCube Loader (backend does not look ionCube-encoded). Use --ioncube or INSTALL_IONCUBE=1 to install anyway."
+        return 0
+    fi
+
+    if ioncube_loader_active; then
+        log "ionCube Loader is already loaded for this PHP."
+        return 0
+    fi
+
+    local SUDO=""
+    [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
+
+    if [[ "$(id -u)" -ne 0 ]] && ! need_cmd sudo; then
+        warn "Cannot install ionCube Loader without root or sudo. Install manually: https://get-loader.ioncube.com"
+        return 0
+    fi
+
+    need_cmd tar || die "tar is required to unpack ionCube Loaders."
+
+    local php_mm ts_suffix loader_name arch_key url ext_dir full_so conf_d tmpdir
+    php_mm="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+    if php -r 'exit(ZEND_THREAD_SAFE ? 0 : 1);' 2>/dev/null; then
+        ts_suffix="_ts"
+    else
+        ts_suffix=""
+    fi
+    loader_name="ioncube_loader_lin_${php_mm}${ts_suffix}.so"
+
+    case "$(uname -m)" in
+        x86_64) arch_key="x86-64" ;;
+        aarch64|arm64) arch_key="aarch64" ;;
+        *)
+            warn "ionCube automatic install: unsupported CPU $(uname -m). Install from https://get-loader.ioncube.com"
+            return 0
+            ;;
+    esac
+
+    url="https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_${arch_key}.tar.gz"
+    tmpdir="$(mktemp -d)"
+
+    log "Downloading ionCube Loaders (${arch_key}) for PHP ${php_mm}…"
+    if ! curl -fsSL "$url" | tar -xzf - -C "$tmpdir"; then
+        rm -rf "$tmpdir"
+        die "Failed to download or extract ionCube loaders."
+    fi
+
+    if [[ ! -f "$tmpdir/ioncube/$loader_name" ]]; then
+        rm -rf "$tmpdir"
+        die "No loader $loader_name in ionCube package (PHP ${php_mm} may be too new). See https://get-loader.ioncube.com"
+    fi
+
+    ext_dir="$(php -r 'echo rtrim(ini_get("extension_dir"), "/");')"
+    if [[ -z "$ext_dir" ]]; then
+        rm -rf "$tmpdir"
+        die "Could not read PHP extension_dir."
+    fi
+
+    log "Installing ${loader_name} into ${ext_dir}…"
+    $SUDO cp "$tmpdir/ioncube/$loader_name" "$ext_dir/$loader_name"
+    rm -rf "$tmpdir"
+    full_so="${ext_dir}/${loader_name}"
+
+    conf_d=""
+    if php --ini 2>/dev/null | grep -q 'Scan for additional'; then
+        conf_d="$(php --ini 2>/dev/null | awk -F': ' '/Scan for additional .ini files in:/ {print $2}' | tr -d ' \r')"
+    fi
+
+    if [[ -n "$conf_d" && -d "$conf_d" ]]; then
+        log "Enabling zend_extension in ${conf_d}/00-ioncube.ini (CLI)…"
+        echo "zend_extension=${full_so}" | $SUDO tee "${conf_d}/00-ioncube.ini" >/dev/null
+    fi
+
+    # PHP-FPM / Apache SAPIs on Debian/Ubuntu (common on VPS behind nginx)
+    local sapi php_ver
+    php_ver="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+    for sapi in fpm apache2 cgi; do
+        local d="/etc/php/${php_ver}/${sapi}/conf.d"
+        if [[ -d "$d" ]]; then
+            log "Enabling ionCube for PHP ${sapi}…"
+            echo "zend_extension=${full_so}" | $SUDO tee "${d}/00-ioncube.ini" >/dev/null
+        fi
+    done
+
+    if ! ioncube_loader_active; then
+        warn "ionCube Loader file installed but PHP CLI still does not load it. Check php --ini, php-fpm pool, or restart services."
+        return 0
+    fi
+    log "ionCube Loader is active for PHP $(php -r 'echo PHP_VERSION;')."
 }
 
 ensure_composer() {
@@ -298,6 +512,10 @@ while [[ $# -gt 0 ]]; do
         --db-url) DB_URL_INPUT="$2"; shift 2 ;;
         --skip-system) SKIP_SYSTEM=1; shift ;;
         --no-frontend-build) SKIP_FRONTEND_BUILD=1; shift ;;
+        --ioncube) FORCE_IONCUBE=1; shift ;;
+        --skip-ioncube) SKIP_IONCUBE=1; shift ;;
+        --migrate-mysql) MIGRATE_MYSQL=1; shift ;;
+        --no-migrate-prompt) NO_MIGRATE_PROMPT=1; shift ;;
         --help|-h) usage; exit 0 ;;
         *) die "Unknown option: $1 (try --help)" ;;
     esac
@@ -345,6 +563,10 @@ need_cmd composer || die "composer not available after install attempt."
 
 need_cmd curl || die "curl is required."
 need_cmd openssl || true
+ensure_ioncube_loader "$ROOT"
+if backend_appears_ioncube_encoded "$ROOT" && ! ioncube_loader_active; then
+    die "This backend is ionCube-encoded but the Loader is not loaded. Install ionCube for PHP $(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null) from https://get-loader.ioncube.com or re-run with sudo on Debian/Ubuntu."
+fi
 
 MYSQL_HOST=""
 MYSQL_PORT=""
@@ -370,6 +592,8 @@ if [[ ! -f "$BACKEND_ENV" ]]; then
     cp "${ROOT}/backend/.env.example" "$BACKEND_ENV"
 fi
 apply_backend_db_env "$BACKEND_ENV" "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_DATABASE" "$MYSQL_USER" "$MYSQL_PASSWORD"
+
+maybe_migrate_mysql_into_target
 
 setup_backend "$ROOT"
 setup_frontend "$ROOT"
@@ -399,3 +623,43 @@ if [[ "$USE_DOCKER_DB" -eq 1 ]]; then
 
 EOF
 fi
+
+cat <<'COOLIFY'
+
+  Coolify — replacing the **old** Rust Template
+  ─────────────────────────────────────────────
+  If the previous site was deployed with Coolify on this VPS:
+
+  • In the Coolify dashboard, **remove or delete the old Rust Template
+    application** (that specific app / resource — not Coolify itself). Deploy
+    the new template as a **new** application so builds, env vars, and volumes
+    stay clean.
+
+  • Use the **Dockerfile** build pack (not Nixpacks) so you can install PHP
+    extensions (ionCube Loader). Docs: https://coolify.io/docs — Laravel +
+    Dockerfile guide: https://alexcavender.com/blog/deploy-laravel-coolify-dockerfile
+
+  • ionCube in Docker (example with mlocati/docker-php-extension-installer):
+
+      ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+      RUN chmod +x /usr/local/bin/install-php-extensions && install-php-extensions ioncube_loader
+
+    If that fails, install the matching ioncube_loader_lin_X.Y.so manually
+    (zend_extension= in a conf.d file), same idea as this script on Ubuntu.
+
+  Database (Coolify MySQL or any MySQL server)
+  ────────────────────────────────────────────
+  • If your MySQL server has **several databases**, decide which one held the
+    old Rust Template data — only migrate **that** schema.
+
+  • Easiest on a plain VPS path: re-run this installer with **--migrate-mysql**
+    or answer **yes** when asked; you can **pick the source database** from a
+    list when more than one exists. That copies into the **target** database
+    configured for this install (target tables are replaced — type YES to confirm).
+
+  • On Coolify, you can instead use mysqldump from the old DB and import into
+    the new app’s database, or attach the same MySQL service and point the new
+    app at a **new empty** database, then import. After import, run
+    php artisan migrate --force where your Laravel app runs.
+
+COOLIFY
