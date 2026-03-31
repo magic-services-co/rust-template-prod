@@ -1,0 +1,3320 @@
+openapi: 3.0.3
+info:
+  title: Rust Web Template API
+  description: |
+    API documentation for the Rust Web Template.
+    
+    ## Authentication
+    
+    This API supports multiple authentication methods:
+    
+    1. **Session Authentication** - Login via NextAuth (Discord/Steam OAuth)
+    2. **API Key Authentication** - Pass `x-api-key` header
+    3. **Bearer Token Authentication** - Pass `Authorization: Bearer <token>` header
+    
+    ## Permissions
+    
+    Most endpoints require specific permissions. Permissions are either:
+    - **Role-based** - Assigned to user roles (e.g., `leaderboard:manage`)
+    - **API Key-based** - Configured per API key (e.g., `admin.users.list`)
+    - **Admin-only** - Requires `isAdmin: true` flag
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: /api
+    description: API Base URL
+
+tags:
+  - name: Public
+    description: Public-facing endpoints
+  - name: Auth
+    description: Authentication endpoints
+  - name: User
+    description: User management endpoints
+  - name: Admin - Users
+    description: Admin user management
+  - name: Admin - Tickets
+    description: Admin ticket management
+  - name: Admin - Servers
+    description: Admin server management
+  - name: Admin - Bans
+    description: Admin ban management
+  - name: Admin - Settings
+    description: Admin settings management
+  - name: Admin - Roles
+    description: Admin role management
+  - name: Admin - Leaderboard
+    description: Admin leaderboard management
+  - name: Admin - Map Voting
+    description: Admin map voting management
+  - name: Admin - CDN
+    description: Admin CDN/image management
+  - name: Admin - Theme
+    description: Admin theme customization
+  - name: Admin - Store
+    description: Admin store management
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key authentication
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: NextAuth session cookie
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        image:
+          type: string
+        isAdmin:
+          type: boolean
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRole'
+
+    Account:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [discord, steam]
+        providerAccountId:
+          type: string
+
+    UserRole:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        discordRoleId:
+          type: string
+
+    Server:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        ip:
+          type: string
+        port:
+          type: integer
+        queryPort:
+          type: integer
+        players:
+          type: integer
+        maxPlayers:
+          type: integer
+        map:
+          type: string
+        categoryId:
+          type: string
+
+    Ban:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        steamId:
+          type: string
+        reason:
+          type: string
+        banType:
+          type: string
+        isActive:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        categoryId:
+          type: string
+        status:
+          type: string
+          enum: [open, closed, pending]
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketMessage'
+
+    TicketMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        isStaff:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    TicketCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        order:
+          type: integer
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        permissions:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+paths:
+  # ==================== PUBLIC ====================
+  /servers:
+    get:
+      tags: [Public]
+      summary: Get all servers
+      description: Returns list of all game servers
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: List of servers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+
+  /stats:
+    get:
+      tags: [Public]
+      summary: Get statistics
+      description: Get player statistics and leaderboard data
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Statistics data
+
+  /maps:
+    get:
+      tags: [Public]
+      summary: Get maps
+      description: Get available maps
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Maps data
+
+  /leaderboard-tabs:
+    get:
+      tags: [Public]
+      summary: Get leaderboard tabs
+      description: Get leaderboard tab configuration
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Leaderboard tabs
+
+  /leaderboard-settings:
+    get:
+      tags: [Public]
+      summary: Get leaderboard settings
+      description: Get public leaderboard settings
+      responses:
+        '200':
+          description: Leaderboard settings
+
+  /players:
+    get:
+      tags: [Public]
+      summary: Get players
+      description: Get player data
+      security:
+        - ApiKeyAuth: []
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Player data
+        '403':
+          description: Insufficient permissions
+
+  /bans/check:
+    post:
+      tags: [Public]
+      summary: Check ban status
+      description: Check if a user is banned
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [steamId]
+              properties:
+                steamId:
+                  type: string
+      responses:
+        '200':
+          description: Ban status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  banned:
+                    type: boolean
+                  ban:
+                    $ref: '#/components/schemas/Ban'
+        '401':
+          description: Unauthorized
+
+  /bans/check-fast:
+    post:
+      tags: [Public]
+      summary: Check ban status (fast)
+      description: Optimized ban check endpoint
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [steamId]
+              properties:
+                steamId:
+                  type: string
+      responses:
+        '200':
+          description: Ban status
+
+  /bans/check-batch:
+    post:
+      tags: [Public]
+      summary: Batch check ban status
+      description: Check multiple users for bans
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [steamIds]
+              properties:
+                steamIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Ban statuses
+
+  /bans/check-batch-fast:
+    post:
+      tags: [Public]
+      summary: Batch check ban status (fast)
+      description: Optimized batch ban check
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [steamIds]
+              properties:
+                steamIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Ban statuses
+
+  /vote:
+    post:
+      tags: [Public]
+      summary: Submit vote
+      description: Submit a vote
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mapId:
+                  type: string
+                serverId:
+                  type: string
+      responses:
+        '200':
+          description: Vote submitted
+
+  /support/{slug}:
+    get:
+      tags: [Public]
+      summary: Get support article
+      description: Get support article by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Support article
+        '404':
+          description: Not found
+
+  /support:
+    post:
+      tags: [Public]
+      summary: Create support request
+      description: Create a new support request
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject:
+                  type: string
+                message:
+                  type: string
+                categoryId:
+                  type: string
+      responses:
+        '200':
+          description: Support request created
+
+  /discord/sync-roles:
+    post:
+      tags: [Public]
+      summary: Sync Discord roles
+      description: Sync Discord roles for a user
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                discordId:
+                  type: string
+      responses:
+        '200':
+          description: Roles synced
+
+  /discord/roles:
+    get:
+      tags: [Public]
+      summary: Get Discord roles
+      description: Get available Discord roles
+      responses:
+        '200':
+          description: Discord roles
+
+  /discord-members:
+    get:
+      tags: [Public]
+      summary: Get Discord member count
+      description: Get Discord server member count
+      responses:
+        '200':
+          description: Member count
+
+  /redirects:
+    get:
+      tags: [Public]
+      summary: Get redirects
+      description: Get site redirects
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Redirects
+
+  /sitemap:
+    get:
+      tags: [Public]
+      summary: Get sitemap
+      description: Get sitemap data
+      security:
+        - {}
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Sitemap data
+
+  /site-settings:
+    get:
+      tags: [Public]
+      summary: Get site settings
+      description: Get public site settings
+      responses:
+        '200':
+          description: Site settings
+
+  /theme-settings:
+    get:
+      tags: [Public]
+      summary: Get theme settings
+      description: Get theme settings
+      responses:
+        '200':
+          description: Theme settings
+
+  /server-pages:
+    get:
+      tags: [Public]
+      summary: Get server pages
+      description: Get server page configurations
+      responses:
+        '200':
+          description: Server pages
+
+  /legal/terms-of-service:
+    get:
+      tags: [Public]
+      summary: Get terms of service
+      responses:
+        '200':
+          description: Terms of service
+
+  /legal/privacy-policy:
+    get:
+      tags: [Public]
+      summary: Get privacy policy
+      responses:
+        '200':
+          description: Privacy policy
+
+  /linked-users-count:
+    get:
+      tags: [Public]
+      summary: Get linked users count
+      description: Get count of linked users
+      responses:
+        '200':
+          description: User count
+
+  # ==================== AUTH ====================
+  /auth/check-permission:
+    post:
+      tags: [Auth]
+      summary: Check permission
+      description: Check if the current user has a specific permission
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, action]
+              properties:
+                resource:
+                  type: string
+                action:
+                  type: string
+      responses:
+        '200':
+          description: Permission check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasPermission:
+                    type: boolean
+
+  # ==================== USER ====================
+  /user:
+    get:
+      tags: [User]
+      summary: Get current user
+      description: Get current authenticated user's data
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [discord, oxide]
+          description: Type of data to retrieve
+      responses:
+        '200':
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /user/search/{id}:
+    get:
+      tags: [User]
+      summary: Search user by ID
+      description: Search for a user by ID
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User data
+        '404':
+          description: User not found
+
+  /user/steam/{id}:
+    get:
+      tags: [User]
+      summary: Get Steam user
+      description: Get Steam user data by Steam ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Steam user data
+
+  /user/discord/{id}:
+    get:
+      tags: [User]
+      summary: Get Discord user
+      description: Get Discord user data by Discord ID
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Discord user data
+
+  /user/oxide:
+    get:
+      tags: [User]
+      summary: Get Oxide user data
+      description: Get Oxide-specific user data
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Oxide user data
+        '403':
+          description: Insufficient permissions
+
+  /user/nitro:
+    get:
+      tags: [User]
+      summary: Get Nitro status
+      description: Get user's Discord Nitro status
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Nitro status
+
+  /user/unlink:
+    post:
+      tags: [User]
+      summary: Unlink account
+      description: Unlink a connected account
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider:
+                  type: string
+                  enum: [steam, discord]
+      responses:
+        '200':
+          description: Account unlinked
+
+  # ==================== ADMIN - USERS ====================
+  /admin/users:
+    get:
+      tags: [Admin - Users]
+      summary: List users
+      description: |
+        Get paginated list of users.
+        
+        **Permission:** `user_linked:read` OR `user_full:read`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+    put:
+      tags: [Admin - Users]
+      summary: Update user
+      description: |
+        Update a user's data.
+        
+        **Permission:** `user:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                data:
+                  type: object
+      responses:
+        '200':
+          description: User updated
+        '401':
+          description: Unauthorized
+
+  /admin/user-count:
+    get:
+      tags: [Admin - Users]
+      summary: Get user count
+      description: Get total user count with optional filters
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: User count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+  /admin/users/search:
+    get:
+      tags: [Admin - Users]
+      summary: Search users
+      description: Search for users
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+
+  /admin/users/linked:
+    get:
+      tags: [Admin - Users]
+      summary: Get linked users
+      description: Get list of linked users
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Linked users
+
+  /admin/users/{id}/history:
+    get:
+      tags: [Admin - Users]
+      summary: Get user history
+      description: Get a user's activity history
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User history
+
+  /admin/users/{id}/ban:
+    post:
+      tags: [Admin - Users]
+      summary: Ban user
+      description: Ban a user
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                duration:
+                  type: integer
+                  nullable: true
+                banType:
+                  type: string
+      responses:
+        '200':
+          description: User banned
+
+  /admin/users/{id}/unban:
+    post:
+      tags: [Admin - Users]
+      summary: Unban user
+      description: Unban a user
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unbanned
+
+  # ==================== ADMIN - TICKETS ====================
+  /admin/tickets:
+    get:
+      tags: [Admin - Tickets]
+      summary: List tickets
+      description: Get paginated list of support tickets
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, open, closed, pending]
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      tickets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Ticket'
+
+  /admin/tickets/{id}:
+    get:
+      tags: [Admin - Tickets]
+      summary: Get ticket
+      description: Get a specific ticket with messages
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '404':
+          description: Ticket not found
+
+    patch:
+      tags: [Admin - Tickets]
+      summary: Update ticket
+      description: Update a ticket
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                assignedTo:
+                  type: string
+      responses:
+        '200':
+          description: Ticket updated
+
+  /admin/tickets/{id}/status:
+    patch:
+      tags: [Admin - Tickets]
+      summary: Update ticket status
+      description: Update ticket status
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, closed, pending]
+      responses:
+        '200':
+          description: Status updated
+
+  /admin/tickets/{id}/messages:
+    get:
+      tags: [Admin - Tickets]
+      summary: Get ticket messages
+      description: Get messages for a ticket
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TicketMessage'
+
+    post:
+      tags: [Admin - Tickets]
+      summary: Create ticket message
+      description: Add a message to a ticket
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                isStaff:
+                  type: boolean
+      responses:
+        '200':
+          description: Message created
+
+  /admin/tickets/{id}/messages/{messageId}:
+    delete:
+      tags: [Admin - Tickets]
+      summary: Delete ticket message
+      description: |
+        Delete a ticket message.
+        
+        **Permission:** `tickets:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message deleted
+
+  /admin/ticket-settings:
+    get:
+      tags: [Admin - Tickets]
+      summary: Get ticket settings
+      description: |
+        Get ticket category settings.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Ticket settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TicketCategory'
+
+    post:
+      tags: [Admin - Tickets]
+      summary: Create ticket category
+      description: |
+        Create a new ticket category.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                emoji:
+                  type: string
+      responses:
+        '200':
+          description: Category created
+
+    put:
+      tags: [Admin - Tickets]
+      summary: Update ticket settings
+      description: |
+        Update ticket category settings.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketCategory'
+      responses:
+        '200':
+          description: Settings updated
+
+    delete:
+      tags: [Admin - Tickets]
+      summary: Delete ticket category
+      description: |
+        Delete a ticket category.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Category deleted
+
+  /admin/ticket-settings/reorder:
+    post:
+      tags: [Admin - Tickets]
+      summary: Reorder ticket categories
+      description: |
+        Reorder ticket categories.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categories]
+              properties:
+                categories:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      order:
+                        type: integer
+      responses:
+        '200':
+          description: Categories reordered
+
+  # ==================== ADMIN - SERVERS ====================
+  /admin/servers:
+    get:
+      tags: [Admin - Servers]
+      summary: List servers
+      description: |
+        Get list of all servers.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+
+    post:
+      tags: [Admin - Servers]
+      summary: Create server
+      description: |
+        Create a new server.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, ip, port]
+              properties:
+                name:
+                  type: string
+                ip:
+                  type: string
+                port:
+                  type: integer
+                queryPort:
+                  type: integer
+                rconPort:
+                  type: integer
+                rconPassword:
+                  type: string
+                categoryId:
+                  type: string
+                battlemetricsId:
+                  type: string
+      responses:
+        '200':
+          description: Server created
+
+    put:
+      tags: [Admin - Servers]
+      summary: Update server
+      description: |
+        Update a server.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                ip:
+                  type: string
+                port:
+                  type: integer
+      responses:
+        '200':
+          description: Server updated
+
+    delete:
+      tags: [Admin - Servers]
+      summary: Delete server
+      description: |
+        Delete a server.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Server deleted
+
+  /admin/servers/reorder:
+    post:
+      tags: [Admin - Servers]
+      summary: Reorder servers
+      description: |
+        Reorder servers.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [servers]
+              properties:
+                servers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      order:
+                        type: integer
+      responses:
+        '200':
+          description: Servers reordered
+
+  /admin/server-categories:
+    get:
+      tags: [Admin - Servers]
+      summary: Get server categories
+      description: Get server categories
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Server categories
+
+  /admin/categories:
+    post:
+      tags: [Admin - Servers]
+      summary: Create category
+      description: |
+        Create a new server category.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Category created
+
+    put:
+      tags: [Admin - Servers]
+      summary: Update category
+      description: |
+        Update a category.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, name]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Category updated
+
+  /admin/categories/{id}:
+    get:
+      tags: [Admin - Servers]
+      summary: Get category
+      description: |
+        Get a specific category.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category data
+
+    delete:
+      tags: [Admin - Servers]
+      summary: Delete category
+      description: |
+        Delete a category.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category deleted
+
+  /admin/categories/reorder:
+    post:
+      tags: [Admin - Servers]
+      summary: Reorder categories
+      description: |
+        Reorder categories.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categories]
+              properties:
+                categories:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      order:
+                        type: integer
+      responses:
+        '200':
+          description: Categories reordered
+
+  /admin/server-pages:
+    get:
+      tags: [Admin - Servers]
+      summary: Get server pages
+      description: |
+        Get server page configurations.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Server pages
+
+    post:
+      tags: [Admin - Servers]
+      summary: Create server page
+      description: |
+        Create a server page.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serverId:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Server page created
+
+  /admin/server-pages/{id}:
+    get:
+      tags: [Admin - Servers]
+      summary: Get server page
+      description: |
+        Get a specific server page.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server page
+
+    put:
+      tags: [Admin - Servers]
+      summary: Update server page
+      description: |
+        Update a server page.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Server page updated
+
+    delete:
+      tags: [Admin - Servers]
+      summary: Delete server page
+      description: |
+        Delete a server page.
+        
+        **Permission:** `servers:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server page deleted
+
+  # ==================== ADMIN - BANS ====================
+  /admin/bans:
+    get:
+      tags: [Admin - Bans]
+      summary: List bans
+      description: Get paginated list of bans
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: banType
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Ban list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      bans:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Ban'
+
+    post:
+      tags: [Admin - Bans]
+      summary: Create ban
+      description: Create a new ban
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                userId:
+                  type: string
+                steamId:
+                  type: string
+                reason:
+                  type: string
+                banType:
+                  type: string
+                duration:
+                  type: integer
+                  nullable: true
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '200':
+          description: Ban created
+
+  /admin/bans/{id}:
+    get:
+      tags: [Admin - Bans]
+      summary: Get ban
+      description: Get a specific ban
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ban data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ban'
+
+    put:
+      tags: [Admin - Bans]
+      summary: Update ban
+      description: Update a ban
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                isActive:
+                  type: boolean
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '200':
+          description: Ban updated
+
+    delete:
+      tags: [Admin - Bans]
+      summary: Delete ban
+      description: Delete a ban
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ban deleted
+
+  /admin/bans/user/{userId}:
+    get:
+      tags: [Admin - Bans]
+      summary: Get user bans
+      description: Get all bans for a specific user
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User bans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ban'
+
+  # ==================== ADMIN - SETTINGS ====================
+  /admin/site-settings:
+    get:
+      tags: [Admin - Settings]
+      summary: Get site settings
+      description: Get site settings
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Site settings
+
+    patch:
+      tags: [Admin - Settings]
+      summary: Update site settings
+      description: Update site settings
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteName:
+                  type: string
+                siteDescription:
+                  type: string
+                ownerId:
+                  type: string
+      responses:
+        '200':
+          description: Settings updated
+
+  /admin/navigation:
+    get:
+      tags: [Admin - Settings]
+      summary: Get navigation
+      description: |
+        Get navigation items.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Navigation items
+
+    post:
+      tags: [Admin - Settings]
+      summary: Create navigation item
+      description: |
+        Create a navigation item.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, href]
+              properties:
+                label:
+                  type: string
+                href:
+                  type: string
+                order:
+                  type: integer
+      responses:
+        '200':
+          description: Navigation item created
+
+    put:
+      tags: [Admin - Settings]
+      summary: Update navigation
+      description: |
+        Update navigation items.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Navigation updated
+
+    delete:
+      tags: [Admin - Settings]
+      summary: Delete navigation item
+      description: |
+        Delete a navigation item.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Navigation item deleted
+
+  /admin/redirects:
+    get:
+      tags: [Admin - Settings]
+      summary: Get redirects
+      description: |
+        Get site redirects.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Redirects
+
+    post:
+      tags: [Admin - Settings]
+      summary: Create redirect
+      description: |
+        Create a redirect.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, destination]
+              properties:
+                source:
+                  type: string
+                destination:
+                  type: string
+                permanent:
+                  type: boolean
+      responses:
+        '200':
+          description: Redirect created
+
+    delete:
+      tags: [Admin - Settings]
+      summary: Delete redirect
+      description: |
+        Delete a redirect.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Redirect deleted
+
+  /admin/settings/metadata:
+    get:
+      tags: [Admin - Settings]
+      summary: Get metadata
+      description: |
+        Get global metadata settings.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Metadata
+
+    post:
+      tags: [Admin - Settings]
+      summary: Update metadata
+      description: |
+        Update global metadata.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Metadata updated
+
+  /admin/page-metadata:
+    get:
+      tags: [Admin - Settings]
+      summary: Get page metadata
+      description: |
+        Get all page metadata entries.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Page metadata
+
+    post:
+      tags: [Admin - Settings]
+      summary: Create page metadata
+      description: |
+        Create page metadata.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Page metadata created
+
+  /admin/page-metadata/{slug}:
+    get:
+      tags: [Admin - Settings]
+      summary: Get page metadata by slug
+      description: |
+        Get metadata for a specific page.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page metadata
+
+    put:
+      tags: [Admin - Settings]
+      summary: Update page metadata
+      description: |
+        Update page metadata.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Page metadata updated
+
+    delete:
+      tags: [Admin - Settings]
+      summary: Delete page metadata
+      description: |
+        Delete page metadata.
+        
+        **Permission:** `seo:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page metadata deleted
+
+  /admin/settings/discord:
+    get:
+      tags: [Admin - Settings]
+      summary: Get Discord settings
+      description: Get Discord integration settings
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Discord settings
+
+    put:
+      tags: [Admin - Settings]
+      summary: Update Discord settings
+      description: Update Discord settings
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Discord settings updated
+
+  /admin/discord/refresh:
+    post:
+      tags: [Admin - Settings]
+      summary: Refresh Discord data
+      description: Refresh Discord data
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Discord data refreshed
+
+  /admin/settings/api-keys:
+    get:
+      tags: [Admin - Settings]
+      summary: Get API keys
+      description: Get API keys
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+
+    post:
+      tags: [Admin - Settings]
+      summary: Create API key
+      description: Create an API key
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, permissions]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                permissions:
+                  type: object
+      responses:
+        '200':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiKey'
+                  - type: object
+                    properties:
+                      key:
+                        type: string
+                        description: The API key (only shown once)
+
+  /admin/settings/api-keys/{id}:
+    put:
+      tags: [Admin - Settings]
+      summary: Update API key
+      description: Update an API key
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                permissions:
+                  type: object
+      responses:
+        '200':
+          description: API key updated
+
+    delete:
+      tags: [Admin - Settings]
+      summary: Delete API key
+      description: Delete an API key
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key deleted
+
+  # ==================== ADMIN - ROLES ====================
+  /admin/settings/roles:
+    get:
+      tags: [Admin - Roles]
+      summary: Get roles
+      description: |
+        Get all roles.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+
+    post:
+      tags: [Admin - Roles]
+      summary: Create role
+      description: |
+        Create a new role.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                discordRoleId:
+                  type: string
+      responses:
+        '200':
+          description: Role created
+
+    put:
+      tags: [Admin - Roles]
+      summary: Update role
+      description: |
+        Update a role.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                color:
+                  type: string
+                discordRoleId:
+                  type: string
+      responses:
+        '200':
+          description: Role updated
+
+  /admin/roles/reorder:
+    post:
+      tags: [Admin - Roles]
+      summary: Reorder roles
+      description: |
+        Reorder roles.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      order:
+                        type: integer
+      responses:
+        '200':
+          description: Roles reordered
+
+  /admin/settings/permissions:
+    put:
+      tags: [Admin - Roles]
+      summary: Update permissions
+      description: |
+        Update role permissions.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId, permissions]
+              properties:
+                roleId:
+                  type: string
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      resource:
+                        type: string
+                      action:
+                        type: string
+      responses:
+        '200':
+          description: Permissions updated
+
+  /admin/roles/{id}/ticket-categories:
+    get:
+      tags: [Admin - Roles]
+      summary: Get role ticket categories
+      description: |
+        Get ticket categories accessible by a role.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket categories
+
+    put:
+      tags: [Admin - Roles]
+      summary: Update role ticket categories
+      description: |
+        Update ticket categories for a role.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoryIds]
+              properties:
+                categoryIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Ticket categories updated
+
+  /admin/roles/purchase:
+    get:
+      tags: [Admin - Roles]
+      summary: Get purchase roles
+      description: |
+        Get purchase role configurations.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Purchase roles
+
+    post:
+      tags: [Admin - Roles]
+      summary: Create purchase role
+      description: |
+        Create/update purchase role configuration.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, roleId]
+              properties:
+                productId:
+                  type: string
+                roleId:
+                  type: string
+                duration:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Purchase role created
+
+  /admin/roles/assign-purchase:
+    post:
+      tags: [Admin - Roles]
+      summary: Assign purchase role
+      description: |
+        Manually assign purchase roles to a user.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, productId, action]
+              properties:
+                userId:
+                  type: string
+                productId:
+                  type: string
+                action:
+                  type: string
+                  enum: [assign, remove]
+      responses:
+        '200':
+          description: Role assigned/removed
+
+  # ==================== ADMIN - LEADERBOARD ====================
+  /admin/leaderboard-settings:
+    get:
+      tags: [Admin - Leaderboard]
+      summary: Get leaderboard settings
+      description: |
+        Get leaderboard settings.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Leaderboard settings
+
+    post:
+      tags: [Admin - Leaderboard]
+      summary: Update leaderboard settings
+      description: |
+        Update leaderboard settings.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                showDeaths:
+                  type: boolean
+                showKDR:
+                  type: boolean
+      responses:
+        '200':
+          description: Settings updated
+
+  /admin/leaderboard-settings/data:
+    delete:
+      tags: [Admin - Leaderboard]
+      summary: Delete leaderboard data
+      description: |
+        Delete leaderboard data.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data deleted
+
+  /admin/leaderboard-settings/retention:
+    get:
+      tags: [Admin - Leaderboard]
+      summary: Get retention settings
+      description: |
+        Get data retention settings.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Retention settings
+
+    post:
+      tags: [Admin - Leaderboard]
+      summary: Update retention settings
+      description: |
+        Update data retention settings.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                retentionDays:
+                  type: integer
+                autoCleanup:
+                  type: boolean
+      responses:
+        '200':
+          description: Retention settings updated
+
+  /admin/wipes/{id}:
+    delete:
+      tags: [Admin - Leaderboard]
+      summary: Delete wipe
+      description: |
+        Delete a wipe and its associated data.
+        
+        **Permission:** `leaderboard:manage`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wipe deleted
+
+  /admin/vote-results:
+    get:
+      tags: [Admin - Leaderboard]
+      summary: Get vote results
+      description: Get map voting results
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Vote results
+
+  # ==================== ADMIN - MAP VOTING ====================
+  /admin/map-voting:
+    get:
+      tags: [Admin - Map Voting]
+      summary: Get map voting
+      description: |
+        Get map voting configuration and entries.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Map voting data
+
+    post:
+      tags: [Admin - Map Voting]
+      summary: Create map voting entry
+      description: |
+        Create a new map voting entry.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                imageUrl:
+                  type: string
+                serverId:
+                  type: string
+      responses:
+        '200':
+          description: Entry created
+
+    put:
+      tags: [Admin - Map Voting]
+      summary: Update map voting entry
+      description: |
+        Update a map voting entry.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Entry updated
+
+    delete:
+      tags: [Admin - Map Voting]
+      summary: Delete map voting entry
+      description: |
+        Delete a map voting entry.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: Entry deleted
+
+  /admin/map-voting/config:
+    get:
+      tags: [Admin - Map Voting]
+      summary: Get map voting config
+      description: |
+        Get map voting configuration.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Map voting config
+
+    post:
+      tags: [Admin - Map Voting]
+      summary: Update map voting config
+      description: |
+        Update map voting configuration.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Config updated
+
+  /admin/map-voting/upload-image:
+    post:
+      tags: [Admin - Map Voting]
+      summary: Upload map image
+      description: |
+        Upload an image for a map.
+        
+        **Permission:** `mapvoting:manage`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+
+  # ==================== ADMIN - CDN ====================
+  /admin/cdn/images:
+    get:
+      tags: [Admin - CDN]
+      summary: List images
+      description: |
+        Get list of all CDN images.
+        
+        **Permission:** `cdn:read`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Image list
+
+  /admin/cdn/upload:
+    post:
+      tags: [Admin - CDN]
+      summary: Upload image
+      description: |
+        Upload a new image to CDN.
+        
+        **Permission:** `cdn:upload`
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+
+  /admin/cdn/images/{id}:
+    put:
+      tags: [Admin - CDN]
+      summary: Update image
+      description: |
+        Update image metadata.
+        
+        **Permission:** `cdn:update`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                alt:
+                  type: string
+      responses:
+        '200':
+          description: Image updated
+
+    delete:
+      tags: [Admin - CDN]
+      summary: Delete image
+      description: |
+        Delete an image from CDN.
+        
+        **Permission:** `cdn:delete`
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image deleted
+
+  /admin/cdn/config:
+    get:
+      tags: [Admin - CDN]
+      summary: Get CDN config
+      description: |
+        Get CDN configuration.
+        
+        **Permission:** `cdn:read`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: CDN config
+
+  # ==================== ADMIN - THEME ====================
+  /admin/theme:
+    get:
+      tags: [Admin - Theme]
+      summary: Get theme settings
+      description: |
+        Get current theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Theme settings
+
+    patch:
+      tags: [Admin - Theme]
+      summary: Update theme settings
+      description: |
+        Update theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                primaryColor:
+                  type: string
+                secondaryColor:
+                  type: string
+      responses:
+        '200':
+          description: Theme updated
+
+  /admin/theme/page:
+    get:
+      tags: [Admin - Theme]
+      summary: Get page theme
+      description: |
+        Get page-specific theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Page theme
+
+    post:
+      tags: [Admin - Theme]
+      summary: Create page theme
+      description: |
+        Create page theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+                settings:
+                  type: object
+      responses:
+        '200':
+          description: Page theme created
+
+    put:
+      tags: [Admin - Theme]
+      summary: Update page theme
+      description: |
+        Update page theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Page theme updated
+
+    delete:
+      tags: [Admin - Theme]
+      summary: Delete page theme
+      description: |
+        Delete page theme settings.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+      responses:
+        '200':
+          description: Page theme deleted
+
+  /admin/page-elements:
+    get:
+      tags: [Admin - Theme]
+      summary: Get page elements
+      description: |
+        Get page element configurations.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Page elements
+
+    post:
+      tags: [Admin - Theme]
+      summary: Update page elements
+      description: |
+        Update page elements.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, elements]
+              properties:
+                slug:
+                  type: string
+                elements:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Page elements updated
+
+  /admin/page-elements/clear:
+    post:
+      tags: [Admin - Theme]
+      summary: Clear page elements
+      description: |
+        Clear page elements for a page.
+        
+        **Permission:** `isAdmin` (full admin only)
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+      responses:
+        '200':
+          description: Page elements cleared
+
+  # ==================== ADMIN - STORE ====================
+  /admin/store-settings:
+    get:
+      tags: [Admin - Store]
+      summary: Get store settings
+      description: |
+        Get store settings.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Store settings
+
+    post:
+      tags: [Admin - Store]
+      summary: Update store settings
+      description: |
+        Update store settings.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Store settings updated
+
+  /admin/store-sale:
+    get:
+      tags: [Admin - Store]
+      summary: Get store sale
+      description: |
+        Get current sale information.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Sale information
+
+    post:
+      tags: [Admin - Store]
+      summary: Create store sale
+      description: |
+        Create or update a sale.
+        
+        **Permission:** `settings:manage`
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                discountPercent:
+                  type: number
+                startDate:
+                  type: string
+                  format: date-time
+                endDate:
+                  type: string
+                  format: date-time
+                productIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Sale created/updated
+
+  /admin/store/products:
+    get:
+      tags: [Admin - Store]
+      summary: Get store products
+      description: |
+        Get all store products.
+        
+        **Permission:** `settings_roles:manage`
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Store products
+
+  /admin/logs:
+    get:
+      tags: [Admin - Store]
+      summary: Get logs
+      description: Get system logs
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Logs
+
+    delete:
+      tags: [Admin - Store]
+      summary: Delete logs
+      description: Delete logs
+      security:
+        - SessionAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Logs deleted
+
+  /admin/logs/full:
+    get:
+      tags: [Admin - Store]
+      summary: Get full logs
+      description: Get full log details
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Full logs

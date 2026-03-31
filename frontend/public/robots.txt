@@ -1,0 +1,6 @@
+# public/robots.txt
+User-agent: *
+Disallow: /admin/
+Allow: /
+
+Sitemap: https://magicthemes.co/api/sitemap

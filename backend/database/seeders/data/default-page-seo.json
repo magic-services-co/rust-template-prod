@@ -1,0 +1,111 @@
+{
+  "pageMetadata": [
+    {
+      "slug": "home",
+      "title": "Home Page - Welcome to Our Site",
+      "description": "The home page of our site, featuring an overview of our offerings.",
+      "keywords": "home, welcome, overview",
+      "ogTitle": "Welcome to Our Site",
+      "ogDescription": "Explore our site and learn more about what we offer.",
+      "ogImageUrl": "https://yourwebsite.com/images/home-og-image.jpg",
+      "ogImageAlt": "Home Page Image",
+      "twitterTitle": "Welcome to Our Site",
+      "twitterDescription": "Explore our site and learn more about what we offer.",
+      "twitterImageUrl": "https://yourwebsite.com/images/home-twitter-image.jpg"
+    },
+    {
+      "slug": "leaderboard",
+      "title": "Leaderboard — Rust player rankings",
+      "description": "Browse PvP, farming, explosives, and wipe stats. Filter by server and wipe to see who is on top.",
+      "keywords": "leaderboard, rust, player statistics, rankings, wipe, pvp",
+      "ogTitle": "Leaderboard — Rust player rankings",
+      "ogDescription": "Browse stats by category, server, and wipe. See top players across the community.",
+      "ogImageUrl": "https://yourwebsite.com/images/leaderboard-og-image.jpg",
+      "ogImageAlt": "Leaderboard Image",
+      "twitterTitle": "Leaderboard — Rust player rankings",
+      "twitterDescription": "Filter by server and wipe. PvP, farming, explosives, and more.",
+      "twitterImageUrl": "https://yourwebsite.com/images/leaderboard-twitter-image.jpg"
+    },
+    {
+      "slug": "servers",
+      "title": "Servers - List of All Rust Servers",
+      "description": "Browse the list of all available Rust servers.",
+      "keywords": "servers, rust, server list",
+      "ogTitle": "All Rust Servers",
+      "ogDescription": "Find and explore all our Rust servers here.",
+      "ogImageUrl": "https://yourwebsite.com/images/servers-og-image.jpg",
+      "ogImageAlt": "Servers Image",
+      "twitterTitle": "All Rust Servers",
+      "twitterDescription": "Explore our full list of Rust servers.",
+      "twitterImageUrl": "https://yourwebsite.com/images/servers-twitter-image.jpg"
+    },
+    {
+      "slug": "store",
+      "title": "Store - Purchasable Packages and In-Game Items",
+      "description": "Browse and purchase packages and in-game items.",
+      "keywords": "store, packages, in-game items",
+      "ogTitle": "Store - Packages and Items",
+      "ogDescription": "Check out our store for packages and in-game items you can purchase.",
+      "ogImageUrl": "https://yourwebsite.com/images/store-og-image.jpg",
+      "ogImageAlt": "Store Image",
+      "twitterTitle": "Store - Packages and Items",
+      "twitterDescription": "Find packages and in-game items in our store.",
+      "twitterImageUrl": "https://yourwebsite.com/images/store-twitter-image.jpg"
+    },
+    {
+      "slug": "support",
+      "title": "Support - Get Help with Your Issues",
+      "description": "Submit and track support tickets for any issues you encounter.",
+      "keywords": "support, help, tickets, customer service",
+      "ogTitle": "Support Center",
+      "ogDescription": "Get assistance and submit support tickets for any problems you're facing.",
+      "ogImageUrl": "https://yourwebsite.com/images/support-og-image.jpg",
+      "ogImageAlt": "Support Center Image",
+      "twitterTitle": "Support Center",
+      "twitterDescription": "Need help? Submit a support ticket and we'll assist you.",
+      "twitterImageUrl": "https://yourwebsite.com/images/support-twitter-image.jpg"
+    },
+    {
+      "slug": "maps",
+      "title": "Map Voting - Choose the Next Rust Map",
+      "description": "Vote for your favorite Rust maps and influence the next server rotation.",
+      "keywords": "maps, voting, rust maps, server rotation",
+      "ogTitle": "Vote for Rust Maps",
+      "ogDescription": "Participate in map voting and help decide the next Rust server map.",
+      "ogImageUrl": "https://yourwebsite.com/images/maps-og-image.jpg",
+      "ogImageAlt": "Map Voting Image",
+      "twitterTitle": "Vote for Rust Maps",
+      "twitterDescription": "Cast your vote and influence the next Rust server map rotation.",
+      "twitterImageUrl": "https://yourwebsite.com/images/maps-twitter-image.jpg"
+    },
+    {
+      "slug": "profile",
+      "title": "User Profile - Manage Your Account",
+      "description": "View and manage your account settings.",
+      "keywords": "profile, user account, settings, stats",
+      "ogTitle": "Your Rust Player Profile",
+      "ogDescription": "View and manage your account settings.",
+      "ogImageUrl": "https://yourwebsite.com/images/profile-og-image.jpg",
+      "ogImageAlt": "User Profile Image",
+      "twitterTitle": "Your Rust Player Profile",
+      "twitterDescription": "View and manage your account settings.",
+      "twitterImageUrl": "https://yourwebsite.com/images/profile-twitter-image.jpg"
+    }
+  ],
+  "siteMetadata": {
+    "siteName": "Your Site Name",
+    "siteTitle": "Your Site Title",
+    "siteDescription": "Your site's description here.",
+    "siteUrl": "https://yourwebsite.com",
+    "siteImageUrl": "https://yourwebsite.com/images/site-og-image.jpg",
+    "siteImageAlt": "Site Image",
+    "keywords": "rust, gaming, community, servers",
+    "ogTitle": "Your Site Title",
+    "ogDescription": "Your site's description here.",
+    "ogImageUrl": "https://yourwebsite.com/images/site-og-image.jpg",
+    "ogImageAlt": "Site Image",
+    "twitterTitle": "Your Site Title",
+    "twitterDescription": "Your site's description here.",
+    "twitterImageUrl": "https://yourwebsite.com/images/site-twitter-image.jpg"
+  }
+}

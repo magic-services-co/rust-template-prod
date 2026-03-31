@@ -1,0 +1,120 @@
+{
+  "leaderboardTabs": [
+    {
+      "tabKey": "pvp_stats",
+      "tabLabel": "PVP",
+      "order": 1,
+      "columns": [
+        { "columnKey": "kills", "columnLabel": "Kills", "order": 1 },
+        { "columnKey": "deaths", "columnLabel": "Deaths", "order": 2 },
+        { "columnKey": "headshots", "columnLabel": "Headshots", "order": 3 },
+        { "columnKey": "suicides", "columnLabel": "Suicides", "order": 4 },
+        { "columnKey": "bullets_fired", "columnLabel": "Bullets Fired", "order": 5 },
+        { "columnKey": "favorite_weapon_kills", "columnLabel": "Favorite Weapon Kills", "order": 6 },
+        { "columnKey": "favorite_weapon_deaths", "columnLabel": "Favorite Weapon Deaths", "order": 7 },
+        { "columnKey": "favorite_weapon", "columnLabel": "Favorite Weapon", "order": 8 },
+        { "columnKey": "kdr", "columnLabel": "K/D", "order": 9 }
+      ]
+    },
+    {
+      "tabKey": "resources_stats",
+      "tabLabel": "Resources",
+      "order": 2,
+      "columns": [
+        { "columnKey": "hqm_farmed", "columnLabel": "HQM Farmed", "order": 1 },
+        { "columnKey": "metal_frags_farmed", "columnLabel": "Metal Frags Farmed", "order": 2 },
+        { "columnKey": "stone_farmed", "columnLabel": "Stone Farmed", "order": 3 },
+        { "columnKey": "sulfur_farmed", "columnLabel": "Sulfur Farmed", "order": 4 },
+        { "columnKey": "wood_farmed", "columnLabel": "Wood Farmed", "order": 5 }
+      ]
+    },
+    {
+      "tabKey": "explosives_stats",
+      "tabLabel": "Explosives",
+      "order": 3,
+      "columns": [
+        { "columnKey": "satches_thrown", "columnLabel": "Satchels Thrown", "order": 1 },
+        { "columnKey": "c4_thrown", "columnLabel": "C4 Thrown", "order": 2 },
+        { "columnKey": "he_grenades_fired", "columnLabel": "HE Grenades Fired", "order": 3 },
+        { "columnKey": "rockets_fired", "columnLabel": "Rockets Fired", "order": 4 },
+        { "columnKey": "hv_rockets_fired", "columnLabel": "HV Rockets Fired", "order": 5 },
+        { "columnKey": "incendiary_rockets_fired", "columnLabel": "Incendiary Rockets Fired", "order": 6 },
+        { "columnKey": "smoke_rockets_fired", "columnLabel": "Smoke Rockets Fired", "order": 7 }
+      ]
+    },
+    {
+      "tabKey": "farming_stats",
+      "tabLabel": "Farming",
+      "order": 4,
+      "columns": [
+        { "columnKey": "leather_harvested", "columnLabel": "Leather Harvested", "order": 1 },
+        { "columnKey": "berries_harvested", "columnLabel": "Berries Harvested", "order": 2 },
+        { "columnKey": "cloth_collected", "columnLabel": "Cloth Collected", "order": 3 },
+        { "columnKey": "corn_harvested", "columnLabel": "Corn Harvested", "order": 4 },
+        { "columnKey": "fish_gutted", "columnLabel": "Fish Gutted", "order": 5 },
+        { "columnKey": "mushrooms_harvested", "columnLabel": "Mushrooms Harvested", "order": 6 },
+        { "columnKey": "potatoes_harvested", "columnLabel": "Potatoes Harvested", "order": 7 },
+        { "columnKey": "pumpkins_harvested", "columnLabel": "Pumpkins Harvested", "order": 8 }
+      ]
+    },
+    {
+      "tabKey": "misc_stats",
+      "tabLabel": "Misc",
+      "order": 5,
+      "columns": [
+        { "columnKey": "time_played", "columnLabel": "Time Played", "order": 1 },
+        { "columnKey": "animal_kills", "columnLabel": "Animal Kills", "order": 2 },
+        { "columnKey": "boats_purchased", "columnLabel": "Boats Purchased", "order": 3 },
+        { "columnKey": "helis_purchased", "columnLabel": "Helicopters Purchased", "order": 4 },
+        { "columnKey": "subs_purchased", "columnLabel": "Submarines Purchased", "order": 5 },
+        { "columnKey": "supply_signals_called", "columnLabel": "Supply Signals Called", "order": 6 }
+      ]
+    },
+    {
+      "tabKey": "events_stats",
+      "tabLabel": "Events",
+      "order": 6,
+      "columns": [
+        { "columnKey": "hacked_crates_looted", "columnLabel": "Hacked Crates Looted", "order": 1 },
+        { "columnKey": "heli_kills", "columnLabel": "Heli Kills", "order": 2 },
+        { "columnKey": "bradley_kills", "columnLabel": "Bradley Kills", "order": 3 },
+        { "columnKey": "missions_started", "columnLabel": "Missions Started", "order": 4 },
+        { "columnKey": "missions_completed", "columnLabel": "Missions Completed", "order": 5 },
+        { "columnKey": "npc_kills", "columnLabel": "NPC Kills", "order": 6 }
+      ]
+    },
+    {
+      "tabKey": "pve_stats",
+      "tabLabel": "PVE",
+      "order": 7,
+      "columns": [
+        { "columnKey": "bear_kills", "columnLabel": "Bear Kills", "order": 1 },
+        { "columnKey": "boar_kills", "columnLabel": "Boar Kills", "order": 2 },
+        { "columnKey": "wolf_kills", "columnLabel": "Wolf Kills", "order": 3 },
+        { "columnKey": "horse_kills", "columnLabel": "Horse Kills", "order": 4 },
+        { "columnKey": "chicken_kills", "columnLabel": "Chicken Kills", "order": 5 },
+        { "columnKey": "deer_kills", "columnLabel": "Deer Kills", "order": 6 },
+        { "columnKey": "crocodile_kills", "columnLabel": "Crocodile Kills", "order": 7 },
+        { "columnKey": "tiger_kills", "columnLabel": "Tiger Kills", "order": 8 },
+        { "columnKey": "panther_kills", "columnLabel": "Panther Kills", "order": 9 },
+        { "columnKey": "snake_kills", "columnLabel": "Snake Kills", "order": 10 },
+        { "columnKey": "shark_kills", "columnLabel": "Shark Kills", "order": 11 }
+      ]
+    },
+    {
+      "tabKey": "gambling_stats",
+      "tabLabel": "Gambling",
+      "order": 8,
+      "columns": [
+        { "columnKey": "blackjack_games_won", "columnLabel": "Blackjack Wins", "order": 1 },
+        { "columnKey": "blackjack_amount_bet", "columnLabel": "Blackjack Bet", "order": 2 },
+        { "columnKey": "slots_games_won", "columnLabel": "Slots Wins", "order": 3 },
+        { "columnKey": "slots_amount_bet", "columnLabel": "Slots Bet", "order": 4 },
+        { "columnKey": "poker_games_won", "columnLabel": "Poker Wins", "order": 5 },
+        { "columnKey": "poker_amount_bet", "columnLabel": "Poker Bet", "order": 6 },
+        { "columnKey": "wheel_games_won", "columnLabel": "Wheel Wins", "order": 7 },
+        { "columnKey": "wheel_amount_bet", "columnLabel": "Wheel Bet", "order": 8 }
+      ]
+    }
+  ]
+}

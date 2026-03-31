@@ -1,0 +1,43 @@
+import { backendApi } from "@/lib/api";
+import { Suspense } from "react";
+import { getMetadata } from "@/lib/metadata";
+import { ServersPageClient } from "./servers-page-client";
+import Script from "next/script";
+import { buildServersPageThemeFromApiPayloads } from "@/lib/merge-servers-leaderboard-theme";
+
+export async function generateMetadata() {
+  return await getMetadata("servers");
+}
+
+export default async function Page() {
+  const [serversRes, leaderboardRes] = await Promise.all([
+    fetch(backendApi("data?include=siteSettings,pageTheme:servers"), {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 60 },
+    }),
+    fetch(backendApi("data?include=pageTheme:leaderboard"), {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 60 },
+    }),
+  ]);
+
+  const serversData = serversRes.ok ? await serversRes.json() : {};
+  const leaderboardData = leaderboardRes.ok ? await leaderboardRes.json() : {};
+  const siteSettings = (serversData.siteSettings || null) as { rustalyzerEnabled?: boolean } | null;
+  const theme = buildServersPageThemeFromApiPayloads(serversData, leaderboardData);
+
+  const rustalyzerEnabled = !!siteSettings?.rustalyzerEnabled;
+
+  return (
+    <>
+      {rustalyzerEnabled && (
+        <Script
+          src="https://www.rustalyzer.com/widget/widget.js"
+          type="module"
+          strategy="afterInteractive"
+        />
+      )}
+      <ServersPageClient theme={theme} rustalyzerEnabled={rustalyzerEnabled} />
+    </>
+  );
+}

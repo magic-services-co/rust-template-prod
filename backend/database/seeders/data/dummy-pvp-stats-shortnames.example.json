@@ -1,0 +1,31 @@
+{
+  "_comment": "Example pvp_stats rows — favorite_weapon must be item shortname (rifle.ak, smg.mp5), not numeric id. Adjust steam_id / server_id / wipe_id to match your DB before importing.",
+  "rows": [
+    {
+      "steam_id": "76561198000000001",
+      "server_id": "your-server-id",
+      "wipe_id": 1,
+      "kills": 120,
+      "deaths": 40,
+      "headshots": 30,
+      "suicides": 1,
+      "bullets_fired": 5000,
+      "favorite_weapon_kills": 80,
+      "favorite_weapon_deaths": 25,
+      "favorite_weapon": "rifle.ak"
+    },
+    {
+      "steam_id": "76561198000000002",
+      "server_id": "your-server-id",
+      "wipe_id": 1,
+      "kills": 90,
+      "deaths": 50,
+      "headshots": 20,
+      "suicides": 0,
+      "bullets_fired": 4000,
+      "favorite_weapon_kills": 60,
+      "favorite_weapon_deaths": 30,
+      "favorite_weapon": "smg.mp5"
+    }
+  ]
+}

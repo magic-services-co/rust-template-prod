@@ -1,0 +1,13 @@
+{
+    "name": "ExampleAddon",
+    "alias": "exampleaddon",
+    "description": "Sample nWidart module: manifest, admin UI, and optional card image via module.json.",
+    "thumbnail": "https://picsum.photos/seed/exampleaddon/640/360",
+    "admin_configure_path": "addons/example-addon",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ExampleAddon\\Providers\\ExampleAddonServiceProvider"
+    ],
+    "files": []
+}

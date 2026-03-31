@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/.next/
+frontend/playwright-report/
+frontend/test-results/
+backend/storage/logs/*
+!backend/storage/logs/.gitkeep
+backend/bootstrap/cache/*
+!backend/bootstrap/cache/.gitkeep

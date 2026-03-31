@@ -1,0 +1,51 @@
+import { Separator } from "@/components/ui/separator"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/admin/navigation/app-sidebar"
+import DynamicBreadcrumbs from "@/components/dynamic-breadcrumbs"
+import { AdminPageViewLogger } from "@/components/admin/admin-page-view-logger"
+import { AdminActionLogger } from "@/components/admin/admin-action-logger"
+import { Suspense } from "react"
+import { backendApi } from "@/lib/api"
+
+export async function generateMetadata() {
+    const res = await fetch(backendApi("data?include=siteSettings"), { headers: { Accept: "application/json" }, next: { revalidate: 60 } });
+    const data = res.ok ? await res.json() : {};
+    const siteSettings = data.siteSettings;
+    return {
+        title: {
+            template: `%s | ${siteSettings?.name || 'Admin'} Admin`,
+            default: `${siteSettings?.name || 'Admin'} Admin`,
+        },
+        description: `Admin panel for ${siteSettings?.name || 'Magic Themes'}`,
+    }
+}
+
+export default async function DashboardLayout({
+    children,
+}: {
+    children: React.ReactNode
+}) {
+    return (
+        <SidebarProvider>
+            <AdminPageViewLogger />
+            <AdminActionLogger />
+            <AppSidebar />
+            <SidebarInset>
+                <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+                    <div className="flex items-center gap-2 px-4">
+                        <SidebarTrigger className="-ml-1" />
+                        <Separator orientation="vertical" className="mr-2 h-4" />
+                        <Suspense fallback={<div>Loading...</div>}>
+                            <DynamicBreadcrumbs />
+                        </Suspense>
+                        <Separator orientation="vertical" className="mx-2 h-4" />
+                        <span className="text-sm text-muted-foreground">v2.0.0</span>
+                    </div>
+                </header>
+                <div className="flex flex-1 flex-col gap-4 p-4 py-6">
+                    {children}
+                </div>
+            </SidebarInset>
+        </SidebarProvider>
+    )
+}

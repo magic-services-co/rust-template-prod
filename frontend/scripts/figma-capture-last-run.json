@@ -1,0 +1,15 @@
+{
+  "at": "2026-03-30T20:02:35.060Z",
+  "base": "http://192.168.1.161:3000",
+  "total": 1,
+  "ok": 0,
+  "failed": 1,
+  "okJobs": [],
+  "failedJobs": [
+    {
+      "path": "/leaderboard",
+      "captureId": "142d3e10-f82c-4f4e-a397-5e5eed985c08",
+      "error": "captureForDesign hung past 180000ms (stale captureId, Figma/network, or CORS — mint a new ID via MCP and retry)"
+    }
+  ]
+}
