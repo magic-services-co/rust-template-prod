@@ -313,7 +313,7 @@ export function BanForm({ onSuccess, onCancel, hideTitle, initialData }: BanForm
                                                         {user.name || 'No name'}
                                                     </p>
                                                     {user.type === 'player' && (
-                                                        <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full font-medium">
+                                                        <span className="rounded-full bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                                                             Player
                                                         </span>
                                                     )}
@@ -396,7 +396,7 @@ export function BanForm({ onSuccess, onCancel, hideTitle, initialData }: BanForm
                                                 {selectedUser.name || 'No name'}
                                             </span>
                                             {selectedUser.type === 'player' && (
-                                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full font-medium">
+                                                <span className="rounded-full bg-zinc-200 px-2 py-1 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                                                     Player
                                                 </span>
                                             )}

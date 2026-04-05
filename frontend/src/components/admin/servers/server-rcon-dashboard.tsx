@@ -263,12 +263,12 @@ export function ServerRconDashboard({ serverId, siteServerName }: { serverId: st
   const hasNetChart = perfHistory.length >= 2 && perfHistory.some((p) => p.netIn != null || p.netOut != null)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-blue-500/25 bg-zinc-950 text-zinc-100 shadow-lg">
-      <header className="flex flex-wrap items-center gap-3 border-b border-blue-500/20 bg-blue-600 px-4 py-3 text-white">
+    <div className="overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950 text-zinc-100 shadow-lg">
+      <header className="flex flex-wrap items-center gap-3 border-b border-zinc-700 bg-zinc-800 px-4 py-3 text-white">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-semibold tracking-tight">{displayName}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-blue-50/95">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-zinc-300">
           <span title="Uptime">{uptimeLabel}</span>
           <span title="Map">{mapName}</span>
           <span title="Players">
@@ -306,7 +306,7 @@ export function ServerRconDashboard({ serverId, siteServerName }: { serverId: st
               className={cn(
                 'px-4 py-3 text-left text-sm font-medium transition-colors md:border-l-2 md:border-transparent',
                 tab === item.id
-                  ? 'bg-blue-600/20 text-blue-300 md:border-l-blue-500'
+                  ? 'bg-zinc-700/40 text-zinc-100 md:border-l-zinc-400'
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
               )}
             >
@@ -330,7 +330,7 @@ export function ServerRconDashboard({ serverId, siteServerName }: { serverId: st
                 <p className="text-muted-foreground text-xs">
                   Same protocol as{' '}
                   <a
-                    className="text-blue-300 underline"
+                    className="text-zinc-300 underline hover:text-white"
                     href="https://github.com/Facepunch/webrcon/tree/gh-pages"
                     target="_blank"
                     rel="noopener noreferrer"

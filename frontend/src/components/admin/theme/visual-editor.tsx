@@ -421,7 +421,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
         cursor: default !important;
       }
       .editor-selected {
-        outline: 2px solid #3b82f6 !important;
+        outline: 2px solid #52525b !important;
         outline-offset: 2px !important;
         cursor: pointer !important;
       }
@@ -431,7 +431,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
         cursor: pointer !important;
       }
       .editor-editable {
-        outline: 1px dashed #3b82f6 !important;
+        outline: 1px dashed #52525b !important;
         outline-offset: 1px !important;
       }
       [contenteditable="true"] {
@@ -452,13 +452,13 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
     if (styleProp === 'color' || styleProp === 'backgroundColor' || styleProp === 'borderColor') {
       if (styleProp === 'color') {
         element.classList.remove('text-gray-500', 'text-gray-400', 'text-gray-300', 'text-gray-200', 
-          'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-blue-500', 
+          'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-zinc-500', 
           'text-red-500', 'text-yellow-500', 'text-purple-500', 'text-pink-500', 'text-indigo-500',
           'text-[#9cff1e]', 'text-[#22c55e]', 'text-[#ef4444]');
       }
       if (styleProp === 'backgroundColor') {
         element.classList.remove('bg-gray-500', 'bg-gray-400', 'bg-gray-300', 'bg-gray-200', 
-          'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-blue-500', 
+          'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-zinc-500', 
           'bg-red-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500',
           'bg-[#9cff1e]', 'bg-[#22c55e]', 'bg-[#ef4444]');
       }
@@ -825,13 +825,13 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
             const htmlEl = el as HTMLElement;
             if (edit.styles?.color) {
               htmlEl.classList.remove('text-gray-500', 'text-gray-400', 'text-gray-300', 'text-gray-200', 
-                'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-blue-500', 
+                'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-zinc-500', 
                 'text-red-500', 'text-yellow-500', 'text-purple-500', 'text-pink-500', 'text-indigo-500',
                 'text-[#9cff1e]', 'text-[#22c55e]', 'text-[#ef4444]');
             }
             if (edit.styles?.backgroundColor) {
               htmlEl.classList.remove('bg-gray-500', 'bg-gray-400', 'bg-gray-300', 'bg-gray-200', 
-                'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-blue-500', 
+                'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-zinc-500', 
                 'bg-red-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500',
                 'bg-[#9cff1e]', 'bg-[#22c55e]', 'bg-[#ef4444]');
             }
@@ -863,13 +863,13 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
               const childEl = child as HTMLElement;
               if (edit.styles?.color) {
                 childEl.classList.remove('text-gray-500', 'text-gray-400', 'text-gray-300', 'text-gray-200', 
-                  'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-blue-500', 
+                  'text-gray-100', 'text-white', 'text-black', 'text-green-500', 'text-zinc-500', 
                   'text-red-500', 'text-yellow-500', 'text-purple-500', 'text-pink-500', 'text-indigo-500',
                   'text-[#9cff1e]', 'text-[#22c55e]', 'text-[#ef4444]');
               }
               if (edit.styles?.backgroundColor) {
                 childEl.classList.remove('bg-gray-500', 'bg-gray-400', 'bg-gray-300', 'bg-gray-200', 
-                  'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-blue-500', 
+                  'bg-gray-100', 'bg-white', 'bg-black', 'bg-green-500', 'bg-zinc-500', 
                   'bg-red-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500',
                   'bg-[#9cff1e]', 'bg-[#22c55e]', 'bg-[#ef4444]');
               }
@@ -1564,7 +1564,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
                           )}
                         </div>
                       </div>
-                      <div className="bg-blue-500/10 text-xs px-3 py-2 border-b border-blue-500/20 text-blue-700 dark:text-blue-300 flex-shrink-0">
+                      <div className="flex-shrink-0 border-b border-zinc-500/20 bg-zinc-500/10 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
                         💡 Tip: Hold Shift and click to select child elements
                       </div>
                       <iframe
@@ -1588,7 +1588,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
                             `
                             a { pointer-events: none !important; }
                             .editor-selected {
-                              outline: 2px solid #3b82f6 !important;
+                              outline: 2px solid #52525b !important;
                               outline-offset: 2px !important;
                               cursor: pointer !important;
                             }
@@ -1796,7 +1796,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
               <Eye className="w-4 h-4 text-muted-foreground" />
             </div>
           </div>
-          <div className="bg-blue-500/10 text-xs px-3 py-2 border-b border-blue-500/20 text-blue-700 dark:text-blue-300">
+          <div className="border-b border-zinc-500/20 bg-zinc-500/10 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
             💡 Tip: Hold Shift and click to select child elements
           </div>
           <iframe

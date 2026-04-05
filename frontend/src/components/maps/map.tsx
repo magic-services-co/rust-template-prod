@@ -50,7 +50,7 @@ export default function Map({ vote, userVote, serverTheme }: MapProps) {
     const getStatusColor = () => {
         if (isEnded) return theme?.mapCardStatusInactiveColor || "#ef4444";
         if (isActive) return theme?.mapCardStatusActiveColor || "#22c55e";
-        return theme?.mapCardStatusUpcomingColor || "#3b82f6";
+        return theme?.mapCardStatusUpcomingColor || "#f59e0b";
     };
 
     return (

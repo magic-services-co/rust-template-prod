@@ -88,12 +88,13 @@ export function ServerDetailsDialog({
   const borderCol = themeStr(serverTheme, ["borderColor", "contentCardBorder"], "rgba(255, 255, 255, 0.1)");
   const muted = themeStr(serverTheme, ["wipeTextColor", "secondaryTextColor"], "#94a3b8");
   const titleC = themeStr(serverTheme, ["titleTextColor", "titleColor"], "#f8fafc");
-  const accentBlue = "hsl(217.2, 91.2%, 59.8%)";
+  const accentNeutral = "hsl(240, 4%, 58%)";
   const accentOrange = "#f59e0b";
   const btnRadius = themeStr(serverTheme, ["buttonBorderRadius"], "0.5rem");
-  const connectBg = themeStr(serverTheme, ["buttonPrimaryBackground", "buttonPrimaryBg"], accentBlue);
+  const connectBg = themeStr(serverTheme, ["buttonPrimaryBackground", "buttonPrimaryBg"], "hsl(240, 4%, 46%)");
   const connectText = themeStr(serverTheme, ["buttonPrimaryText"], "#ffffff");
-  const connectHover = themeStr(serverTheme, ["buttonPrimaryHover", "buttonPrimaryHoverBg"], "hsl(217.2, 91.2%, 52%)");
+  const connectHover = themeStr(serverTheme, ["buttonPrimaryHover", "buttonPrimaryHoverBg"], "hsl(240, 4%, 56%)");
+  const progressFill = themeStr(serverTheme, ["progressBarForeground"], "#a1a1aa");
 
   const dataForRustMap = useMemo((): ServerData => {
     if (data.mapVotes) return data;
@@ -184,9 +185,9 @@ export function ServerDetailsDialog({
   const map3dButtonClass =
     "inline-flex h-10 w-full max-w-[320px] items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors sm:max-w-none";
   const map3dButtonStyle = {
-    borderColor: accentBlue,
-    color: accentBlue,
-    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    borderColor: accentNeutral,
+    color: accentNeutral,
+    backgroundColor: "rgba(113, 113, 122, 0.12)",
     borderRadius: btnRadius,
   } as const;
 
@@ -289,13 +290,13 @@ export function ServerDetailsDialog({
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: muted }}>
                   Players
                 </span>
-                <span className="text-lg font-bold tabular-nums" style={{ color: accentBlue }}>
+                <span className="text-lg font-bold tabular-nums" style={{ color: progressFill }}>
                   {data.attributes.players} / {data.attributes.maxPlayers}
                 </span>
                 <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${percentage}%`, backgroundColor: accentBlue }}
+                    style={{ width: `${percentage}%`, backgroundColor: progressFill }}
                   />
                 </div>
               </div>

@@ -5,6 +5,8 @@ import DynamicBreadcrumbs from "@/components/dynamic-breadcrumbs"
 import { AdminPageViewLogger } from "@/components/admin/admin-page-view-logger"
 import { AdminActionLogger } from "@/components/admin/admin-action-logger"
 import { Suspense } from "react"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { backendApi } from "@/lib/api"
 
 export async function generateMetadata() {
@@ -25,6 +27,28 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
+    const headersList = await headers()
+    const forwardedFor = headersList.get("x-forwarded-for") ?? headersList.get("x-real-ip")
+    const host =
+        headersList.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+        headersList.get("host") ||
+        ""
+    const setupRes = await fetch(backendApi("setup/status"), {
+        headers: {
+            Accept: "application/json",
+            ...(forwardedFor && { "X-Forwarded-For": forwardedFor }),
+            ...(host && { Host: host }),
+            ...(host && { "X-Forwarded-Host": host }),
+        },
+        cache: "no-store",
+    })
+    if (setupRes.ok) {
+        const setupJson = (await setupRes.json()) as { wizardPending?: boolean }
+        if (setupJson.wizardPending === true) {
+            redirect("/setup")
+        }
+    }
+
     return (
         <SidebarProvider>
             <AdminPageViewLogger />

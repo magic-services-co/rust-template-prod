@@ -48,7 +48,7 @@ function StoreCompleteContent() {
                         If you are not redirected automatically,{' '}
                         <a 
                             href={redirectUrl} 
-                            className="underline text-blue-400 hover:text-blue-300"
+                            className="text-muted-foreground underline hover:text-foreground"
                             onClick={(e) => {
                                 e.preventDefault();
                                 window.location.replace(redirectUrl);

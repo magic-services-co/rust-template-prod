@@ -199,13 +199,13 @@ export default function DisplayProduct({ product, theme, hidePurchaseTypeSelecto
                                 className="flex-1 text-xs"
                                 style={{
                                     backgroundColor: purchaseType === "one-time" 
-                                        ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                        ? (theme?.buttonPrimaryBackground || '#52525b')
                                         : 'transparent',
                                     color: purchaseType === "one-time"
                                         ? (theme?.buttonPrimaryText || '#ffffff')
                                         : (theme?.productCardDescriptionColor || '#b0b0b0'),
                                     border: `1px solid ${purchaseType === "one-time" 
-                                        ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                        ? (theme?.buttonPrimaryBackground || '#52525b')
                                         : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
                                     borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                 }}
@@ -219,13 +219,13 @@ export default function DisplayProduct({ product, theme, hidePurchaseTypeSelecto
                                 className="flex-1 text-xs"
                                 style={{
                                     backgroundColor: purchaseType === "subscription" 
-                                        ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                        ? (theme?.buttonPrimaryBackground || '#52525b')
                                         : 'transparent',
                                     color: purchaseType === "subscription"
                                         ? (theme?.buttonPrimaryText || '#ffffff')
                                         : (theme?.productCardDescriptionColor || '#b0b0b0'),
                                     border: `1px solid ${purchaseType === "subscription" 
-                                        ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                        ? (theme?.buttonPrimaryBackground || '#52525b')
                                         : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
                                     borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                 }}
@@ -266,19 +266,19 @@ export default function DisplayProduct({ product, theme, hidePurchaseTypeSelecto
                         onClick={handlePurchase}
                         disabled={!supportsBoth && !product.allow_subscription && isInCart}
                         style={{
-                            backgroundColor: theme?.buttonPrimaryBackground || "#3b82f6",
+                            backgroundColor: theme?.buttonPrimaryBackground || "#52525b",
                             color: theme?.buttonPrimaryText || "#ffffff",
                             border: `1px solid ${theme?.buttonSecondaryBorder || "#374151"}`,
                             borderRadius: theme?.buttonBorderRadius || "0.375rem"
                         }}
                         onMouseEnter={(e) => {
                             if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#2563eb";
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#71717a";
                             }
                         }}
                         onMouseLeave={(e) => {
                             if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#3b82f6";
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#52525b";
                             }
                         }}
                     >

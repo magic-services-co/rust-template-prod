@@ -229,7 +229,7 @@ export function TicketView({ ticketId, currentUser }: TicketViewProps) {
                                             className="group relative flex items-center gap-2 rounded-md border p-2 pr-8 hover:bg-muted/50"
                                         >
                                             {isScanning ? (
-                                                <Shield className="h-4 w-4 animate-pulse text-blue-500" />
+                                                <Shield className="h-4 w-4 animate-pulse text-muted-foreground" />
                                             ) : (
                                                 <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                             )}

@@ -211,7 +211,7 @@ export function SiteSettingsForm() {
                                                 Enable <Link
                                                 href="https://rustalyzer.com"
                                                 target="_blank"
-                                                className="text-blue-500 hover:underline"
+                                                className="text-primary hover:underline"
                                                 >Rustalyzer</Link> to display detailed server stats on your site.
                                             </FormDescription>
                                         </div>

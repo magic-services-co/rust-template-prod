@@ -106,7 +106,7 @@ export function GameServerSelector({
                                         color: theme?.productCardTitleColor || "#ffffff",
                                         borderRadius: theme?.cardBorderRadius || "0.375rem",
                                         backgroundColor: selectedServerId === server.id 
-                                            ? theme?.categoryCardHoverBackground || "rgba(59, 130, 246, 0.2)"
+                                            ? theme?.categoryCardHoverBackground || "rgba(161, 161, 170, 0.25)"
                                             : "transparent"
                                     }}
                                     onMouseEnter={(e) => {

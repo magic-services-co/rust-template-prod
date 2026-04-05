@@ -217,13 +217,13 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                                     className="flex-1"
                                     style={{
                                         backgroundColor: purchaseType === "one-time" 
-                                            ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                            ? (theme?.buttonPrimaryBackground || '#52525b')
                                             : 'transparent',
                                         color: purchaseType === "one-time"
                                             ? (theme?.buttonPrimaryText || '#ffffff')
                                             : (theme?.productCardDescriptionColor || '#b0b0b0'),
                                         border: `1px solid ${purchaseType === "one-time" 
-                                            ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                            ? (theme?.buttonPrimaryBackground || '#52525b')
                                             : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
                                         borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                     }}
@@ -237,13 +237,13 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                                     className="flex-1"
                                     style={{
                                         backgroundColor: purchaseType === "subscription" 
-                                            ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                            ? (theme?.buttonPrimaryBackground || '#52525b')
                                             : 'transparent',
                                         color: purchaseType === "subscription"
                                             ? (theme?.buttonPrimaryText || '#ffffff')
                                             : (theme?.productCardDescriptionColor || '#b0b0b0'),
                                         border: `1px solid ${purchaseType === "subscription" 
-                                            ? (theme?.buttonPrimaryBackground || '#3b82f6')
+                                            ? (theme?.buttonPrimaryBackground || '#52525b')
                                             : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
                                         borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                     }}
@@ -263,18 +263,18 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                                 disabled={cartMutationIsPending || (product.single_game_server_only && !selectedServerId)}
                                 className="w-full flex items-center justify-center gap-2.5 font-semibold"
                                 style={{
-                                    backgroundColor: theme?.buttonPrimaryBackground || '#3b82f6',
+                                    backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
                                     color: theme?.buttonPrimaryText || '#ffffff',
                                     borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                 }}
                                 onMouseEnter={(e) => {
                                     if (!e.currentTarget.disabled) {
-                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#2563eb';
+                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     if (!e.currentTarget.disabled) {
-                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#3b82f6';
+                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
                                     }
                                 }}
                             >
@@ -296,18 +296,18 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                                     disabled={cartMutationIsPending || (!supportsBoth && isInCart) || (product.single_game_server_only && !selectedServerId)}
                                     className="w-full flex items-center gap-2.5 font-semibold"
                                     style={{
-                                        backgroundColor: theme?.buttonPrimaryBackground || '#3b82f6',
+                                        backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
                                         color: theme?.buttonPrimaryText || '#ffffff',
                                         borderRadius: theme?.buttonBorderRadius || '0.375rem'
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!e.currentTarget.disabled) {
-                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#2563eb';
+                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (!e.currentTarget.disabled) {
-                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#3b82f6';
+                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
                                         }
                                     }}
                                 >

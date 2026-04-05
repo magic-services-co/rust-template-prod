@@ -1,22 +1,23 @@
 # Rust Template (production distribution)
 
-This repository contains the **ionCube-encoded** Laravel backend and the **unencoded** Next.js frontend.
+This tree contains the **ionCube-encoded** Laravel backend and the **unencoded** Next.js frontend.
 
 ## Requirements
 
-- **PHP 8.2+** with extensions required by Laravel, plus **[ionCube Loader](https://get-loader.ioncube.com)** matching your PHP version (encode target used: PHP 8.3).
-- **Node.js 20+** for the frontend (`npm install`, `npm run build`).
-- **MySQL** (or compatible) for the API.
+- **PHP 8.2+** with Laravel extensions and **[ionCube Loader](https://get-loader.ioncube.com)** for the same PHP major/minor used at encode time (this build used the Encoder’s PHP 8.3 target).
+- **Node.js 20+** for the frontend.
+- **MySQL** (or compatible).
 
-## Backend
+## Blade templates
 
-The `backend/` PHP application (except `vendor/` and a few non-PHP files) is protected with ionCube. You cannot run `php artisan` or the API without installing the Loader on the server.
+`.blade.php` files are shipped as **plain source** so Laravel can compile views. Other application PHP is ionCube-encoded.
 
-## Frontend
+## Re-run the build
 
-The `frontend/` directory is standard Next.js source. Copy `.env.example` to `.env` and configure as usual.
+From the **private** source repository:
 
-## Install script
+`./scripts/build-ioncube-prod.sh`
 
-See `scripts/install.sh` (from the open template). Point `RUST_TEMPLATE_REPO` or `--repo` at **this** repository when publishing your own docs.
+## Migrating from the old Rust Template
 
+Use `scripts/install.sh` with `--migrate-mysql` (or answer the prompt on an interactive terminal) to copy one source database into the target DB. On Coolify, remove the old application first, then deploy the new one; import MySQL data separately if not using the host install script.

@@ -153,7 +153,7 @@ export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning
                     {disabled ? (
                         isScanning ? (
                             <>
-                                <Shield className="mr-2 h-4 w-4 animate-pulse text-blue-500" />
+                                <Shield className="mr-2 h-4 w-4 animate-pulse text-muted-foreground" />
                                 Scanning Attached Documents
                             </>
                         ) : (

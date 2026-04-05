@@ -496,15 +496,15 @@ export function DynamicTicketForm({ categorySlug, serverTheme }: DynamicTicketFo
                                     type="button" 
                                     onClick={handleNext}
                                     style={{
-                                        backgroundColor: theme?.buttonPrimaryBackground || "#3b82f6",
+                                        backgroundColor: theme?.buttonPrimaryBackground || "#52525b",
                                         color: theme?.buttonPrimaryText || "#ffffff",
                                         borderRadius: theme?.buttonBorderRadius || "0.375rem"
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#2563eb";
+                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#71717a";
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#3b82f6";
+                                        e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#52525b";
                                     }}
                                 >
                                     Next
@@ -514,18 +514,18 @@ export function DynamicTicketForm({ categorySlug, serverTheme }: DynamicTicketFo
                                     type="submit" 
                                     disabled={submitTicket.isPending || submitTicket.isSuccess}
                                     style={{
-                                        backgroundColor: theme?.buttonPrimaryBackground || "#3b82f6",
+                                        backgroundColor: theme?.buttonPrimaryBackground || "#52525b",
                                         color: theme?.buttonPrimaryText || "#ffffff",
                                         borderRadius: theme?.buttonBorderRadius || "0.375rem"
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!e.currentTarget.disabled) {
-                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#2563eb";
+                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#71717a";
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (!e.currentTarget.disabled) {
-                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#3b82f6";
+                                            e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#52525b";
                                         }
                                     }}
                                 >

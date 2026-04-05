@@ -178,7 +178,7 @@ export function SteamcordImportDialog() {
             case 'new':
                 return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">New</Badge>
             case 'update':
-                return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30">Update</Badge>
+                return <Badge className="border-zinc-500/30 bg-zinc-500/20 text-zinc-600 dark:text-zinc-300">Update</Badge>
             case 'skip':
                 return <Badge className="bg-gray-500/20 text-gray-500 border-gray-500/30">Skip</Badge>
         }
@@ -296,9 +296,9 @@ export function SteamcordImportDialog() {
                                 <div className="text-2xl font-bold text-green-500">{previewData.wouldImport}</div>
                                 <div className="text-sm text-green-500/80">New</div>
                             </div>
-                            <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-center">
-                                <div className="text-2xl font-bold text-blue-500">{previewData.wouldUpdate}</div>
-                                <div className="text-sm text-blue-500/80">Update</div>
+                            <div className="rounded-lg border border-zinc-500/30 bg-zinc-500/10 p-3 text-center">
+                                <div className="text-2xl font-bold text-zinc-600 dark:text-zinc-300">{previewData.wouldUpdate}</div>
+                                <div className="text-sm text-zinc-500 dark:text-zinc-400">Update</div>
                             </div>
                             <div className="rounded-lg border border-gray-500/30 bg-gray-500/10 p-3 text-center">
                                 <div className="text-2xl font-bold text-gray-500">{previewData.wouldSkip}</div>
@@ -334,7 +334,7 @@ export function SteamcordImportDialog() {
                                                         {getStatusBadge(player.status)}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground mt-1">
-                                                        <span className="text-blue-400">Discord:</span> {player.discordUsername} ({player.discordId})
+                                                        <span className="text-muted-foreground">Discord:</span> {player.discordUsername} ({player.discordId})
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
                                                         <span className="text-orange-400">Steam:</span> {player.steamId}

@@ -39,15 +39,15 @@ export default function NeedSupport({ theme }: { theme?: any }) {
                 target="_blank"
                 className="w-full group inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2"
                 style={{
-                    backgroundColor: theme?.buttonPrimaryBackground || '#3b82f6',
+                    backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
                     color: theme?.buttonPrimaryText || '#ffffff',
                     borderRadius: theme?.buttonBorderRadius || '0.375rem'
                 }}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#2563eb';
+                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#3b82f6';
+                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
                 }}
             >
                 <DiscordIcon className="group-hover:rotate-[360deg] duration-700 mr-2.5 h-5 w-5" />

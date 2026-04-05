@@ -81,15 +81,15 @@ export default function HomeServers({ serverTheme }: HomeServersProps) {
                                 "px-6 py-3 rounded-md font-medium transition-colors duration-200"
                             )}
                             style={{
-                                backgroundColor: theme?.buttonPrimaryBg || '#3b82f6',
+                                backgroundColor: theme?.buttonPrimaryBg || '#52525b',
                                 color: theme?.buttonPrimaryText || '#ffffff',
                                 borderRadius: theme?.buttonBorderRadius || '0.375rem',
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBg || '#2563eb';
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBg || '#71717a';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBg || '#3b82f6';
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBg || '#52525b';
                             }}
                         >
                             View More

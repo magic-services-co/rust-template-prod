@@ -17,8 +17,10 @@ const cardBg = "rgba(14, 16, 20, 0.85)";
 const cardBorder = "rgba(255, 255, 255, 0.1)";
 const cardShadow = "0 4px 6px rgba(0, 0, 0, 0.2)";
 
-const accentBlue = "hsl(217.2, 91.2%, 59.8%)";
-const accentBlueForeground = DS.foreground;
+const accentInteractive = "hsl(240, 4%, 46%)";
+const accentInteractiveHover = "hsl(240, 4%, 56%)";
+const accentLink = "hsl(240, 5%, 72%)";
+const accentOnAccentFg = DS.foreground;
 
 export const USER_THEME_DEFAULTS = {
   primaryTitleColor: DS.foreground,
@@ -37,8 +39,8 @@ export const USER_THEME_DEFAULTS = {
 
   tabsBackground: cardBg,
   tabsBorder: cardBorder,
-  tabActiveText: accentBlueForeground,
-  tabActiveBackground: accentBlue,
+  tabActiveText: accentOnAccentFg,
+  tabActiveBackground: accentInteractive,
   tabInactiveText: DS.mutedForeground,
   tabInactiveBackground: "transparent",
 
@@ -49,7 +51,7 @@ export const USER_THEME_DEFAULTS = {
   buttonSuccessText: DS.foreground,
   buttonDestructiveBackground: "hsl(0, 72%, 51%)",
   buttonDestructiveText: DS.foreground,
-  buttonPrimaryBackground: accentBlue,
+  buttonPrimaryBackground: accentInteractive,
   buttonPrimaryText: DS.foreground,
   buttonSecondaryBackground: "transparent",
   buttonSecondaryText: DS.mutedForeground,
@@ -57,7 +59,7 @@ export const USER_THEME_DEFAULTS = {
 
   userNameColor: DS.foreground,
   userIdColor: DS.mutedForeground,
-  linkColor: accentBlue,
+  linkColor: accentLink,
   avatarBorderColor: "rgba(255, 255, 255, 0.2)",
   roleBadgeBackground: "rgba(255, 255, 255, 0.1)",
   roleBadgeBorder: "rgba(255, 255, 255, 0.2)",
@@ -86,7 +88,7 @@ export const USER_THEME_DEFAULTS = {
   titleBackgroundColor: "transparent",
   titleBorderColor: cardBorder,
   titleBorderRadius: "0.5rem",
-  buttonPrimaryHover: "hsl(217.2, 91.2%, 50%)",
+  buttonPrimaryHover: accentInteractiveHover,
   inputBackground: cardBg,
   inputBorder: cardBorder,
   inputTextColor: DS.foreground,

@@ -16,6 +16,13 @@ export default function AuthCallbackPage() {
     }
     setAuthCookie(token.trim());
     setStatus('done');
+    const setupNext =
+      typeof window !== 'undefined' ? sessionStorage.getItem('setup_wizard_post_auth_redirect') : null;
+    if (setupNext) {
+      sessionStorage.removeItem('setup_wizard_post_auth_redirect');
+      window.location.replace(setupNext);
+      return;
+    }
     window.location.replace('/');
   }, [searchParams]);
 

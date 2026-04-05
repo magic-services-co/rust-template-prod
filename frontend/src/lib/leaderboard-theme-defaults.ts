@@ -3,7 +3,7 @@ import { USER_THEME_DEFAULTS } from "@/lib/user-theme-defaults"
 const leaderboardSpecific = {
   subtitle:
     "Track top players across PvP, farming, explosives, wipes, and server events — filter by server and wipe.",
-  tableRowHighlightBg: "rgba(59, 130, 246, 0.18)",
+  tableRowHighlightBg: "rgba(161, 161, 170, 0.2)",
 } as const
 
 const leaderboardAliases = {

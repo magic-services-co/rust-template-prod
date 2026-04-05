@@ -102,7 +102,7 @@ function LiveSiteEditorInner() {
       chrome = document.createElement('style');
       chrome.id = CHROME_STYLE_ID;
       chrome.textContent = `
-        .editor-selected { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; }
+        .editor-selected { outline: 2px solid #52525b !important; outline-offset: 2px !important; }
         .editor-group-selected { outline: 2px solid #10b981 !important; outline-offset: 2px !important; }
       `;
       document.head.appendChild(chrome);

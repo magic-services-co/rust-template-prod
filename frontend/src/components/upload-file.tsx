@@ -96,7 +96,7 @@ export function UploadFile({
                     </>
                 ) : isScanning ? (
                     <>
-                        <Shield className="h-4 w-4 animate-pulse text-blue-500" />
+                        <Shield className="h-4 w-4 animate-pulse text-muted-foreground" />
                         <span>Scanning file...</span>
                     </>
                 ) : (

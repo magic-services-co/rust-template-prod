@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { backendApi } from "@/lib/api";
 import { LicenseRequiredBlock } from "@/components/license-required-block";
 import { UserLayoutClient } from "./user-layout-client";
@@ -33,6 +34,25 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
   const headersList = await headers();
   const forwardedFor = headersList.get("x-forwarded-for") ?? headersList.get("x-real-ip");
   const host = clientFacingHost(headersList);
+  const pathname = headersList.get("x-pathname") ?? "";
+
+  if (!pathname.startsWith("/setup")) {
+    const setupRes = await fetch(backendApi("setup/status"), {
+      headers: {
+        Accept: "application/json",
+        ...(forwardedFor && { "X-Forwarded-For": forwardedFor }),
+        ...(host && { Host: host }),
+        ...(host && { "X-Forwarded-Host": host }),
+      },
+      cache: "no-store",
+    });
+    if (setupRes.ok) {
+      const setupJson = (await setupRes.json()) as { wizardPending?: boolean };
+      if (setupJson.wizardPending === true) {
+        redirect("/setup");
+      }
+    }
+  }
 
   const licenseRes = await fetch(backendApi("license/status"), {
     headers: {

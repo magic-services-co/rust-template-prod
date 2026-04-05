@@ -45,7 +45,7 @@ export default async function CookieConsentPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Analytics</span>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Optional</span>
+              <span className="text-xs rounded bg-zinc-200 px-2 py-1 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">Optional</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Marketing</span>

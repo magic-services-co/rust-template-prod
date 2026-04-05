@@ -598,6 +598,10 @@ maybe_migrate_mysql_into_target
 setup_backend "$ROOT"
 setup_frontend "$ROOT"
 
+if [[ -d "${ROOT}/backend/storage/app" ]]; then
+    touch "${ROOT}/backend/storage/app/.setup_wizard_pending" 2>/dev/null || true
+fi
+
 cat <<EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -609,7 +613,10 @@ Install finished.
 
   Open the app (dev): http://localhost:3000  (API proxied; backend default http://127.0.0.1:8000)
 
-  Configure Discord, Steam, PayNow, R2, etc. in:
+  First-time setup wizard: http://localhost:3000/setup
+    (Complete license, Steam, Discord, PayNow, BattleMetrics, and RustMaps steps there.)
+
+  You can still configure Discord, Steam, PayNow, R2, etc. manually in:
     - ${ROOT}/backend/.env
     - ${ROOT}/frontend/.env
 

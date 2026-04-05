@@ -69,7 +69,7 @@ function MarkdownRenderer({ content }: { content: string }) {
         html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
         html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
         
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" class="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noopener noreferrer">$1</a>');
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
         
         html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="w-full h-auto rounded-lg my-4" />');
         

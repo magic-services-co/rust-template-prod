@@ -280,15 +280,15 @@ export default function Cart({ theme }: { theme?: any }) {
                             className="w-full h-12 font-bold tracking-wide uppercase"
                             onClick={handleCheckout}
                             style={{
-                                backgroundColor: theme?.buttonPrimaryBackground || '#3b82f6',
+                                backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
                                 color: theme?.buttonPrimaryText || '#ffffff',
                                 borderRadius: theme?.buttonBorderRadius || '0.375rem'
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#2563eb';
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#3b82f6';
+                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
                             }}
                         >
                             Checkout

@@ -64,7 +64,7 @@ function MapVoteCard({ vote }: { vote: MapVote }) {
                     <p className="text-sm text-gray-500">
                         Server ID: {vote.server_id}
                     </p>
-                    <p className={`text-sm font-semibold ${isEnded ? "text-red-500" : (isActive ? "text-green-500" : "text-blue-500")}`}>
+                    <p className={`text-sm font-semibold ${isEnded ? "text-red-500" : isActive ? "text-green-500" : "text-amber-500"}`}>
                         {statusText} {formatDistanceToNow(relevantDate, { addSuffix: true })}
                     </p>
                 </div>

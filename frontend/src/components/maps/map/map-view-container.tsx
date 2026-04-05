@@ -95,7 +95,7 @@ export default function MapViewContainer({ id, theme }: MapViewContainerProps) {
                         mapVote?.map_start ? (
                             <h1 
                                 className="font-bold"
-                                style={{ color: theme?.mapCardStatusUpcomingColor || "#3b82f6" }}
+                                style={{ color: theme?.mapCardStatusUpcomingColor || "#f59e0b" }}
                             >
                                 Map starts in {formatDistanceToNow(mapVote?.map_start || new Date())}
                             </h1>
@@ -350,7 +350,7 @@ function MapOption({ option, voteId, isActive, hasVoted = false, userVoted, inde
                         onClick={handleVote} 
                         disabled={mutation.isPending}
                         style={{
-                            backgroundColor: theme?.buttonPrimaryBackground || "#3b82f6",
+                            backgroundColor: theme?.buttonPrimaryBackground || "#52525b",
                             color: theme?.buttonPrimaryText || "#ffffff",
                             borderRadius: theme?.buttonBorderRadius || "0.375rem"
                         }}
