@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SteamIcon } from "@/components/icons";
 
 type SetupStatus = {
   wizardPending?: boolean;
@@ -159,7 +160,7 @@ export default function SetupPage() {
             <CardTitle>{stepLabel}</CardTitle>
             <CardDescription>
               {step === 0 &&
-                "Activate with your site license key. The license server URL (LICENSE_SERVER_URL) and API key (storage/app/.license_server_api_key) must already be configured on the server."}
+                "Activate with your site license key. License server URL and API key are set in the backend (config/license_server.php)."}
               {step === 1 && "Steam Web API key for sign-in (stored encrypted in the database)."}
               {step === 2 &&
                 "Same sign-in as the rest of the site. The first Steam account on this install becomes Owner."}
@@ -249,13 +250,15 @@ export default function SetupPage() {
                   }}
                   variant="outline"
                   size="lg"
-                  className="border-primary/30 text-primary hover:bg-primary/10 text-lg py-6 px-8"
+                  className="group h-auto w-full justify-center gap-3 border-2 border-green-500/85 bg-card py-6 text-base font-semibold text-green-500 shadow-sm transition-all duration-200 hover:border-green-500 hover:bg-green-500 hover:text-white hover:shadow-[0_0_28px_rgba(34,197,94,0.22)] focus-visible:ring-2 focus-visible:ring-green-500/45"
                 >
-                  Sign In with Steam
+                  <SteamIcon className="h-7 w-auto shrink-0 text-green-500 transition-colors group-hover:text-white" />
+                  Sign in with Steam
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
+                  className="w-full border-border/60 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
                   disabled={busy}
                   onClick={async () => {
                     await refreshStatus();

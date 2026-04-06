@@ -15,7 +15,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.4.1"
+SCRIPT_VERSION="1.4.2"
 INSTALL_TITLE="Magic Rust Template Installer"
 
 WHITE=$'\e[0;37m'
@@ -103,8 +103,8 @@ Usage: install.sh [options]
   --certbot-email ADDR  Email for Let’s Encrypt registration (non-interactive SSL)
   --backend-url URL  Ignored (backward compatibility). Laravel stays at http://127.0.0.1:8000 for this install.
   --frontend-url URL Public site URL — what users open in the browser (non-interactive)
-  --paynow-key KEY   PayNow API key (non-interactive; visible in process list — prefer INSTALL_PAYNOW_KEY)
-  --steam-secret KEY Steam Web API key (non-interactive; prefer INSTALL_STEAM_SECRET)
+  --paynow-key KEY   Optional: pre-fill PAYNOW_KEY in .env (normally use /setup wizard)
+  --steam-secret KEY Optional: pre-fill STEAM_SECRET in .env (normally use /setup wizard)
   --help              Show this help
 
 Environment:
@@ -115,8 +115,8 @@ Environment:
   CI=1                  Disables interactive prompts (whiptail / read); use INSTALL_* env vars
   INSTALL_BACKEND_URL   Ignored if set (backward compatibility). Use INSTALL_FRONTEND_URL only.
   INSTALL_FRONTEND_URL  Non-interactive: full URL or bare IP (defaults port 3000)
-  INSTALL_PAYNOW_KEY    PayNow API key (pnapi_…)
-  INSTALL_STEAM_SECRET  Steam Web API key
+  INSTALL_PAYNOW_KEY    Optional: pre-fill PayNow in .env (otherwise configure in /setup)
+  INSTALL_STEAM_SECRET  Optional: pre-fill Steam API key in .env (otherwise configure in /setup)
   INSTALL_SKIP_SSL=1    Same as --skip-ssl
   INSTALL_CERTBOT_EMAIL Let’s Encrypt / certbot registration email (required for SSL when CI=1)
   INSTALL_CLOUDFLARE_PROXY  (optional) 1/true = note Cloudflare proxy in logs; detection is automatic
@@ -131,8 +131,8 @@ configured at http://127.0.0.1:8000 in .env (Next.js on this server talks to it 
 like 192.168.1.10 becomes http://192.168.1.10:3000 for the site URL.
 NEXTAUTH_SECRET is kept identical in backend/.env and frontend/.env.
 
-PayNow and Steam: you are prompted on a TTY (or set INSTALL_PAYNOW_KEY / INSTALL_STEAM_SECRET).
-NEXT_PUBLIC_PAYNOW_KEY is set to the same value as PAYNOW_KEY on both backend and frontend .env.
+PayNow and Steam are configured in the site setup wizard (/setup on your site URL), not by this installer.
+Optional: --paynow-key / --steam-secret or INSTALL_PAYNOW_KEY / INSTALL_STEAM_SECRET to pre-seed .env.
 
 After install, Laravel and Next.js start in production style (0.0.0.0) unless --skip-start-servers.
 
@@ -897,10 +897,10 @@ sync_backend_nextauth_from_frontend() {
 
 apply_backend_paynow_steam_env() {
     local path="$1"
-    local paynow="$2"
-    local steam="$3"
+    local paynow="${2:-}"
+    local steam="${3:-}"
     [[ -f "$path" ]] || die "Missing ${path}"
-    [[ -n "$paynow" && -n "$steam" ]] || die "PayNow and Steam keys must be non-empty."
+    [[ -n "$paynow" || -n "$steam" ]] || return 0
     php -r '
         $path = $argv[1];
         $paynow = $argv[2];
@@ -908,11 +908,17 @@ apply_backend_paynow_steam_env() {
         $q = function (string $s): string {
             return "\"" . str_replace(["\\", "\""], ["\\\\", "\\\""], $s) . "\"";
         };
-        $pairs = [
-            "PAYNOW_KEY" => $q($paynow),
-            "STEAM_SECRET" => $q($steam),
-            "NEXT_PUBLIC_PAYNOW_KEY" => $q($paynow),
-        ];
+        $pairs = [];
+        if ($paynow !== "") {
+            $pairs["PAYNOW_KEY"] = $q($paynow);
+            $pairs["NEXT_PUBLIC_PAYNOW_KEY"] = $q($paynow);
+        }
+        if ($steam !== "") {
+            $pairs["STEAM_SECRET"] = $q($steam);
+        }
+        if ($pairs === []) {
+            return;
+        }
         $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
         $out = [];
         $seen = array_fill_keys(array_keys($pairs), false);
@@ -941,10 +947,10 @@ apply_backend_paynow_steam_env() {
 
 apply_frontend_paynow_steam_env() {
     local path="$1"
-    local paynow="$2"
-    local steam="$3"
+    local paynow="${2:-}"
+    local steam="${3:-}"
     [[ -f "$path" ]] || die "Missing ${path}"
-    [[ -n "$paynow" && -n "$steam" ]] || die "PayNow and Steam keys must be non-empty."
+    [[ -n "$paynow" || -n "$steam" ]] || return 0
     php -r '
         $path = $argv[1];
         $paynow = $argv[2];
@@ -952,11 +958,17 @@ apply_frontend_paynow_steam_env() {
         $q = function (string $s): string {
             return "\"" . str_replace(["\\", "\""], ["\\\\", "\\\""], $s) . "\"";
         };
-        $pairs = [
-            "PAYNOW_KEY" => $q($paynow),
-            "NEXT_PUBLIC_PAYNOW_KEY" => $q($paynow),
-            "STEAM_SECRET" => $q($steam),
-        ];
+        $pairs = [];
+        if ($paynow !== "") {
+            $pairs["PAYNOW_KEY"] = $q($paynow);
+            $pairs["NEXT_PUBLIC_PAYNOW_KEY"] = $q($paynow);
+        }
+        if ($steam !== "") {
+            $pairs["STEAM_SECRET"] = $q($steam);
+        }
+        if ($pairs === []) {
+            return;
+        }
         $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
         $out = [];
         $seen = array_fill_keys(array_keys($pairs), false);
@@ -986,22 +998,6 @@ apply_frontend_paynow_steam_env() {
 resolve_paynow_steam() {
     PAYNOW_KEY_VAL="${PAYNOW_KEY_ARG:-${INSTALL_PAYNOW_KEY:-}}"
     STEAM_SECRET_VAL="${STEAM_SECRET_ARG:-${INSTALL_STEAM_SECRET:-}}"
-
-    if [[ -z "${CI:-}" && -t 0 ]]; then
-        if [[ -z "$PAYNOW_KEY_VAL" || -z "$STEAM_SECRET_VAL" ]]; then
-            ui_step "PayNow and Steam"
-        fi
-        if [[ -z "$PAYNOW_KEY_VAL" ]]; then
-            PAYNOW_KEY_VAL="$(ui_inputbox "PayNow API key (PAYNOW_KEY).\\nFrom https://dashboard.paynow.gg/api-keys — e.g. pnapi_v1_…" 12 72 "")" || true
-        fi
-        if [[ -z "$STEAM_SECRET_VAL" ]]; then
-            STEAM_SECRET_VAL="$(ui_passwordbox "Steam Web API key (STEAM_SECRET).\\nFrom https://steamcommunity.com/dev/apikey" 12 72)" || true
-        fi
-    fi
-
-    if [[ -z "$PAYNOW_KEY_VAL" || -z "$STEAM_SECRET_VAL" ]]; then
-        die "PayNow and Steam keys are required. On a TTY, complete the dialogs; otherwise set INSTALL_PAYNOW_KEY and INSTALL_STEAM_SECRET (or --paynow-key / --steam-secret)."
-    fi
 }
 
 ensure_laravel_backend_layout() {
@@ -1071,8 +1067,12 @@ setup_frontend() {
 
     log "Writing frontend .env (BACKEND_URL, NEXTAUTH_URL, NEXT_PUBLIC_DOMAIN)…"
     apply_frontend_public_env "${fe}/.env" "$backend_url" "$frontend_url"
-    log "Writing PayNow / Steam (PAYNOW_KEY, NEXT_PUBLIC_PAYNOW_KEY, STEAM_SECRET)…"
-    apply_frontend_paynow_steam_env "${fe}/.env" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
+    if [[ -n "${PAYNOW_KEY_VAL:-}" || -n "${STEAM_SECRET_VAL:-}" ]]; then
+        log "Writing optional PayNow / Steam keys to frontend/.env (skipped if unset — use /setup wizard)…"
+        apply_frontend_paynow_steam_env "${fe}/.env" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
+    else
+        log "Skipping PayNow / Steam in .env (configure in /setup wizard)."
+    fi
     sync_backend_nextauth_from_frontend "${root}/backend/.env" "${fe}/.env"
     log "Synced NEXTAUTH_SECRET to backend/.env for API proxy auth."
 
@@ -1578,8 +1578,12 @@ if [[ ! -f "$BACKEND_ENV" ]]; then
 fi
 apply_backend_db_env "$BACKEND_ENV" "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_DATABASE" "$MYSQL_USER" "$MYSQL_PASSWORD"
 apply_backend_public_env "$BACKEND_ENV" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"
-log "Writing backend PayNow / Steam (PAYNOW_KEY, NEXT_PUBLIC_PAYNOW_KEY, STEAM_SECRET)…"
-apply_backend_paynow_steam_env "$BACKEND_ENV" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
+if [[ -n "${PAYNOW_KEY_VAL:-}" || -n "${STEAM_SECRET_VAL:-}" ]]; then
+    log "Writing optional PayNow / Steam keys to backend/.env (skipped if unset — use /setup wizard)…"
+    apply_backend_paynow_steam_env "$BACKEND_ENV" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
+else
+    log "Skipping PayNow / Steam in backend/.env (configure in /setup wizard)."
+fi
 
 maybe_migrate_mysql_into_target
 
@@ -1590,7 +1594,6 @@ if [[ -d "${ROOT}/backend/storage/app" ]]; then
     touch "${ROOT}/backend/storage/app/.setup_wizard_pending" 2>/dev/null || true
 fi
 
-# Nginx + TLS before first Next start: avoids restarting Next right after it comes up when certbot rewrites .env and rebuilds.
 maybe_setup_nginx_domain_proxy "$ROOT" "$PUBLIC_FRONTEND_URL"
 [[ -n "${INSTALL_PUBLIC_FRONTEND_URL_RESULT:-}" ]] && PUBLIC_FRONTEND_URL="$INSTALL_PUBLIC_FRONTEND_URL_RESULT"
 
