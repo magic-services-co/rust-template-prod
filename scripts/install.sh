@@ -2,15 +2,53 @@
 #
 # Magic Rust Template — full local install.
 #
-#   curl -fsSL https://magicservices.co/rust-template/install.sh | bash -s -- \
-#     --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
+# ── Default one-liner (Docker MariaDB + clone magic-services-co/rust-template-prod):
+#   sudo bash -c "$(curl -fsSL https://magicservices.co/rust-template/install.sh)"
 #
-#   curl without "| bash" only prints this file; options go after bash -s --.
+# Override clone URL:  RUST_TEMPLATE_REPO=https://github.com/other/fork.git
+# Override DB:         RUST_TEMPLATE_USE_DOCKER_DB=0  plus  --db-url mysql://…  (or only --db-url; it wins)
+#
+# ── Pipe form (explicit flags):
+#   curl -fsSL https://magicservices.co/rust-template/install.sh | sudo bash -s -- --db-url mysql://…
+#
+# Interactive installs use whiptail when available; otherwise ANSI section headers (Spartan-style).
 
 set -e
 
-SCRIPT_VERSION="1.2.5"
+SCRIPT_VERSION="1.4.0"
+INSTALL_TITLE="Magic Rust Template Installer"
+
+WHITE=$'\e[0;37m'
+GRAY=$'\e[1;30m'
+RED=$'\e[0;31m'
+GREEN=$'\e[0;32m'
+YELLOW=$'\e[1;33m'
+BLUE=$'\e[0;34m'
+PURPLE=$'\e[0;35m'
+CYAN=$'\e[0;36m'
+L_CYAN=$'\e[1;36m'
+NC=$'\e[0m'
+
+STEP_COUNTER=1
+exec 3>&1
+
+ui_ts() { date +"%Y-%m-%d %H:%M:%S"; }
+ui_hr() {
+    echo -e "${BLUE}---------------------------------------------------------------------${NC}" >&2
+}
+ui_section() {
+    ui_hr
+    echo -e "${GRAY}[$(ui_ts)]${NC} ${WHITE}>>>${NC} ${CYAN}$*${NC}" >&2
+    ui_hr
+}
+ui_step() {
+    echo -e "\n${BLUE}=====================================================================${NC}\n" >&2
+    echo -e "${GRAY}[$(ui_ts)]${NC} ${WHITE}>>>${NC} ${YELLOW}STEP ${STEP_COUNTER}: $*${NC}" >&2
+    echo -e "\n${BLUE}=====================================================================${NC}\n" >&2
+    STEP_COUNTER=$((STEP_COUNTER + 1))
+}
 DEFAULT_INSTALL_DIR="/var/www/rust-template"
+DEFAULT_RUST_TEMPLATE_REPO="https://github.com/magic-services-co/rust-template-prod.git"
 DOCKER_MYSQL_CONTAINER="rust-template-mysql"
 DOCKER_MYSQL_IMAGE="${DOCKER_MYSQL_IMAGE:-mariadb:11}"
 DOCKER_MYSQL_PORT="${DOCKER_MYSQL_PORT:-3307}"
@@ -21,48 +59,148 @@ DOCKER_DB_PASS="${DOCKER_DB_PASS:-template_secret_change_me}"
 REPO_URL="${RUST_TEMPLATE_REPO:-}"
 BRANCH="${RUST_TEMPLATE_BRANCH:-Production}"
 TARGET_DIR=""
-USE_DOCKER_DB=0
+USE_DOCKER_DB=1
+if [[ "${RUST_TEMPLATE_USE_DOCKER_DB:-}" =~ ^(0|false|no)$ ]]; then
+    USE_DOCKER_DB=0
+fi
 DB_URL_INPUT=""
 SKIP_SYSTEM=0
 SKIP_FRONTEND_BUILD=0
+SKIP_START_SERVERS=0
+BACKEND_URL_ARG=""
+FRONTEND_URL_ARG=""
+PAYNOW_KEY_ARG=""
+STEAM_SECRET_ARG=""
 SKIP_IONCUBE=0
 FORCE_IONCUBE=0
 MIGRATE_MYSQL=0
 NO_MIGRATE_PROMPT=0
+SKIP_NGINX=0
+INSTALL_SKIP_SSL=0
+CERTBOT_EMAIL_ARG=""
+INSTALL_PUBLIC_FRONTEND_URL_RESULT=""
+# Laravel always listens on loopback; Next.js reaches it here (no public APP_URL / BACKEND_URL prompts).
+INTERNAL_LARAVEL_URL="http://127.0.0.1:8000"
 usage() {
     cat <<'EOF'
 Usage: install.sh [options]
 
-  --repo URL          Git clone URL (required if not already inside the template tree)
+  --repo URL          Git clone URL (default: magic-services-co/rust-template-prod if not in tree; override with RUST_TEMPLATE_REPO)
   --branch NAME       Git branch (default: Production, or RUST_TEMPLATE_BRANCH)
   --dir PATH          Install / use this directory (default: /var/www/rust-template when cloning)
-  --docker-db         Start MariaDB in Docker and configure Laravel to use it (installs docker.io via apt on Debian/Ubuntu if missing)
-  --db-url URL        mysql://user:pass@host:port/database (skips --docker-db)
+  --docker-db         Use Docker MariaDB (default on; redundant unless you used --no-docker-db)
+  --no-docker-db      Do not use Docker DB (must use --db-url or the install will stop at database setup)
+  --db-url URL        mysql://user:pass@host:port/database (implies no Docker DB for this run)
   --ioncube           Always try to install ionCube Loader (Debian/Ubuntu + sudo)
   --skip-ioncube      Never install ionCube Loader
   --migrate-mysql     Copy data from an existing MySQL/MariaDB into the target DB (interactive)
   --no-migrate-prompt Do not ask whether to migrate (non-interactive installs skip migration unless --migrate-mysql)
   --skip-system       Do not try to install OS packages (apt)
   --no-frontend-build Skip `npm run build` (faster; run later in frontend/)
+  --skip-start-servers Do not start Laravel / Next.js after install (use with systemd, etc.)
+  --no-nginx          Do not install/configure nginx reverse proxy (see INSTALL_* below)
+  --skip-ssl          With nginx: obtain no Let’s Encrypt cert (HTTP only on port 80)
+  --certbot-email ADDR  Email for Let’s Encrypt registration (non-interactive SSL)
+  --backend-url URL  Ignored (backward compatibility). Laravel stays at http://127.0.0.1:8000 for this install.
+  --frontend-url URL Public site URL — what users open in the browser (non-interactive)
+  --paynow-key KEY   PayNow API key (non-interactive; visible in process list — prefer INSTALL_PAYNOW_KEY)
+  --steam-secret KEY Steam Web API key (non-interactive; prefer INSTALL_STEAM_SECRET)
   --help              Show this help
 
 Environment:
-  RUST_TEMPLATE_REPO   Same as --repo
+  RUST_TEMPLATE_REPO   Same as --repo (default prod repo if not in template tree)
   RUST_TEMPLATE_BRANCH Same as --branch
+  RUST_TEMPLATE_USE_DOCKER_DB  Set to 0/false/no to skip Docker MariaDB (use --db-url)
   INSTALL_IONCUBE=1     Same as --ioncube
-  CI=1                  Disables interactive “migrate database?” prompt
+  CI=1                  Disables interactive prompts (whiptail / read); use INSTALL_* env vars
+  INSTALL_BACKEND_URL   Ignored if set (backward compatibility). Use INSTALL_FRONTEND_URL only.
+  INSTALL_FRONTEND_URL  Non-interactive: full URL or bare IP (defaults port 3000)
+  INSTALL_PAYNOW_KEY    PayNow API key (pnapi_…)
+  INSTALL_STEAM_SECRET  Steam Web API key
+  INSTALL_SKIP_SSL=1    Same as --skip-ssl
+  INSTALL_CERTBOT_EMAIL Let’s Encrypt / certbot registration email (required for SSL when CI=1)
+  INSTALL_CLOUDFLARE_PROXY  (optional) 1/true = note Cloudflare proxy in logs; detection is automatic
+  SKIP_NGINX=1          Same as --no-nginx
+
+Domain installs (hostname is not a bare IP and not localhost): installs nginx as a reverse proxy to
+Next.js on 127.0.0.1:3000, adds Cloudflare published IP ranges for real_ip (CF-Connecting-IP), runs
+certbot when possible, writes ${ROOT}/.install-domain-token, and may switch public URLs to https.
+
+On a TTY (and CI unset), the installer asks only for the public site (frontend) URL. Laravel is always
+configured at http://127.0.0.1:8000 in .env (Next.js on this server talks to it locally). A bare IP
+like 192.168.1.10 becomes http://192.168.1.10:3000 for the site URL.
+NEXTAUTH_SECRET is kept identical in backend/.env and frontend/.env.
+
+PayNow and Steam: you are prompted on a TTY (or set INSTALL_PAYNOW_KEY / INSTALL_STEAM_SECRET).
+NEXT_PUBLIC_PAYNOW_KEY is set to the same value as PAYNOW_KEY on both backend and frontend .env.
+
+After install, Laravel and Next.js start in production style (0.0.0.0) unless --skip-start-servers.
 
 Examples:
-  bash scripts/install.sh --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
-  curl -fsSL https://magicservices.co/rust-template/install.sh | bash -s -- --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
+  sudo bash -c "$(curl -fsSL https://magicservices.co/rust-template/install.sh)"
+
+  RUST_TEMPLATE_REPO=https://github.com/other/fork.git sudo bash -c "$(curl -fsSL https://magicservices.co/rust-template/install.sh)"
+
+  curl -fsSL https://magicservices.co/rust-template/install.sh | sudo bash -s -- --db-url mysql://user:pass@127.0.0.1:3306/dbname
 EOF
 }
 
-log() { printf '\033[0;32m[install]\033[0m %s\n' "$*"; }
-warn() { printf '\033[0;33m[install]\033[0m %s\n' "$*" >&2; }
-die() { printf '\033[0;31m[install] error:\033[0m %s\n' "$*" >&2; exit 1; }
+log() { echo -e "${GREEN}✔${NC} ${WHITE}$*${NC}" >&2; }
+warn() { ui_hr; echo -e "${YELLOW}Warning:${NC} $*" >&2; ui_hr; }
+die() { ui_hr; echo -e "${RED}ERROR:${NC} $*" >&2; ui_hr; exit 1; }
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+use_whiptail_ui() {
+    [[ -z "${CI:-}" ]] || return 1
+    [[ -t 0 ]] && [[ -t 1 ]] || return 1
+    [[ -r /dev/tty ]] || return 1
+    need_cmd whiptail
+}
+
+ui_inputbox() {
+    local text="$1"
+    local h="$2"
+    local w="$3"
+    local def="$4"
+    if use_whiptail_ui; then
+        whiptail --title "$INSTALL_TITLE" --inputbox "$text" "$h" "$w" "$def" 3>&1 1>&2 2>&3 </dev/tty
+    else
+        ui_section "$text"
+        local _line
+        printf '%bDefault [%s]: %b' "$GRAY" "$def" "$NC" >&2
+        read -r _line || true
+        if [[ -z "${_line// }" ]]; then
+            printf '%s' "$def"
+        else
+            printf '%s' "$_line"
+        fi
+    fi
+}
+
+ui_passwordbox() {
+    local text="$1"
+    local h="$2"
+    local w="$3"
+    if use_whiptail_ui; then
+        whiptail --title "$INSTALL_TITLE" --passwordbox "$text" "$h" "$w" 3>&1 1>&2 2>&3 </dev/tty
+    else
+        ui_section "$text"
+        local _line
+        read -r -s _line || true
+        echo >&2
+        printf '%s' "$_line"
+    fi
+}
+
+ui_msg_ok() {
+    local text="$1"
+    if use_whiptail_ui; then
+        whiptail --title "$INSTALL_TITLE" --msgbox "$text" 12 70 3>&1 1>&2 2>&3 </dev/tty || true
+    else
+        echo -e "${CYAN}$text${NC}" >&2
+    fi
+}
 
 parse_mysql_url() {
     # mysql://user:pass@host:3306/db  (password may be URL-encoded)
@@ -134,7 +272,7 @@ ensure_debian_packages() {
     [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
 
     local -a base_pkgs=(
-        ca-certificates curl git unzip mariadb-client software-properties-common
+        ca-certificates curl git unzip mariadb-client software-properties-common whiptail
     )
     local -a php_pkgs=(
         php-cli php-mysql php-xml php-mbstring php-curl php-zip php-bcmath php-intl php-sqlite3
@@ -181,8 +319,14 @@ ensure_debian_packages() {
 
 prompt_yes_no() {
     local prompt="$1"
+    if use_whiptail_ui; then
+        whiptail --title "$INSTALL_TITLE" --yesno "$prompt" 12 70 3>&1 1>&2 2>&3 </dev/tty
+        return $?
+    fi
     local yn yl
-    read -r -p "[install] ${prompt} [y/N] " yn || return 1
+    ui_section "$prompt"
+    echo -ne "${GRAY}[y/N]${NC} " >&2
+    read -r yn || return 1
     yl="$(printf '%s' "$yn" | tr '[:upper:]' '[:lower:]')"
     case "$yl" in
         y|yes) return 0 ;;
@@ -195,7 +339,6 @@ ensure_mysql_client_tools() {
     need_cmd mysqldump || die "mysqldump not found. On Debian/Ubuntu: sudo apt install mariadb-client"
 }
 
-# List non-system databases on a server (one name per line).
 mysql_list_user_databases() {
     local host="$1" port="$2" user="$3" pass="$4"
     MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SHOW DATABASES" 2>/dev/null \
@@ -526,6 +669,341 @@ apply_backend_db_env() {
     ' "$backend_env" "$host" "$port" "$database" "$user" "$password"
 }
 
+primary_ipv4() {
+    local ip=""
+    if need_cmd hostname; then
+        ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -Ev '^127\.|^169\.254\.|^$' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
+    fi
+    if [[ -z "$ip" ]] && need_cmd ip; then
+        ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}')"
+    fi
+    if [[ -z "$ip" ]]; then
+        ip="127.0.0.1"
+        warn "Could not detect a non-loopback IPv4; using 127.0.0.1 in URLs (set manually in .env if wrong)."
+    fi
+    printf '%s' "$ip"
+}
+
+normalize_install_url() {
+    local raw="$1"
+    local role="$2"
+    local port_def=8000
+    [[ "$role" == frontend ]] && port_def=3000
+    raw="${raw#"${raw%%[![:space:]]*}"}"
+    raw="${raw%"${raw##*[![:space:]]}"}"
+    [[ -n "$raw" ]] || return 1
+    if [[ "$raw" =~ ^https?:// ]]; then
+        printf '%s' "${raw%/}"
+        return 0
+    fi
+    if [[ "$raw" =~ ^[^:]+:[0-9]+$ ]]; then
+        printf '%s' "http://${raw}"
+        return 0
+    fi
+    if [[ "$raw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        printf '%s' "http://${raw}:${port_def}"
+        return 0
+    fi
+    if [[ "$raw" != *"/"* && "$raw" != *:* ]]; then
+        printf '%s' "http://${raw}:${port_def}"
+        return 0
+    fi
+    printf '%s' "$raw"
+    return 0
+}
+
+domain_for_next_public() {
+    php -r '
+        $u = parse_url($argv[1]);
+        if (!$u || empty($u["host"])) {
+            fwrite(STDERR, "error: invalid URL\n");
+            exit(1);
+        }
+        $host = $u["host"];
+        $scheme = strtolower($u["scheme"] ?? "http");
+        $port = $u["port"] ?? null;
+        if ($port === null) {
+            $port = ($scheme === "https") ? 443 : 80;
+        }
+        $def = ($scheme === "https") ? 443 : 80;
+        echo ((int) $port === (int) $def) ? $host : ($host . ":" . $port);
+    ' "$1"
+}
+
+install_should_prompt_urls() {
+    [[ -n "${CI:-}" ]] && return 1
+    [[ -t 0 ]] || return 1
+    [[ -n "${FRONTEND_URL_ARG:-}" ]] && return 1
+    [[ -n "${INSTALL_FRONTEND_URL:-}" ]] && return 1
+    return 0
+}
+
+prompt_public_urls() {
+    local host_ip="$1"
+    local def_fe="http://${host_ip}:3000"
+    local in_fe
+    ui_step "Public site URL"
+    in_fe="$(ui_inputbox "Frontend URL — what users open in the browser (NEXTAUTH_URL / site).\\nLaravel API is fixed at ${INTERNAL_LARAVEL_URL} on this server (not prompted).\\n\\nFull URL, host:port, or bare IP (default port 3000).\\n\\nDefault:" 16 72 "$def_fe")" || true
+    in_fe="${in_fe:-$def_fe}"
+    PUBLIC_FRONTEND_URL="$(normalize_install_url "$in_fe" frontend)" || die "Invalid frontend URL: ${in_fe}"
+}
+
+resolve_public_urls() {
+    local host_ip="$1"
+    PUBLIC_FRONTEND_URL=""
+    local raw_fe
+
+    if [[ -n "${BACKEND_URL_ARG:-}" || -n "${INSTALL_BACKEND_URL:-}" ]]; then
+        warn "Ignoring --backend-url / INSTALL_BACKEND_URL; Laravel uses ${INTERNAL_LARAVEL_URL} (local to this server)."
+    fi
+
+    if [[ -n "${FRONTEND_URL_ARG:-}" || -n "${INSTALL_FRONTEND_URL:-}" ]]; then
+        raw_fe="${FRONTEND_URL_ARG:-${INSTALL_FRONTEND_URL:-}}"
+        PUBLIC_FRONTEND_URL="$(normalize_install_url "$raw_fe" frontend)" || die "Invalid --frontend-url / INSTALL_FRONTEND_URL: ${raw_fe}"
+    fi
+
+    if install_should_prompt_urls; then
+        prompt_public_urls "$host_ip"
+    else
+        [[ -n "$PUBLIC_FRONTEND_URL" ]] || PUBLIC_FRONTEND_URL="$(normalize_install_url "http://${host_ip}:3000" frontend)"
+    fi
+
+    [[ -n "$PUBLIC_FRONTEND_URL" ]] || die "Could not resolve public frontend URL."
+}
+
+apply_backend_public_env() {
+    local backend_env="$1"
+    local app_url="$2"
+    local fe_url="$3"
+    [[ -f "$backend_env" ]] || die "Missing ${backend_env}"
+    php -r '
+        $path = $argv[1];
+        $pairs = [
+            "APP_URL" => $argv[2],
+            "FRONTEND_URL" => $argv[3],
+            "STORAGE_PUBLIC_URL" => $argv[3],
+            "APP_ENV" => "production",
+            "APP_DEBUG" => "false",
+        ];
+        $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+        $out = [];
+        $seen = array_fill_keys(array_keys($pairs), false);
+        foreach ($lines as $line) {
+            $replaced = false;
+            foreach ($pairs as $k => $v) {
+                if (str_starts_with($line, $k . "=")) {
+                    $out[] = $k . "=" . $v;
+                    $seen[$k] = true;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $out[] = $line;
+            }
+        }
+        foreach ($pairs as $k => $v) {
+            if (!$seen[$k]) {
+                $out[] = $k . "=" . $v;
+            }
+        }
+        file_put_contents($path, implode("\n", $out) . "\n");
+    ' "$backend_env" "$app_url" "$fe_url"
+}
+
+apply_frontend_public_env() {
+    local fe_env="$1"
+    local backend_url="$2"
+    local site_url="$3"
+    local public_domain
+    public_domain="$(domain_for_next_public "$site_url")" || die "Invalid frontend URL for NEXT_PUBLIC_DOMAIN: ${site_url}"
+    [[ -f "$fe_env" ]] || die "Missing ${fe_env}"
+    php -r '
+        $path = $argv[1];
+        $backend = $argv[2];
+        $nextauth = $argv[3];
+        $domain = $argv[4];
+        $domainQuoted = "\"" . str_replace(["\\", "\""], ["\\\\", "\\\""], $domain) . "\"";
+        $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+        $out = [];
+        $seen = ["BACKEND_URL" => false, "NEXTAUTH_URL" => false, "NEXT_PUBLIC_DOMAIN" => false];
+        foreach ($lines as $line) {
+            $replaced = false;
+            foreach (array_keys($seen) as $k) {
+                if (str_starts_with($line, $k . "=")) {
+                    if ($k === "BACKEND_URL") {
+                        $out[] = $k . "=" . $backend;
+                    } elseif ($k === "NEXTAUTH_URL") {
+                        $out[] = $k . "=" . $nextauth;
+                    } else {
+                        $out[] = $k . "=" . $domainQuoted;
+                    }
+                    $seen[$k] = true;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $out[] = $line;
+            }
+        }
+        if (!$seen["BACKEND_URL"]) {
+            $out[] = "BACKEND_URL=" . $backend;
+        }
+        if (!$seen["NEXTAUTH_URL"]) {
+            $out[] = "NEXTAUTH_URL=" . $nextauth;
+        }
+        if (!$seen["NEXT_PUBLIC_DOMAIN"]) {
+            $out[] = "NEXT_PUBLIC_DOMAIN=" . $domainQuoted;
+        }
+        file_put_contents($path, implode("\n", $out) . "\n");
+    ' "$fe_env" "$backend_url" "$site_url" "$public_domain"
+}
+
+sync_backend_nextauth_from_frontend() {
+    local backend_env="$1"
+    local fe_env="$2"
+    [[ -f "$backend_env" && -f "$fe_env" ]] || return 0
+    php -r '
+        $be = $argv[1];
+        $fe = $argv[2];
+        $secret = "";
+        foreach (file($fe, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            if (str_starts_with($line, "NEXTAUTH_SECRET=")) {
+                $secret = trim(substr($line, strlen("NEXTAUTH_SECRET=")), " \t\"");
+                break;
+            }
+        }
+        if ($secret === "") {
+            exit(0);
+        }
+        $bl = file($be, FILE_IGNORE_NEW_LINES) ?: [];
+        $out = [];
+        $seen = false;
+        foreach ($bl as $line) {
+            if (str_starts_with($line, "NEXTAUTH_SECRET=")) {
+                $out[] = "NEXTAUTH_SECRET=" . $secret;
+                $seen = true;
+            } else {
+                $out[] = $line;
+            }
+        }
+        if (!$seen) {
+            $out[] = "NEXTAUTH_SECRET=" . $secret;
+        }
+        file_put_contents($be, implode("\n", $out) . "\n");
+    ' "$backend_env" "$fe_env"
+}
+
+apply_backend_paynow_steam_env() {
+    local path="$1"
+    local paynow="$2"
+    local steam="$3"
+    [[ -f "$path" ]] || die "Missing ${path}"
+    [[ -n "$paynow" && -n "$steam" ]] || die "PayNow and Steam keys must be non-empty."
+    php -r '
+        $path = $argv[1];
+        $paynow = $argv[2];
+        $steam = $argv[3];
+        $q = function (string $s): string {
+            return "\"" . str_replace(["\\", "\""], ["\\\\", "\\\""], $s) . "\"";
+        };
+        $pairs = [
+            "PAYNOW_KEY" => $q($paynow),
+            "STEAM_SECRET" => $q($steam),
+            "NEXT_PUBLIC_PAYNOW_KEY" => $q($paynow),
+        ];
+        $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+        $out = [];
+        $seen = array_fill_keys(array_keys($pairs), false);
+        foreach ($lines as $line) {
+            $replaced = false;
+            foreach ($pairs as $k => $v) {
+                if (str_starts_with($line, $k . "=")) {
+                    $out[] = $k . "=" . $v;
+                    $seen[$k] = true;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $out[] = $line;
+            }
+        }
+        foreach ($pairs as $k => $v) {
+            if (!$seen[$k]) {
+                $out[] = $k . "=" . $v;
+            }
+        }
+        file_put_contents($path, implode("\n", $out) . "\n");
+    ' "$path" "$paynow" "$steam"
+}
+
+apply_frontend_paynow_steam_env() {
+    local path="$1"
+    local paynow="$2"
+    local steam="$3"
+    [[ -f "$path" ]] || die "Missing ${path}"
+    [[ -n "$paynow" && -n "$steam" ]] || die "PayNow and Steam keys must be non-empty."
+    php -r '
+        $path = $argv[1];
+        $paynow = $argv[2];
+        $steam = $argv[3];
+        $q = function (string $s): string {
+            return "\"" . str_replace(["\\", "\""], ["\\\\", "\\\""], $s) . "\"";
+        };
+        $pairs = [
+            "PAYNOW_KEY" => $q($paynow),
+            "NEXT_PUBLIC_PAYNOW_KEY" => $q($paynow),
+            "STEAM_SECRET" => $q($steam),
+        ];
+        $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+        $out = [];
+        $seen = array_fill_keys(array_keys($pairs), false);
+        foreach ($lines as $line) {
+            $replaced = false;
+            foreach ($pairs as $k => $v) {
+                if (str_starts_with($line, $k . "=")) {
+                    $out[] = $k . "=" . $v;
+                    $seen[$k] = true;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $out[] = $line;
+            }
+        }
+        foreach ($pairs as $k => $v) {
+            if (!$seen[$k]) {
+                $out[] = $k . "=" . $v;
+            }
+        }
+        file_put_contents($path, implode("\n", $out) . "\n");
+    ' "$path" "$paynow" "$steam"
+}
+
+resolve_paynow_steam() {
+    PAYNOW_KEY_VAL="${PAYNOW_KEY_ARG:-${INSTALL_PAYNOW_KEY:-}}"
+    STEAM_SECRET_VAL="${STEAM_SECRET_ARG:-${INSTALL_STEAM_SECRET:-}}"
+
+    if [[ -z "${CI:-}" && -t 0 ]]; then
+        if [[ -z "$PAYNOW_KEY_VAL" || -z "$STEAM_SECRET_VAL" ]]; then
+            ui_step "PayNow and Steam"
+        fi
+        if [[ -z "$PAYNOW_KEY_VAL" ]]; then
+            PAYNOW_KEY_VAL="$(ui_inputbox "PayNow API key (PAYNOW_KEY).\\nFrom https://dashboard.paynow.gg/api-keys — e.g. pnapi_v1_…" 12 72 "")" || true
+        fi
+        if [[ -z "$STEAM_SECRET_VAL" ]]; then
+            STEAM_SECRET_VAL="$(ui_passwordbox "Steam Web API key (STEAM_SECRET).\\nFrom https://steamcommunity.com/dev/apikey" 12 72)" || true
+        fi
+    fi
+
+    if [[ -z "$PAYNOW_KEY_VAL" || -z "$STEAM_SECRET_VAL" ]]; then
+        die "PayNow and Steam keys are required. On a TTY, complete the dialogs; otherwise set INSTALL_PAYNOW_KEY and INSTALL_STEAM_SECRET (or --paynow-key / --steam-secret)."
+    fi
+}
+
 ensure_laravel_backend_layout() {
     local backend="$1"
     mkdir -p \
@@ -567,6 +1045,8 @@ setup_backend() {
 
 setup_frontend() {
     local root="$1"
+    local backend_url="$2"
+    local frontend_url="$3"
     local fe="${root}/frontend"
     [[ -f "${fe}/package.json" ]] || die "No frontend/package.json under ${root}"
 
@@ -589,11 +1069,387 @@ setup_frontend() {
         log "Set NEXTAUTH_SECRET in frontend/.env"
     fi
 
+    log "Writing frontend .env (BACKEND_URL, NEXTAUTH_URL, NEXT_PUBLIC_DOMAIN)…"
+    apply_frontend_public_env "${fe}/.env" "$backend_url" "$frontend_url"
+    log "Writing PayNow / Steam (PAYNOW_KEY, NEXT_PUBLIC_PAYNOW_KEY, STEAM_SECRET)…"
+    apply_frontend_paynow_steam_env "${fe}/.env" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
+    sync_backend_nextauth_from_frontend "${root}/backend/.env" "${fe}/.env"
+    log "Synced NEXTAUTH_SECRET to backend/.env for API proxy auth."
+
     if [[ "$SKIP_FRONTEND_BUILD" -eq 0 ]]; then
         log "npm run build (frontend)…"
         (cd "$fe" && npm run build)
     else
         warn "Skipped frontend build (--no-frontend-build)."
+    fi
+}
+
+start_backend_production() {
+    local root="$1"
+    local backend="${root}/backend"
+    local logf="${backend}/storage/logs/install-artisan-serve.log"
+    ensure_laravel_backend_layout "$backend"
+    mkdir -p "$(dirname "$logf")"
+    log "Starting Laravel (php artisan serve, production .env) on 0.0.0.0:8000…"
+    (
+        cd "$backend" || exit 1
+        nohup php artisan serve --host=0.0.0.0 --port=8000 >>"$logf" 2>&1 &
+        echo $! >"${root}/.rust-template-backend-serve.pid"
+    )
+    sleep 2
+    if curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:8000/up" 2>/dev/null \
+        || curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:8000/" 2>/dev/null; then
+        log "Backend responding on port 8000 (log: ${logf})"
+    else
+        warn "Backend may not be listening on 8000 (port in use or still starting). Check: ${logf}"
+    fi
+}
+
+start_frontend_production() {
+    local root="$1"
+    local fe="${root}/frontend"
+    local logf="${fe}/install-next-start.log"
+    [[ "$SKIP_FRONTEND_BUILD" -eq 0 ]] || {
+        warn "Frontend build was skipped; not starting Next.js."
+        return 0
+    }
+    log "Starting Next.js (next start) on 0.0.0.0:3000…"
+    (
+        cd "$fe" || exit 1
+        nohup npm run start -- --hostname 0.0.0.0 --port 3000 >>"$logf" 2>&1 &
+        echo $! >"${root}/.rust-template-frontend-serve.pid"
+    )
+    sleep 3
+    if curl -sf -o /dev/null --connect-timeout 3 "http://127.0.0.1:3000/" 2>/dev/null; then
+        log "Frontend responding on port 3000 (log: ${logf})"
+    else
+        warn "Frontend may not be listening on 3000 (port in use or still starting). Check: ${logf}"
+    fi
+}
+
+public_url_host() {
+    php -r '$u = parse_url($argv[1]); echo $u["host"] ?? "";' "$1"
+}
+
+nginx_skip_for_host() {
+    local raw="$1"
+    local h="${raw,,}"
+    [[ -z "$raw" ]] && return 0
+    [[ "$h" == "localhost" || "$h" == "127.0.0.1" ]] && return 0
+    [[ "$raw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && return 0
+    [[ "$raw" == \[* ]] && return 0
+    return 1
+}
+
+cloudflare_proxy_dns_likely() {
+    local host="$1"
+    need_cmd php || return 3
+    local tmp
+    tmp="$(mktemp)"
+    cat >"$tmp" <<'PHP'
+<?php
+declare(strict_types=1);
+$host = $argv[1] ?? '';
+if ($host === '') {
+    exit(3);
+}
+
+function fetch_net_lines(string $url): ?array
+{
+    $ctx = stream_context_create([
+        'http' => ['timeout' => 25],
+        'https' => ['timeout' => 25],
+    ]);
+    $body = @file_get_contents($url, false, $ctx);
+    if ($body === false && function_exists('shell_exec')) {
+        $esc = escapeshellarg($url);
+        $body = shell_exec("curl -fsSL --connect-timeout 25 {$esc} 2>/dev/null");
+    }
+    if ($body === false || $body === null || $body === '') {
+        return null;
+    }
+    $out = [];
+    foreach (explode("\n", (string) $body) as $line) {
+        $t = trim($line);
+        if ($t !== '') {
+            $out[] = $t;
+        }
+    }
+    return $out === [] ? null : $out;
+}
+
+function ip_in_cidr(string $ip, string $cidr): bool
+{
+    $parts = explode('/', $cidr, 2);
+    $net = $parts[0];
+    $maxBits = str_contains($ip, ':') ? 128 : 32;
+    $bits = isset($parts[1]) ? (int) $parts[1] : $maxBits;
+    if ($bits < 0 || $bits > $maxBits) {
+        return false;
+    }
+    $bIp = @inet_pton($ip);
+    $bNet = @inet_pton($net);
+    if ($bIp === false || $bNet === false) {
+        return false;
+    }
+    $len = strlen($bIp);
+    if ($len !== strlen($bNet)) {
+        return false;
+    }
+    $fullBytes = intdiv($bits, 8);
+    $rem = $bits % 8;
+    for ($i = 0; $i < $fullBytes; $i++) {
+        if ($bIp[$i] !== $bNet[$i]) {
+            return false;
+        }
+    }
+    if ($rem === 0) {
+        return true;
+    }
+    $mask = (0xFF << (8 - $rem)) & 0xFF;
+
+    return (ord($bIp[$fullBytes]) & $mask) === (ord($bNet[$fullBytes]) & $mask);
+}
+
+$nets = [];
+foreach (['https://www.cloudflare.com/ips-v4/', 'https://www.cloudflare.com/ips-v6/'] as $url) {
+    $lines = fetch_net_lines($url);
+    if ($lines === null) {
+        exit(3);
+    }
+    foreach ($lines as $line) {
+        $nets[] = $line;
+    }
+}
+
+$recs = @dns_get_record($host, DNS_A | DNS_AAAA);
+if ($recs === false) {
+    exit(2);
+}
+$ips = [];
+foreach ($recs as $r) {
+    if (! empty($r['ip'])) {
+        $ips[] = $r['ip'];
+    }
+    if (! empty($r['ipv6'])) {
+        $ips[] = $r['ipv6'];
+    }
+}
+if ($ips === []) {
+    exit(2);
+}
+foreach ($ips as $ip) {
+    foreach ($nets as $cidr) {
+        if (ip_in_cidr($ip, $cidr)) {
+            exit(0);
+        }
+    }
+}
+exit(1);
+PHP
+    php "$tmp" "$host" 2>/dev/null
+    local code=$?
+    rm -f "$tmp"
+    return "$code"
+}
+
+write_nginx_cloudflare_realip_snippet() {
+    local SUDO="$1"
+    local dest="/etc/nginx/snippets/rust-template-cloudflare-real-ip.conf"
+    local tmp v4 v6
+    tmp="$(mktemp)"
+    v4="$(mktemp)"
+    v6="$(mktemp)"
+    if curl -fsSL "https://www.cloudflare.com/ips-v4/" -o "$v4" && curl -fsSL "https://www.cloudflare.com/ips-v6/" -o "$v6"; then
+        {
+            echo "# Cloudflare published ranges — CF-Connecting-IP (generated $(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                line="${line//$'\r'/}"
+                [[ -n "$line" ]] && echo "set_real_ip_from ${line};"
+            done <"$v4"
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                line="${line//$'\r'/}"
+                [[ -n "$line" ]] && echo "set_real_ip_from ${line};"
+            done <"$v6"
+            echo "real_ip_header CF-Connecting-IP;"
+            echo "real_ip_recursive on;"
+        } >"$tmp"
+    else
+        warn "Could not download Cloudflare IP lists; leaving a placeholder snippet (add ranges later)."
+        echo "# Cloudflare IP lists download failed — re-run or paste https://www.cloudflare.com/ips-v4/ and https://www.cloudflare.com/ips-v6/" >"$tmp"
+    fi
+    rm -f "$v4" "$v6"
+    $SUDO mkdir -p /etc/nginx/snippets
+    $SUDO cp "$tmp" "$dest"
+    rm -f "$tmp"
+    $SUDO chmod 644 "$dest"
+}
+
+write_nginx_forwarded_proto_map() {
+    local SUDO="$1"
+    local tmp
+    tmp="$(mktemp)"
+    cat >"$tmp" <<'MAP'
+# Prefer client proto from Cloudflare / upstream proxies when present (Flexible SSL → origin HTTP).
+map $http_x_forwarded_proto $rust_template_forwarded_proto {
+    ""      $scheme;
+    default $http_x_forwarded_proto;
+}
+MAP
+    $SUDO mkdir -p /etc/nginx/conf.d
+    $SUDO cp "$tmp" /etc/nginx/conf.d/99-rust-template-forwarded-proto.conf
+    rm -f "$tmp"
+    $SUDO chmod 644 /etc/nginx/conf.d/99-rust-template-forwarded-proto.conf
+}
+
+write_nginx_site_rust_template() {
+    local SUDO="$1"
+    local server_names="$2"
+    local tmp
+    tmp="$(mktemp)"
+    cat >"$tmp" <<NGX
+# Rust Template — reverse proxy to Next.js (install.sh)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${server_names};
+
+    include /etc/nginx/snippets/rust-template-cloudflare-real-ip.conf;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$rust_template_forwarded_proto;
+        proxy_read_timeout 86400;
+    }
+}
+NGX
+    $SUDO cp "$tmp" /etc/nginx/sites-available/rust-template
+    rm -f "$tmp"
+    $SUDO chmod 644 /etc/nginx/sites-available/rust-template
+    $SUDO ln -sf /etc/nginx/sites-available/rust-template /etc/nginx/sites-enabled/rust-template
+}
+
+resolve_certbot_email() {
+    local fe_host="$1"
+    local out="${CERTBOT_EMAIL_ARG:-${INSTALL_CERTBOT_EMAIL:-}}"
+    if [[ -n "$out" ]]; then
+        printf '%s' "$out"
+        return 0
+    fi
+    if [[ -n "${CI:-}" ]]; then
+        return 1
+    fi
+    if [[ -t 0 ]] && [[ -r /dev/tty ]]; then
+        out="$(ui_inputbox "Let’s Encrypt needs an email (renewal notices, account recovery).\\n\\nEmail:" 10 64 "admin@${fe_host}")" </dev/tty || true
+        [[ -n "${out// }" ]] || return 1
+        printf '%s' "$out"
+        return 0
+    fi
+    return 1
+}
+
+maybe_setup_nginx_domain_proxy() {
+    local root="$1"
+    local fe_url="$2"
+    [[ "$SKIP_NGINX" -eq 0 ]] || return 0
+    [[ "$SKIP_SYSTEM" -eq 0 ]] || {
+        warn "Skipping nginx setup (--skip-system): install nginx/certbot yourself or re-run without --skip-system."
+        return 0
+    }
+    need_cmd apt-get || return 0
+
+    local SUDO=""
+    [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
+    if [[ "$(id -u)" -ne 0 ]] && ! need_cmd sudo; then
+        warn "Need root or sudo to configure nginx; skipping."
+        return 0
+    fi
+
+    local fe_host
+    fe_host="$(public_url_host "$fe_url")"
+    [[ -n "$fe_host" ]] || return 0
+    if nginx_skip_for_host "$fe_host"; then
+        log "Skipping nginx (host is localhost, bare IP, or IPv6 literal — use a domain name for automatic nginx)."
+        return 0
+    fi
+
+    ui_step "Nginx reverse proxy (domain)"
+    local cf_det=0
+    cloudflare_proxy_dns_likely "$fe_host" 2>/dev/null || cf_det=$?
+    case "$cf_det" in
+        0) log "DNS suggests Cloudflare proxy: A/AAAA record(s) resolve to Cloudflare anycast ranges." ;;
+        1) log "DNS: hostname does not resolve to Cloudflare edge IPs (direct or other CDN). Cloudflare real_ip snippet is still installed; it only applies when the connecting client is a Cloudflare edge IP." ;;
+        2) warn "Could not resolve ${fe_host} — check DNS. Continuing with nginx + Cloudflare IP snippet." ;;
+        3) log "Cloudflare proxy DNS check skipped (could not download IP lists or PHP unavailable). Nginx still installs the Cloudflare real-IP snippet via curl when possible." ;;
+        *) warn "Unexpected Cloudflare check exit ${cf_det}; continuing with nginx." ;;
+    esac
+    if [[ "${INSTALL_CLOUDFLARE_PROXY:-}" =~ ^(1|true|yes)$ ]]; then
+        log "INSTALL_CLOUDFLARE_PROXY set: using Cloudflare edge IP lists for real_ip (see snippet on disk)."
+    fi
+
+    log "Installing nginx, certbot, python3-certbot-nginx…"
+    if ! $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx certbot python3-certbot-nginx python3 >/dev/null 2>&1; then
+        $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx python3 \
+            || {
+                warn "apt install nginx/certbot failed; skipping nginx setup."
+                return 0
+            }
+    fi
+
+    write_nginx_cloudflare_realip_snippet "$SUDO"
+    write_nginx_forwarded_proto_map "$SUDO"
+    write_nginx_site_rust_template "$SUDO" "$fe_host"
+
+    if $SUDO nginx -t 2>/dev/null; then
+        $SUDO systemctl enable nginx >/dev/null 2>&1 || true
+        $SUDO systemctl reload nginx 2>/dev/null || $SUDO service nginx reload 2>/dev/null || $SUDO systemctl restart nginx 2>/dev/null || true
+        log "nginx configured for ${fe_host} → http://127.0.0.1:3000 (Cloudflare real_ip snippet included)."
+    else
+        warn "nginx -t failed after writing site config; fix /etc/nginx and reload nginx manually."
+        return 0
+    fi
+
+    local site_token
+    site_token="$(openssl rand -hex 32 2>/dev/null || php -r 'echo bin2hex(random_bytes(16));')"
+    printf '%s\n' "$site_token" >"${root}/.install-domain-token"
+    chmod 600 "${root}/.install-domain-token" 2>/dev/null || true
+    log "Wrote domain setup token to ${root}/.install-domain-token (optional verification / automation secret)."
+
+    [[ "$INSTALL_SKIP_SSL" -eq 0 ]] || {
+        log "SSL skipped (--skip-ssl or INSTALL_SKIP_SSL)."
+        return 0
+    }
+
+    local cert_email
+    cert_email="$(resolve_certbot_email "$fe_host")" || {
+        warn "No certbot email (set INSTALL_CERTBOT_EMAIL or --certbot-email). Skipping Let’s Encrypt."
+        return 0
+    }
+
+    log "Requesting Let’s Encrypt certificate (certbot --nginx)…"
+    if $SUDO certbot --nginx -d "$fe_host" --non-interactive --agree-tos --email "$cert_email" --redirect; then
+        local fe_https="https://${fe_host}"
+        INSTALL_PUBLIC_FRONTEND_URL_RESULT="$fe_https"
+        log "TLS enabled. Updating .env public URLs to ${fe_https} …"
+        apply_backend_public_env "${root}/backend/.env" "$INTERNAL_LARAVEL_URL" "$fe_https"
+        apply_frontend_public_env "${root}/frontend/.env" "$INTERNAL_LARAVEL_URL" "$fe_https"
+        if [[ "$SKIP_FRONTEND_BUILD" -eq 0 ]]; then
+            log "Rebuilding frontend (NEXT_PUBLIC_* must match new URL)…"
+            (cd "${root}/frontend" && npm run build) || warn "npm run build failed after HTTPS switch; run it manually in frontend/."
+        else
+            warn "Frontend was built before HTTPS. Run: cd ${root}/frontend && npm run build"
+        fi
+        if [[ "$SKIP_START_SERVERS" -eq 0 ]] && [[ -f "${root}/.rust-template-frontend-serve.pid" ]]; then
+            warn "Restart Next.js to pick up .env changes: kill \$(cat ${root}/.rust-template-frontend-serve.pid) and start again, or reboot your process manager."
+        fi
+    else
+        warn "certbot failed (DNS must point here, port 80 reachable). HTTP reverse proxy still works; fix DNS/firewall and run: sudo certbot --nginx -d ${fe_host}"
     fi
 }
 
@@ -615,17 +1471,29 @@ while [[ $# -gt 0 ]]; do
         --branch) BRANCH="$2"; shift 2 ;;
         --dir) TARGET_DIR="$2"; shift 2 ;;
         --docker-db) USE_DOCKER_DB=1; shift ;;
-        --db-url) DB_URL_INPUT="$2"; shift 2 ;;
+        --no-docker-db) USE_DOCKER_DB=0; shift ;;
+        --db-url) DB_URL_INPUT="$2"; USE_DOCKER_DB=0; shift 2 ;;
         --skip-system) SKIP_SYSTEM=1; shift ;;
         --no-frontend-build) SKIP_FRONTEND_BUILD=1; shift ;;
+        --skip-start-servers) SKIP_START_SERVERS=1; shift ;;
+        --no-nginx) SKIP_NGINX=1; shift ;;
+        --skip-ssl) INSTALL_SKIP_SSL=1; shift ;;
+        --certbot-email) CERTBOT_EMAIL_ARG="$2"; shift 2 ;;
         --ioncube) FORCE_IONCUBE=1; shift ;;
         --skip-ioncube) SKIP_IONCUBE=1; shift ;;
         --migrate-mysql) MIGRATE_MYSQL=1; shift ;;
         --no-migrate-prompt) NO_MIGRATE_PROMPT=1; shift ;;
+        --backend-url) BACKEND_URL_ARG="$2"; shift 2 ;;
+        --frontend-url) FRONTEND_URL_ARG="$2"; shift 2 ;;
+        --paynow-key) PAYNOW_KEY_ARG="$2"; shift 2 ;;
+        --steam-secret) STEAM_SECRET_ARG="$2"; shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) die "Unknown option: $1 (try --help)" ;;
     esac
 done
+
+[[ "${INSTALL_SKIP_SSL:-}" =~ ^(1|true|yes)$ ]] && INSTALL_SKIP_SSL=1
+[[ "${SKIP_NGINX:-}" =~ ^(1|true|yes)$ ]] && SKIP_NGINX=1
 
 REPO_URL="${REPO_URL:-}"
 if [[ -z "$REPO_URL" ]]; then
@@ -634,9 +1502,12 @@ if [[ -z "$REPO_URL" ]]; then
     elif [[ -f "$(pwd)/backend/composer.json" ]] && [[ -f "$(pwd)/frontend/package.json" ]]; then
         TARGET_DIR="$(pwd)"
     else
-        die "Set --repo or RUST_TEMPLATE_REPO to your Git URL, use --dir PATH to an existing copy, or run this script from the template repository root."
+        REPO_URL="$DEFAULT_RUST_TEMPLATE_REPO"
+        log "Using default repository: ${REPO_URL}"
     fi
-else
+fi
+
+if [[ -n "$REPO_URL" ]]; then
     need_cmd git || die "git is required to clone the repository."
     if [[ -z "$TARGET_DIR" ]]; then
         TARGET_DIR="$DEFAULT_INSTALL_DIR"
@@ -654,12 +1525,20 @@ else
 fi
 
 ROOT="$(resolve_project_root)"
-log "Project root: ${ROOT} (install.sh v${SCRIPT_VERSION})"
+ui_section "${INSTALL_TITLE} — v${SCRIPT_VERSION}"
+log "Project root: ${ROOT}"
+HOST_IP="$(primary_ipv4)"
 
 ensure_debian_packages
 
 need_cmd php || die "PHP CLI not found. Install PHP 8.2 or newer."
 php_meets_minimum || die "PHP 8.2+ required (found: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo unknown))."
+
+resolve_public_urls "$HOST_IP"
+log "Laravel API (local): ${INTERNAL_LARAVEL_URL}"
+log "Public site URL:     ${PUBLIC_FRONTEND_URL}"
+
+resolve_paynow_steam
 
 need_cmd node || die "Node.js not found. Install Node 20+ (https://nodejs.org)."
 node_meets_minimum || die "Node.js 20+ required (found: $(node -v 2>/dev/null || echo unknown))."
@@ -690,7 +1569,7 @@ elif [[ "$USE_DOCKER_DB" -eq 1 ]]; then
     MYSQL_USER="$DOCKER_DB_USER"
     MYSQL_PASSWORD="$DOCKER_DB_PASS"
 else
-    die "Provide a database: use --docker-db for a local Docker MariaDB, or pass --db-url mysql://user:pass@host:3306/dbname"
+    die "Provide a database: default is Docker MariaDB (install Docker, or set RUST_TEMPLATE_USE_DOCKER_DB=0 and pass --db-url mysql://user:pass@host:3306/dbname)."
 fi
 
 BACKEND_ENV="${ROOT}/backend/.env"
@@ -698,15 +1577,28 @@ if [[ ! -f "$BACKEND_ENV" ]]; then
     cp "${ROOT}/backend/.env.example" "$BACKEND_ENV"
 fi
 apply_backend_db_env "$BACKEND_ENV" "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_DATABASE" "$MYSQL_USER" "$MYSQL_PASSWORD"
+apply_backend_public_env "$BACKEND_ENV" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"
+log "Writing backend PayNow / Steam (PAYNOW_KEY, NEXT_PUBLIC_PAYNOW_KEY, STEAM_SECRET)…"
+apply_backend_paynow_steam_env "$BACKEND_ENV" "$PAYNOW_KEY_VAL" "$STEAM_SECRET_VAL"
 
 maybe_migrate_mysql_into_target
 
 setup_backend "$ROOT"
-setup_frontend "$ROOT"
+setup_frontend "$ROOT" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"
 
 if [[ -d "${ROOT}/backend/storage/app" ]]; then
     touch "${ROOT}/backend/storage/app/.setup_wizard_pending" 2>/dev/null || true
 fi
+
+if [[ "$SKIP_START_SERVERS" -eq 0 ]]; then
+    start_backend_production "$ROOT"
+    start_frontend_production "$ROOT"
+else
+    log "Skipped starting servers (--skip-start-servers)."
+fi
+
+maybe_setup_nginx_domain_proxy "$ROOT" "$PUBLIC_FRONTEND_URL"
+[[ -n "${INSTALL_PUBLIC_FRONTEND_URL_RESULT:-}" ]] && PUBLIC_FRONTEND_URL="$INSTALL_PUBLIC_FRONTEND_URL_RESULT"
 
 cat <<EOF
 
@@ -714,17 +1606,23 @@ cat <<EOF
 Install finished.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Backend (Laravel):  cd ${ROOT}/backend && php artisan serve
-  Frontend (Next.js): cd ${ROOT}/frontend && npm run dev
+  Site:                 ${PUBLIC_FRONTEND_URL}
+  Laravel API (local):  ${INTERNAL_LARAVEL_URL}
 
-  Open the app (dev): http://localhost:3000  (API proxied; backend default http://127.0.0.1:8000)
-
-  First-time setup wizard: http://localhost:3000/setup
+  First-time setup wizard: ${PUBLIC_FRONTEND_URL}/setup
     (Complete license, Steam, Discord, PayNow, BattleMetrics, and RustMaps steps there.)
 
-  You can still configure Discord, Steam, PayNow, R2, etc. manually in:
-    - ${ROOT}/backend/.env
-    - ${ROOT}/frontend/.env
+  Logs / PIDs:
+    - ${ROOT}/backend/storage/logs/install-artisan-serve.log  (backend PID: ${ROOT}/.rust-template-backend-serve.pid)
+    - ${ROOT}/frontend/install-next-start.log               (frontend PID: ${ROOT}/.rust-template-frontend-serve.pid)
+
+  Restart later (production-style, all interfaces):
+    cd ${ROOT}/backend && php artisan serve --host=0.0.0.0 --port=8000
+    cd ${ROOT}/frontend && npm run start -- --hostname 0.0.0.0 --port 3000
+
+  Nginx (when a domain hostname was used): /etc/nginx/sites-available/rust-template
+    Cloudflare real IP snippet: /etc/nginx/snippets/rust-template-cloudflare-real-ip.conf
+    Optional site token: ${ROOT}/.install-domain-token
 
 EOF
 
@@ -736,43 +1634,3 @@ if [[ "$USE_DOCKER_DB" -eq 1 ]]; then
 
 EOF
 fi
-
-cat <<'COOLIFY'
-
-  Coolify — replacing the **old** Rust Template
-  ─────────────────────────────────────────────
-  If the previous site was deployed with Coolify on this VPS:
-
-  • In the Coolify dashboard, **remove or delete the old Rust Template
-    application** (that specific app / resource — not Coolify itself). Deploy
-    the new template as a **new** application so builds, env vars, and volumes
-    stay clean.
-
-  • Use the **Dockerfile** build pack (not Nixpacks) so you can install PHP
-    extensions (ionCube Loader). Docs: https://coolify.io/docs — Laravel +
-    Dockerfile guide: https://alexcavender.com/blog/deploy-laravel-coolify-dockerfile
-
-  • ionCube in Docker (example with mlocati/docker-php-extension-installer):
-
-      ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
-      RUN chmod +x /usr/local/bin/install-php-extensions && install-php-extensions ioncube_loader
-
-    If that fails, install the matching ioncube_loader_lin_X.Y.so manually
-    (zend_extension= in a conf.d file), same idea as this script on Ubuntu.
-
-  Database (Coolify MySQL or any MySQL server)
-  ────────────────────────────────────────────
-  • If your MySQL server has **several databases**, decide which one held the
-    old Rust Template data — only migrate **that** schema.
-
-  • Easiest on a plain VPS path: re-run this installer with **--migrate-mysql**
-    or answer **yes** when asked; you can **pick the source database** from a
-    list when more than one exists. That copies into the **target** database
-    configured for this install (target tables are replaced — type YES to confirm).
-
-  • On Coolify, you can instead use mysqldump from the old DB and import into
-    the new app’s database, or attach the same MySQL service and point the new
-    app at a **new empty** database, then import. After import, run
-    php artisan migrate --force where your Laravel app runs.
-
-COOLIFY

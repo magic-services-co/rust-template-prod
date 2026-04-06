@@ -20,4 +20,4 @@ From the **private** source repository:
 
 ## Migrating from the old Rust Template
 
-Use `scripts/install.sh` with `--migrate-mysql` (or answer the prompt on an interactive terminal) to copy one source database into the target DB. On Coolify, remove the old application first, then deploy the new one; import MySQL data separately if not using the host install script.
+Use `scripts/install.sh` with `--migrate-mysql` (or answer the prompt on an interactive terminal) to copy one source database into the target DB.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { backendApi } from "@/lib/api";
+import { fetchSanctumCsrfCookie, xsrfHeaderInit } from "@/lib/sanctum-csrf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -81,10 +82,15 @@ export default function SetupPage() {
     setBusy(true);
     setFormError(null);
     try {
+      await fetchSanctumCsrfCookie();
       const res = await fetch(backendApi(path), {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...xsrfHeaderInit(),
+        },
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));

@@ -7,15 +7,17 @@ const BACKEND_URL =
 const AUTH_COOKIE_NAME = 'auth_token';
 
 const FORWARD_HEADERS = [
-  'authorization',
-  'cookie',
-  'content-type',
-  'accept',
-  'accept-language',
-  'referer',
-  'x-requested-with',
-  'x-auth-token',
-  'x-api-key',
+    'authorization',
+    'cookie',
+    'content-type',
+    'accept',
+    'accept-language',
+    'referer',
+    'origin',
+    'x-requested-with',
+    'x-xsrf-token',
+    'x-auth-token',
+    'x-api-key',
 ];
 
 function getAuthTokenFromRequest(request: NextRequest): string | null {
