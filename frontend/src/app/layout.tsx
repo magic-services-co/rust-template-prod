@@ -10,6 +10,7 @@ import { ConditionalAnalytics } from "@/components/conditional-analytics";
 import { UserActivityTracker } from "@/components/user-activity-tracker";
 import { ClientThemeInjector } from "@/components/theme/client-theme-injector";
 import { PageElementApplier } from "@/components/theme/page-element-applier";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -124,13 +125,15 @@ export default async function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ClientThemeInjector />
-        <Providers>
-          <PageElementApplier />
-          {children ?? null}
-          <CookieConsentBanner />
-          <UserActivityTracker />
-          {/* https://images.squarespace-cdn.com/content/v1/627cb6fa4355783e5e375440/f1083091-79f6-4750-b867-e1bc587dfca0/rust_12_minicopter.jpg */}
-        </Providers>
+        <NuqsAdapter>
+          <Providers>
+            <PageElementApplier />
+            {children ?? null}
+            <CookieConsentBanner />
+            <UserActivityTracker />
+            {/* https://images.squarespace-cdn.com/content/v1/627cb6fa4355783e5e375440/f1083091-79f6-4750-b867-e1bc587dfca0/rust_12_minicopter.jpg */}
+          </Providers>
+        </NuqsAdapter>
         <ConditionalAnalytics />
         {process.env.NEXT_PUBLIC_FIGMA_CAPTURE === "1" ? (
           <Script
