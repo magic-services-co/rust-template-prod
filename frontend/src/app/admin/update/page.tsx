@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type ReleasePayload = {
   currentVersion?: string;
@@ -18,9 +19,34 @@ type ReleasePayload = {
   localReleasedAt?: string | null;
   latestReleasedAt?: string | null;
   latestNotes?: string[];
+  latestAdded?: string[];
+  latestChanged?: string[];
+  latestRemoved?: string[];
   manifestUrl?: string;
   autoUpdateTemplate?: boolean;
 };
+
+function ChangelogSection({
+  title,
+  items,
+  titleClassName,
+}: {
+  title: string;
+  items: string[];
+  titleClassName?: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h3 className={cn("mb-2 text-sm font-medium", titleClassName)}>{title}</h3>
+      <ul className="text-muted-foreground list-inside list-disc text-sm">
+        {items.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function AdminUpdatePage() {
   const queryClient = useQueryClient();
@@ -83,7 +109,11 @@ export default function AdminUpdatePage() {
   });
 
   const r = releaseQuery.data;
-  const notes = r?.latestNotes ?? [];
+  const hasAnyChangelog =
+    (r?.latestNotes?.length ?? 0) > 0 ||
+    (r?.latestAdded?.length ?? 0) > 0 ||
+    (r?.latestChanged?.length ?? 0) > 0 ||
+    (r?.latestRemoved?.length ?? 0) > 0;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -122,14 +152,27 @@ export default function AdminUpdatePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {notes.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Notes in latest manifest</h3>
-              <ul className="text-muted-foreground list-inside list-disc text-sm">
-                {notes.map((line, i) => (
-                  <li key={i}>{line}</li>
-                ))}
-              </ul>
+          {hasAnyChangelog && (
+            <div className="space-y-5">
+              <p className="text-muted-foreground text-xs">
+                From the published <code className="text-xs">config/release.json</code> (same shape as in this repo).
+              </p>
+              <ChangelogSection title="Notes" items={r?.latestNotes ?? []} />
+              <ChangelogSection
+                title="Added"
+                items={r?.latestAdded ?? []}
+                titleClassName="text-green-600 dark:text-green-400"
+              />
+              <ChangelogSection
+                title="Changed"
+                items={r?.latestChanged ?? []}
+                titleClassName="text-sky-600 dark:text-sky-400"
+              />
+              <ChangelogSection
+                title="Removed"
+                items={r?.latestRemoved ?? []}
+                titleClassName="text-destructive"
+              />
             </div>
           )}
 
@@ -164,12 +207,6 @@ export default function AdminUpdatePage() {
               <p className="text-muted-foreground text-xs">Already on the latest published version.</p>
             )}
           </div>
-
-          {r?.manifestUrl ? (
-            <p className="text-muted-foreground text-xs break-all">
-              Manifest URL: {r.manifestUrl}
-            </p>
-          ) : null}
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,17 @@
   "version": "2.0.0",
   "releasedAt": "2026-04-04",
   "notes": [
-    "Bump this file on each rust-template-prod release; admins compare against the published manifest URL."
+    "General / maintenance items that are not add/change/remove (optional)."
+  ],
+  "added": [
+    "Example: Admin → Template update page with release manifest and optional auto-updates.",
+    "Example: config/release.json shipped with production builds for version comparison."
+  ],
+  "changed": [
+    "Example: Steam OpenID realm aligned with public FRONTEND_URL behind proxies.",
+    "Example: Setup wizard can import data from another MySQL database via mysql:// URL."
+  ],
+  "removed": [
+    "Example: install.sh interactive MySQL migration prompt (use /setup → Previous install instead)."
   ]
 }
