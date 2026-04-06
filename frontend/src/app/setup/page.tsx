@@ -18,10 +18,12 @@ type SetupStatus = {
   hasSiteLicense?: boolean;
   steamConfigured?: boolean;
   ownerClaimed?: boolean;
+  importStepResolved?: boolean;
 };
 
 const STEPS = [
   "License",
+  "Previous install",
   "Steam",
   "Sign in",
   "Discord",
@@ -50,6 +52,7 @@ export default function SetupPage() {
   const [bmAuthorizeUrl, setBmAuthorizeUrl] = useState("");
   const [rustmapsApiKey, setRustmapsApiKey] = useState("");
   const [rustmapsOrgId, setRustmapsOrgId] = useState("");
+  const [importDatabaseUrl, setImportDatabaseUrl] = useState("");
 
   const refreshStatus = useCallback(async () => {
     setLoadError(null);
@@ -79,9 +82,16 @@ export default function SetupPage() {
   useEffect(() => {
     if (!status?.wizardPending) return;
     if (status.hasSiteLicense) setStep((s) => Math.max(s, 1));
-    if (status.steamConfigured) setStep((s) => Math.max(s, 2));
-    if (status.ownerClaimed) setStep((s) => Math.max(s, 3));
-  }, [status?.wizardPending, status?.hasSiteLicense, status?.steamConfigured, status?.ownerClaimed]);
+    if (status.hasSiteLicense && status.importStepResolved) setStep((s) => Math.max(s, 2));
+    if (status.steamConfigured) setStep((s) => Math.max(s, 3));
+    if (status.ownerClaimed) setStep((s) => Math.max(s, 4));
+  }, [
+    status?.wizardPending,
+    status?.hasSiteLicense,
+    status?.importStepResolved,
+    status?.steamConfigured,
+    status?.ownerClaimed,
+  ]);
 
   async function postJson(path: string, body: Record<string, unknown>) {
     setBusy(true);
@@ -161,15 +171,17 @@ export default function SetupPage() {
             <CardDescription>
               {step === 0 &&
                 "Activate with your site license key. License server URL and API key are set in the backend (config/license_server.php)."}
-              {step === 1 && "Steam Web API key for sign-in (stored encrypted in the database)."}
-              {step === 2 &&
+              {step === 1 &&
+                "If you already ran this template elsewhere, you can copy MySQL data from that server into this database. Otherwise skip this step."}
+              {step === 2 && "Steam Web API key for sign-in (stored encrypted in the database)."}
+              {step === 3 &&
                 "Same sign-in as the rest of the site. The first Steam account on this install becomes Owner."}
-              {step === 3 && "Discord application ID, OAuth secret, and bot token."}
-              {step === 4 && "PayNow store identifier and API key."}
-              {step === 5 &&
+              {step === 4 && "Discord application ID, OAuth secret, and bot token."}
+              {step === 5 && "PayNow store identifier and API key."}
+              {step === 6 &&
                 "BattleMetrics organization API token, org ID, and OAuth app URL (for RCON / org tools)."}
-              {step === 6 && "RustMaps API key for map voting and previews (optional org ID)."}
-              {step === 7 && "Mark setup complete and open the site."}
+              {step === 7 && "RustMaps API key for map voting and previews (optional org ID)."}
+              {step === 8 && "Mark setup complete and open the site."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -211,6 +223,69 @@ export default function SetupPage() {
 
             {step === 1 && (
               <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  This will <span className="text-foreground font-medium">replace</span> data in this install’s
+                  database with rows from the old server (same template). Your{" "}
+                  <span className="text-foreground font-medium">license key you just entered is kept</span>.
+                  Encrypted fields only work if <code className="text-xs">APP_KEY</code> matches the old server.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="flex-1"
+                    disabled={busy}
+                    onClick={async () => {
+                      const data = await postJson("setup/import-skip", {});
+                      if (data && (data as { success?: boolean }).success) {
+                        await refreshStatus();
+                        setStep(2);
+                      }
+                    }}
+                  >
+                    No — this is a new install
+                  </Button>
+                </div>
+                <div className="border-border/60 space-y-3 rounded-lg border border-dashed p-4">
+                  <Label htmlFor="import-db-url" className="text-foreground">
+                    Yes — source MySQL URL
+                  </Label>
+                  <Input
+                    id="import-db-url"
+                    type="password"
+                    value={importDatabaseUrl}
+                    onChange={(e) => setImportDatabaseUrl(e.target.value)}
+                    placeholder="mysql://user:password@host:3306/database_name"
+                    className="font-mono text-xs"
+                    autoComplete="off"
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    URL-encode special characters in the password. Source must be this same product (tables like{" "}
+                    <code className="text-xs">User</code>, <code className="text-xs">SiteSettings</code>).
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    disabled={busy || !importDatabaseUrl.trim()}
+                    onClick={async () => {
+                      const data = await postJson("setup/migrate-database", {
+                        databaseUrl: importDatabaseUrl.trim(),
+                      });
+                      if (data && (data as { success?: boolean }).success) {
+                        await refreshStatus();
+                        setStep(2);
+                      }
+                    }}
+                  >
+                    Import data from that database
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="steam-secret">Steam Web API key</Label>
                   <Input
@@ -230,7 +305,7 @@ export default function SetupPage() {
                     const data = await postJson("setup/steam-secret", { steamSecret: steamSecret.trim() });
                     if (data && (data as { success?: boolean }).success) {
                       await refreshStatus();
-                      setStep(2);
+                      setStep(3);
                     }
                   }}
                 >
@@ -239,7 +314,7 @@ export default function SetupPage() {
               </div>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <div className="space-y-4">
                 <Button
                   type="button"
@@ -268,7 +343,7 @@ export default function SetupPage() {
                     }).then((r) => r.json());
                     const user = s?.user;
                     if (user?.steamId) {
-                      setStep(3);
+                      setStep(4);
                     } else {
                       setFormError("No Steam session yet. Complete Steam sign-in, then click again.");
                     }
@@ -279,7 +354,7 @@ export default function SetupPage() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="dc-id">Discord application ID</Label>
@@ -324,7 +399,7 @@ export default function SetupPage() {
                       clientSecret: discordClientSecret.trim(),
                       botToken: discordBotToken.trim(),
                     });
-                    if (data && (data as { success?: boolean }).success) setStep(4);
+                    if (data && (data as { success?: boolean }).success) setStep(5);
                   }}
                 >
                   Continue
@@ -332,7 +407,7 @@ export default function SetupPage() {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="pn-store">PayNow store ID</Label>
@@ -363,7 +438,7 @@ export default function SetupPage() {
                       storeId: paynowStoreId.trim(),
                       apiKey: paynowApiKey.trim(),
                     });
-                    if (data && (data as { success?: boolean }).success) setStep(5);
+                    if (data && (data as { success?: boolean }).success) setStep(6);
                   }}
                 >
                   Continue
@@ -371,7 +446,7 @@ export default function SetupPage() {
               </div>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="bm-org">BattleMetrics organization ID</Label>
@@ -420,19 +495,19 @@ export default function SetupPage() {
                         apiKey: bmApiKey.trim(),
                         oauthAuthorizeUrl: bmAuthorizeUrl.trim() || undefined,
                       });
-                      if (data && (data as { success?: boolean }).success) setStep(6);
+                      if (data && (data as { success?: boolean }).success) setStep(7);
                     }}
                   >
                     Continue
                   </Button>
-                  <Button type="button" variant="ghost" disabled={busy} onClick={() => setStep(6)}>
+                  <Button type="button" variant="ghost" disabled={busy} onClick={() => setStep(7)}>
                     Skip BattleMetrics
                   </Button>
                 </div>
               </div>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="rm-key">RustMaps API key</Label>
@@ -464,19 +539,19 @@ export default function SetupPage() {
                         apiKey: rustmapsApiKey.trim(),
                         orgId: rustmapsOrgId.trim() || undefined,
                       });
-                      if (data && (data as { success?: boolean }).success) setStep(7);
+                      if (data && (data as { success?: boolean }).success) setStep(8);
                     }}
                   >
                     Continue
                   </Button>
-                  <Button type="button" variant="ghost" disabled={busy} onClick={() => setStep(7)}>
+                  <Button type="button" variant="ghost" disabled={busy} onClick={() => setStep(8)}>
                     Skip RustMaps
                   </Button>
                 </div>
               </div>
             )}
 
-            {step === 7 && (
+            {step === 8 && (
               <div className="space-y-4">
                 <p className="text-muted-foreground text-sm">
                   This clears the install pending flag. You can change any of these values later in the admin

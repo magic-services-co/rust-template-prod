@@ -73,8 +73,6 @@ PAYNOW_KEY_ARG=""
 STEAM_SECRET_ARG=""
 SKIP_IONCUBE=0
 FORCE_IONCUBE=0
-MIGRATE_MYSQL=0
-NO_MIGRATE_PROMPT=0
 SKIP_NGINX=0
 INSTALL_SKIP_SSL=0
 CERTBOT_EMAIL_ARG=""
@@ -93,8 +91,6 @@ Usage: install.sh [options]
   --db-url URL        mysql://user:pass@host:port/database (implies no Docker DB for this run)
   --ioncube           Always try to install ionCube Loader (Debian/Ubuntu + sudo)
   --skip-ioncube      Never install ionCube Loader
-  --migrate-mysql     Copy data from an existing MySQL/MariaDB into the target DB (interactive)
-  --no-migrate-prompt Do not ask whether to migrate (non-interactive installs skip migration unless --migrate-mysql)
   --skip-system       Do not try to install OS packages (apt)
   --no-frontend-build Skip `npm run build` (faster; run later in frontend/)
   --skip-start-servers Do not start Laravel / Next.js after install (use with systemd, etc.)
@@ -133,6 +129,7 @@ NEXTAUTH_SECRET is kept identical in backend/.env and frontend/.env.
 
 PayNow and Steam are configured in the site setup wizard (/setup on your site URL), not by this installer.
 Optional: --paynow-key / --steam-secret or INSTALL_PAYNOW_KEY / INSTALL_STEAM_SECRET to pre-seed .env.
+Copying data from an older MySQL install of this template is done in /setup (Previous install step), not here.
 
 After install, Laravel and Next.js start in production style (0.0.0.0) unless --skip-start-servers.
 
@@ -315,115 +312,6 @@ ensure_debian_packages() {
                 warn "Node 20 install failed; install Node 20+ from https://nodejs.org"
         fi
     fi
-}
-
-prompt_yes_no() {
-    local prompt="$1"
-    if use_whiptail_ui; then
-        whiptail --title "$INSTALL_TITLE" --yesno "$prompt" 12 70 3>&1 1>&2 2>&3 </dev/tty
-        return $?
-    fi
-    local yn yl
-    ui_section "$prompt"
-    echo -ne "${GRAY}[y/N]${NC} " >&2
-    read -r yn || return 1
-    yl="$(printf '%s' "$yn" | tr '[:upper:]' '[:lower:]')"
-    case "$yl" in
-        y|yes) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-ensure_mysql_client_tools() {
-    need_cmd mysql || die "mysql client not found. On Debian/Ubuntu: sudo apt install mariadb-client"
-    need_cmd mysqldump || die "mysqldump not found. On Debian/Ubuntu: sudo apt install mariadb-client"
-}
-
-mysql_list_user_databases() {
-    local host="$1" port="$2" user="$3" pass="$4"
-    MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SHOW DATABASES" 2>/dev/null \
-        | grep -v -E '^(information_schema|mysql|performance_schema|sys)$' | grep -v '^$' || true
-}
-
-mysql_test_connection() {
-    local host="$1" port="$2" user="$3" pass="$4"
-    MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SELECT 1" >/dev/null 2>&1
-}
-
-maybe_migrate_mysql_into_target() {
-    local do_migrate=0
-    if [[ "$MIGRATE_MYSQL" -eq 1 ]]; then
-        do_migrate=1
-    elif [[ "$NO_MIGRATE_PROMPT" -eq 1 ]] || [[ "${CI:-}" == "true" ]] || [[ "${CI:-}" == "1" ]]; then
-        return 0
-    elif [[ -t 0 ]] && [[ -t 1 ]] && prompt_yes_no "Copy data from an existing MySQL/MariaDB database into this install’s target database?"; then
-        do_migrate=1
-    fi
-    [[ "$do_migrate" -eq 1 ]] || return 0
-
-    ensure_mysql_client_tools
-
-    local src_host src_port src_user src_pass
-    log "MySQL data migration — connect to the **source** server (old Rust Template DB, or any MySQL you want to copy from)."
-    read -r -p "[install] Source MySQL host [127.0.0.1]: " src_host
-    src_host="${src_host:-127.0.0.1}"
-    read -r -p "[install] Source MySQL port [3306]: " src_port
-    src_port="${src_port:-3306}"
-    read -r -p "[install] Source MySQL user: " src_user
-    [[ -n "$src_user" ]] || die "Source user is required."
-    read -r -s -p "[install] Source MySQL password: " src_pass
-    echo ""
-    mysql_test_connection "$src_host" "$src_port" "$src_user" "$src_pass" || die "Cannot connect to source MySQL. Check host, port, user, and password."
-
-    local -a dbs=()
-    while IFS= read -r line; do
-        [[ -n "$line" ]] && dbs+=("$line")
-    done < <(mysql_list_user_databases "$src_host" "$src_port" "$src_user" "$src_pass")
-
-    [[ "${#dbs[@]}" -gt 0 ]] || die "No user databases found on the source (only system schemas). Nothing to migrate."
-
-    local src_db=""
-    if [[ "${#dbs[@]}" -eq 1 ]]; then
-        src_db="${dbs[0]}"
-        log "Only one user database on the source: ${src_db}"
-        if ! prompt_yes_no "Use this database as the copy source?"; then
-            die "Migration cancelled."
-        fi
-    else
-        log "Several user databases found on the source. Pick which one to copy **from**:"
-        local i
-        for i in "${!dbs[@]}"; do
-            printf '  %d) %s\n' "$((i + 1))" "${dbs[$i]}"
-        done
-        local pick
-        while true; do
-            read -r -p "[install] Enter number (1-${#dbs[@]}): " pick
-            if [[ "$pick" =~ ^[0-9]+$ ]] && [[ "$pick" -ge 1 ]] && [[ "$pick" -le "${#dbs[@]}" ]]; then
-                src_db="${dbs[$((pick - 1))]}"
-                break
-            fi
-            warn "Invalid choice."
-        done
-    fi
-
-    if [[ "$src_host" == "$MYSQL_HOST" ]] && [[ "$src_port" == "$MYSQL_PORT" ]] && [[ "$src_db" == "$MYSQL_DATABASE" ]]; then
-        die "Source and target are the same database. Pick a different target in --db-url or choose another source."
-    fi
-
-    mysql_test_connection "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_USER" "$MYSQL_PASSWORD" || die "Cannot connect to **target** MySQL (the database configured for this install)."
-
-    warn "This will **replace all tables** in the target database:"
-    warn "  ${MYSQL_DATABASE} on ${MYSQL_HOST}:${MYSQL_PORT}"
-    read -r -p "[install] Type YES to continue: " confirm
-    [[ "$confirm" == "YES" ]] || die "Migration cancelled."
-
-    log "Dumping ${src_db} from ${src_host}:${src_port} and importing into ${MYSQL_DATABASE}…"
-    if ! MYSQL_PWD="$src_pass" mysqldump -h"$src_host" -P"$src_port" -u"$src_user" \
-        --single-transaction --quick --routines --events --set-gtid-purged=OFF \
-        "$src_db" | MYSQL_PWD="$MYSQL_PASSWORD" mysql -h"$MYSQL_HOST" -P"$MYSQL_PORT" -u"$MYSQL_USER" "$MYSQL_DATABASE"; then
-        die "mysqldump or mysql import failed."
-    fi
-    log "MySQL data migration finished."
 }
 
 backend_appears_ioncube_encoded() {
@@ -1481,8 +1369,6 @@ while [[ $# -gt 0 ]]; do
         --certbot-email) CERTBOT_EMAIL_ARG="$2"; shift 2 ;;
         --ioncube) FORCE_IONCUBE=1; shift ;;
         --skip-ioncube) SKIP_IONCUBE=1; shift ;;
-        --migrate-mysql) MIGRATE_MYSQL=1; shift ;;
-        --no-migrate-prompt) NO_MIGRATE_PROMPT=1; shift ;;
         --backend-url) BACKEND_URL_ARG="$2"; shift 2 ;;
         --frontend-url) FRONTEND_URL_ARG="$2"; shift 2 ;;
         --paynow-key) PAYNOW_KEY_ARG="$2"; shift 2 ;;
@@ -1584,8 +1470,6 @@ if [[ -n "${PAYNOW_KEY_VAL:-}" || -n "${STEAM_SECRET_VAL:-}" ]]; then
 else
     log "Skipping PayNow / Steam in backend/.env (configure in /setup wizard)."
 fi
-
-maybe_migrate_mysql_into_target
 
 setup_backend "$ROOT"
 setup_frontend "$ROOT" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"

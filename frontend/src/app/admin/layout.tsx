@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/admin/navigation/app-sidebar"
 import DynamicBreadcrumbs from "@/components/dynamic-breadcrumbs"
 import { AdminPageViewLogger } from "@/components/admin/admin-page-view-logger"
 import { AdminActionLogger } from "@/components/admin/admin-action-logger"
+import { AdminReleaseBadge } from "@/components/admin/admin-release-badge"
 import { Suspense } from "react"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
@@ -63,7 +64,7 @@ export default async function DashboardLayout({
                             <DynamicBreadcrumbs />
                         </Suspense>
                         <Separator orientation="vertical" className="mx-2 h-4" />
-                        <span className="text-sm text-muted-foreground">v2.0.0</span>
+                        <AdminReleaseBadge />
                     </div>
                 </header>
                 <div className="flex flex-1 flex-col gap-4 p-4 py-6">

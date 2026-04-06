@@ -166,6 +166,10 @@ const data = {
           url: "system-control",
         },
         {
+          title: "Template update",
+          url: "/update",
+        },
+        {
           title: "Addons",
           url: "system-control/addons",
         },

@@ -20,4 +20,4 @@ From the **private** source repository:
 
 ## Migrating from the old Rust Template
 
-Use `scripts/install.sh` with `--migrate-mysql` (or answer the prompt on an interactive terminal) to copy one source database into the target DB.
+Use the site **/setup** wizard (“Previous install” step) to copy data from an older MySQL database of this template into the target database.
