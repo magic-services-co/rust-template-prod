@@ -107,6 +107,7 @@ Environment:
   RUST_TEMPLATE_REPO   Same as --repo (default prod repo if not in template tree)
   RUST_TEMPLATE_BRANCH Same as --branch
   RUST_TEMPLATE_USE_DOCKER_DB  Set to 0/false/no to skip Docker MariaDB (use --db-url)
+  DOCKER_DB_PASS               App user password for Docker MariaDB (default: random hex on first container create)
   INSTALL_IONCUBE=1     Same as --ioncube
   CI=1                  Disables interactive prompts (whiptail / read); use INSTALL_* env vars
   INSTALL_BACKEND_URL   Ignored if set (backward compatibility). Use INSTALL_FRONTEND_URL only.
@@ -479,6 +480,19 @@ ensure_docker_for_mysql() {
 
     need_cmd docker || die "docker.io installed but docker CLI not found. Open a new shell or run hash -r."
     docker info >/dev/null 2>&1 || die "Docker is installed but the daemon is not running. Try: sudo systemctl start docker"
+}
+
+maybe_generate_docker_mysql_password() {
+    [[ "$USE_DOCKER_DB" -eq 1 ]] || return 0
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$DOCKER_MYSQL_CONTAINER"; then
+        return 0
+    fi
+    if [[ "$DOCKER_DB_PASS" != "template_secret_change_me" ]]; then
+        return 0
+    fi
+    need_cmd openssl || die "openssl is required to generate a random MariaDB password."
+    DOCKER_DB_PASS="$(openssl rand -hex 24)"
+    log "Generated random MariaDB password for new Docker container (${DOCKER_MYSQL_CONTAINER})."
 }
 
 start_docker_mysql() {
@@ -1448,6 +1462,7 @@ MYSQL_PASSWORD=""
 if [[ -n "$DB_URL_INPUT" ]]; then
     parse_mysql_url "$DB_URL_INPUT"
 elif [[ "$USE_DOCKER_DB" -eq 1 ]]; then
+    maybe_generate_docker_mysql_password
     start_docker_mysql
     MYSQL_HOST="127.0.0.1"
     MYSQL_PORT="$DOCKER_MYSQL_PORT"
@@ -1463,6 +1478,20 @@ if [[ ! -f "$BACKEND_ENV" ]]; then
     cp "${ROOT}/backend/.env.example" "$BACKEND_ENV"
 fi
 apply_backend_db_env "$BACKEND_ENV" "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_DATABASE" "$MYSQL_USER" "$MYSQL_PASSWORD"
+if [[ "$USE_DOCKER_DB" -eq 1 ]]; then
+    (
+        umask 077
+        cat >"${ROOT}/.install-docker-mysql" <<MYSQLCRED
+# Written by install.sh — matches backend/.env DB_* for the Docker MariaDB container.
+DB_HOST=${MYSQL_HOST}
+DB_PORT=${MYSQL_PORT}
+DB_DATABASE=${MYSQL_DATABASE}
+DB_USERNAME=${MYSQL_USER}
+DB_PASSWORD=${MYSQL_PASSWORD}
+MARIADB_ROOT_PASSWORD=${MYSQL_PASSWORD}_root
+MYSQLCRED
+    )
+fi
 apply_backend_public_env "$BACKEND_ENV" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"
 if [[ -n "${PAYNOW_KEY_VAL:-}" || -n "${STEAM_SECRET_VAL:-}" ]]; then
     log "Writing optional PayNow / Steam keys to backend/.env (skipped if unset — use /setup wizard)…"
@@ -1517,6 +1546,7 @@ EOF
 if [[ "$USE_DOCKER_DB" -eq 1 ]]; then
     cat <<EOF
   MySQL (Docker): container ${DOCKER_MYSQL_CONTAINER}, port ${DOCKER_MYSQL_PORT}
+    Credentials: ${ROOT}/.install-docker-mysql (mode 600; same values as backend/.env DB_*)
     Stop: docker stop ${DOCKER_MYSQL_CONTAINER}
     Logs: docker logs -f ${DOCKER_MYSQL_CONTAINER}
 

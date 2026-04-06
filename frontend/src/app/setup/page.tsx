@@ -79,20 +79,6 @@ export default function SetupPage() {
     void fetchSanctumCsrfCookie();
   }, [status?.wizardPending]);
 
-  useEffect(() => {
-    if (!status?.wizardPending) return;
-    if (status.hasSiteLicense) setStep((s) => Math.max(s, 1));
-    if (status.hasSiteLicense && status.importStepResolved) setStep((s) => Math.max(s, 2));
-    if (status.steamConfigured) setStep((s) => Math.max(s, 3));
-    if (status.ownerClaimed) setStep((s) => Math.max(s, 4));
-  }, [
-    status?.wizardPending,
-    status?.hasSiteLicense,
-    status?.importStepResolved,
-    status?.steamConfigured,
-    status?.ownerClaimed,
-  ]);
-
   async function postJson(path: string, body: Record<string, unknown>) {
     setBusy(true);
     setFormError(null);

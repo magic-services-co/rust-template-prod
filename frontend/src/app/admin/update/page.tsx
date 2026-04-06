@@ -154,9 +154,6 @@ export default function AdminUpdatePage() {
         <CardContent className="space-y-6">
           {hasAnyChangelog && (
             <div className="space-y-5">
-              <p className="text-muted-foreground text-xs">
-                From the published <code className="text-xs">config/release.json</code> (same shape as in this repo).
-              </p>
               <ChangelogSection title="Notes" items={r?.latestNotes ?? []} />
               <ChangelogSection
                 title="Added"
