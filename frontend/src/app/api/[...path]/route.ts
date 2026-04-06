@@ -16,6 +16,7 @@ const FORWARD_HEADERS = [
     'origin',
     'x-requested-with',
     'x-xsrf-token',
+    'x-csrf-token',
     'x-auth-token',
     'x-api-key',
 ];

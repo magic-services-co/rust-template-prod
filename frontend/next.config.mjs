@@ -66,10 +66,6 @@ const nextConfig = {
                 protocol: 'https',
             },
             {
-                hostname: 'cdn.unityrustservers.net',
-                protocol: 'https',
-            },
-            {
                 hostname: 'cdn.rusticon.co',
                 protocol: 'https',
             },

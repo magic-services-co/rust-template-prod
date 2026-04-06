@@ -15,7 +15,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.4.1"
 INSTALL_TITLE="Magic Rust Template Installer"
 
 WHITE=$'\e[0;37m'
@@ -1590,15 +1590,16 @@ if [[ -d "${ROOT}/backend/storage/app" ]]; then
     touch "${ROOT}/backend/storage/app/.setup_wizard_pending" 2>/dev/null || true
 fi
 
+# Nginx + TLS before first Next start: avoids restarting Next right after it comes up when certbot rewrites .env and rebuilds.
+maybe_setup_nginx_domain_proxy "$ROOT" "$PUBLIC_FRONTEND_URL"
+[[ -n "${INSTALL_PUBLIC_FRONTEND_URL_RESULT:-}" ]] && PUBLIC_FRONTEND_URL="$INSTALL_PUBLIC_FRONTEND_URL_RESULT"
+
 if [[ "$SKIP_START_SERVERS" -eq 0 ]]; then
     start_backend_production "$ROOT"
     start_frontend_production "$ROOT"
 else
     log "Skipped starting servers (--skip-start-servers)."
 fi
-
-maybe_setup_nginx_domain_proxy "$ROOT" "$PUBLIC_FRONTEND_URL"
-[[ -n "${INSTALL_PUBLIC_FRONTEND_URL_RESULT:-}" ]] && PUBLIC_FRONTEND_URL="$INSTALL_PUBLIC_FRONTEND_URL_RESULT"
 
 cat <<EOF
 

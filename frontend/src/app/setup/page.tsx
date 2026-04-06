@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { backendApi } from "@/lib/api";
-import { fetchSanctumCsrfCookie, xsrfHeaderInit } from "@/lib/sanctum-csrf";
+import { signIn } from "@/lib/laravel-auth-react";
+import { fetchSanctumCsrfCookie, csrfHeaderInit } from "@/lib/sanctum-csrf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,8 +37,6 @@ export default function SetupPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [licenseServerUrl, setLicenseServerUrl] = useState("");
-  const [licenseServerApiKey, setLicenseServerApiKey] = useState("");
   const [siteLicenseKey, setSiteLicenseKey] = useState("");
   const [steamSecret, setSteamSecret] = useState("");
   const [discordClientId, setDiscordClientId] = useState("");
@@ -73,6 +72,11 @@ export default function SetupPage() {
 
   useEffect(() => {
     if (!status?.wizardPending) return;
+    void fetchSanctumCsrfCookie();
+  }, [status?.wizardPending]);
+
+  useEffect(() => {
+    if (!status?.wizardPending) return;
     if (status.hasSiteLicense) setStep((s) => Math.max(s, 1));
     if (status.steamConfigured) setStep((s) => Math.max(s, 2));
     if (status.ownerClaimed) setStep((s) => Math.max(s, 3));
@@ -89,7 +93,7 @@ export default function SetupPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          ...xsrfHeaderInit(),
+          ...csrfHeaderInit(),
         },
         body: JSON.stringify(body),
       });
@@ -155,9 +159,10 @@ export default function SetupPage() {
             <CardTitle>{stepLabel}</CardTitle>
             <CardDescription>
               {step === 0 &&
-                "Connect to your license server and activate this installation."}
-              {step === 1 && "Steam Web API key used for Steam sign-in (same as STEAM_SECRET in .env)."}
-              {step === 2 && "Sign in with Steam once. The first Steam account becomes Owner."}
+                "Activate with your site license key. The license server URL (LICENSE_SERVER_URL) and API key (storage/app/.license_server_api_key) must already be configured on the server."}
+              {step === 1 && "Steam Web API key for sign-in (stored encrypted in the database)."}
+              {step === 2 &&
+                "Same sign-in as the rest of the site. The first Steam account on this install becomes Owner."}
               {step === 3 && "Discord application ID, OAuth secret, and bot token."}
               {step === 4 && "PayNow store identifier and API key."}
               {step === 5 &&
@@ -172,29 +177,6 @@ export default function SetupPage() {
             {step === 0 && (
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="ls-url">License server URL (optional if already in backend .env)</Label>
-                  <Input
-                    id="ls-url"
-                    value={licenseServerUrl}
-                    onChange={(e) => setLicenseServerUrl(e.target.value)}
-                    placeholder="https://license.example.com"
-                    className="mt-1"
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="ls-api">License server API key</Label>
-                  <Input
-                    id="ls-api"
-                    type="password"
-                    value={licenseServerApiKey}
-                    onChange={(e) => setLicenseServerApiKey(e.target.value)}
-                    placeholder="Stored in backend/storage/app/.license_server_api_key"
-                    className="mt-1"
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
                   <Label htmlFor="site-key">Site license key</Label>
                   <Input
                     id="site-key"
@@ -207,11 +189,9 @@ export default function SetupPage() {
                 </div>
                 <Button
                   type="button"
-                  disabled={busy || !licenseServerApiKey.trim() || !siteLicenseKey.trim()}
+                  disabled={busy || !siteLicenseKey.trim()}
                   onClick={async () => {
                     const data = await postJson("setup/license", {
-                      licenseServerUrl: licenseServerUrl.trim() || undefined,
-                      licenseServerApiKey: licenseServerApiKey.trim(),
                       siteLicenseKey: siteLicenseKey.trim(),
                     });
                     if (!data) return;
@@ -237,7 +217,7 @@ export default function SetupPage() {
                     type="password"
                     value={steamSecret}
                     onChange={(e) => setSteamSecret(e.target.value)}
-                    placeholder="STEAM_SECRET"
+                    placeholder="Steam Web API key"
                     className="mt-1"
                     autoComplete="off"
                   />
@@ -260,19 +240,18 @@ export default function SetupPage() {
 
             {step === 2 && (
               <div className="space-y-4">
-                <p className="text-muted-foreground text-sm">
-                  You will be redirected to Steam, then back here. After signing in, continue to Discord setup.
-                </p>
                 <Button
                   type="button"
                   onClick={() => {
                     if (typeof window === "undefined") return;
                     sessionStorage.setItem("setup_wizard_post_auth_redirect", "/setup");
-                    const origin = window.location.origin;
-                    window.location.href = `${origin}/api/auth/redirect/steam?return_origin=${encodeURIComponent(origin)}`;
+                    signIn("steam");
                   }}
+                  variant="outline"
+                  size="lg"
+                  className="border-primary/30 text-primary hover:bg-primary/10 text-lg py-6 px-8"
                 >
-                  Sign in with Steam
+                  Sign In with Steam
                 </Button>
                 <Button
                   type="button"
