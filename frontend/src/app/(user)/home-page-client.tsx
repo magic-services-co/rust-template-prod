@@ -1,8 +1,8 @@
 "use client";
 
 import { JoinCommunity } from "@/components/home/join-community";
-import Rules from "@/components/home/rules";
-import Team from "@/components/home/team";
+import Rules, { type Rule } from "@/components/home/rules";
+import Team, { type TeamMember } from "@/components/home/team";
 import { DiscordIcon } from "@/components/icons";
 import { JoinDiscordBtn } from "@/components/join-discord-btn";
 import { StoreButton } from "@/components/store-button";
@@ -16,14 +16,14 @@ type ThemeLike = Record<string, unknown> | null | undefined;
 type SiteSettingsLike = { name?: string } | null | undefined;
 type PageSettingsLike = {
   features?: { showJoinCommunity?: boolean; showServerRules?: boolean; showServers?: boolean; showTeam?: boolean };
-  featureSettings?: { serverRules?: { rules?: unknown[] }; team?: { members?: Array<Record<string, unknown>> } };
+  featureSettings?: { serverRules?: { rules?: Rule[] }; team?: { members?: TeamMember[] } };
 };
 
 export type HomePageClientProps = {
   theme: ThemeLike;
   siteSettings: SiteSettingsLike;
   settings: PageSettingsLike;
-  teamMembersWithRoles: Array<Record<string, unknown>>;
+  teamMembersWithRoles: TeamMember[];
 };
 
 export function HomePageClient({ theme, siteSettings, settings, teamMembersWithRoles }: HomePageClientProps) {

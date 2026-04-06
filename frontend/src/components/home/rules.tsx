@@ -8,7 +8,7 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion"
 
-interface Rule {
+export interface Rule {
     title: string;
     content: string;
 }

@@ -2,12 +2,15 @@
 #
 # Magic Rust Template — full local install.
 #
-#   curl -fsSL https://magicservices.co/rust-template/install.sh
+#   curl -fsSL https://magicservices.co/rust-template/install.sh | bash -s -- \
+#     --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
+#
+#   curl without "| bash" only prints this file; options go after bash -s --.
 
 set -e
 
-SCRIPT_VERSION="1.2.0"
-DEFAULT_CLONE_DIR="rust-template"
+SCRIPT_VERSION="1.2.5"
+DEFAULT_INSTALL_DIR="/var/www/rust-template"
 DOCKER_MYSQL_CONTAINER="rust-template-mysql"
 DOCKER_MYSQL_IMAGE="${DOCKER_MYSQL_IMAGE:-mariadb:11}"
 DOCKER_MYSQL_PORT="${DOCKER_MYSQL_PORT:-3307}"
@@ -16,7 +19,7 @@ DOCKER_DB_USER="${DOCKER_DB_USER:-template}"
 DOCKER_DB_PASS="${DOCKER_DB_PASS:-template_secret_change_me}"
 
 REPO_URL="${RUST_TEMPLATE_REPO:-}"
-BRANCH="${RUST_TEMPLATE_BRANCH:-main}"
+BRANCH="${RUST_TEMPLATE_BRANCH:-Production}"
 TARGET_DIR=""
 USE_DOCKER_DB=0
 DB_URL_INPUT=""
@@ -31,9 +34,9 @@ usage() {
 Usage: install.sh [options]
 
   --repo URL          Git clone URL (required if not already inside the template tree)
-  --branch NAME       Git branch (default: main, or RUST_TEMPLATE_BRANCH)
-  --dir PATH          Install / use this directory (default: ./rust-template when cloning)
-  --docker-db         Start MariaDB in Docker and configure Laravel to use it
+  --branch NAME       Git branch (default: Production, or RUST_TEMPLATE_BRANCH)
+  --dir PATH          Install / use this directory (default: /var/www/rust-template when cloning)
+  --docker-db         Start MariaDB in Docker and configure Laravel to use it (installs docker.io via apt on Debian/Ubuntu if missing)
   --db-url URL        mysql://user:pass@host:port/database (skips --docker-db)
   --ioncube           Always try to install ionCube Loader (Debian/Ubuntu + sudo)
   --skip-ioncube      Never install ionCube Loader
@@ -50,8 +53,8 @@ Environment:
   CI=1                  Disables interactive “migrate database?” prompt
 
 Examples:
-  bash scripts/install.sh --repo https://github.com/org/rust-template.git --docker-db
-  curl -fsSL https://example.com/install.sh | bash -s -- --repo https://github.com/org/rust-template.git --docker-db
+  bash scripts/install.sh --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
+  curl -fsSL https://magicservices.co/rust-template/install.sh | bash -s -- --repo https://github.com/magic-services-co/rust-template-prod.git --docker-db
 EOF
 }
 
@@ -99,6 +102,24 @@ node_meets_minimum() {
     [[ "${major:-0}" -ge 20 ]]
 }
 
+ensure_ubuntu_universe() {
+    local SUDO=""
+    [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
+    local os_id=""
+    [[ -r /etc/os-release ]] || return 1
+    source /etc/os-release
+    os_id="${ID:-}"
+    [[ "$os_id" == "ubuntu" ]] || return 1
+    need_cmd add-apt-repository || {
+        log "Installing software-properties-common (for add-apt-repository)…"
+        $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq software-properties-common \
+            >/dev/null 2>&1 || return 1
+    }
+    log "Enabling Ubuntu universe repository (required for PHP packages on many images)…"
+    $SUDO add-apt-repository -y universe >/dev/null 2>&1 || return 1
+    $SUDO apt-get update -qq
+}
+
 ensure_debian_packages() {
     [[ "$SKIP_SYSTEM" -eq 1 ]] && return 0
     if [[ "$(id -u)" -ne 0 ]] && ! need_cmd sudo; then
@@ -112,20 +133,49 @@ ensure_debian_packages() {
     local SUDO=""
     [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
 
+    local -a base_pkgs=(
+        ca-certificates curl git unzip mariadb-client software-properties-common
+    )
+    local -a php_pkgs=(
+        php-cli php-mysql php-xml php-mbstring php-curl php-zip php-bcmath php-intl php-sqlite3
+    )
+
     log "Installing Debian/Ubuntu packages (php-cli, mysql client libs, git, Node via NodeSource if needed)…"
-    $SUDO apt-get update -qq
-    $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-        ca-certificates curl git unzip mariadb-client \
-        php-cli php-mysql php-xml php-mbstring php-curl php-zip php-bcmath php-intl php-sqlite3 \
-        >/dev/null 2>&1 || {
-        warn "Some apt packages failed; ensure PHP 8.2+ with pdo_mysql, mbstring, xml, curl, zip, bcmath are installed."
-    }
+    $SUDO apt-get update -qq || die "apt-get update failed. Check network, DNS, and /etc/apt/sources.list."
+
+    if ! $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        "${base_pkgs[@]}" "${php_pkgs[@]}" >/dev/null 2>&1; then
+        warn "Quiet apt install failed; running again with full output (see errors below)…"
+        $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            "${base_pkgs[@]}" "${php_pkgs[@]}" || true
+    fi
+
+    if ! need_cmd php; then
+        if ensure_ubuntu_universe; then
+            log "Retrying PHP package install…"
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                "${php_pkgs[@]}" || true
+        fi
+    fi
+
+    if ! need_cmd php; then
+        die "PHP CLI is still missing after apt. On Ubuntu try: sudo add-apt-repository universe && sudo apt update && sudo apt install -y php-cli php-mysql php-xml php-mbstring php-curl php-zip php-bcmath php-intl php-sqlite3 — then re-run with --skip-system if packages are already OK."
+    fi
 
     if ! node_meets_minimum 2>/dev/null; then
         log "Installing Node.js 20.x (NodeSource)…"
-        curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO bash - >/dev/null 2>&1 || true
-        $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs >/dev/null 2>&1 || \
-            warn "Node 20 install failed; install Node 20+ from https://nodejs.org"
+        local ns_err
+        ns_err="$(mktemp)"
+        if ! curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO bash - 2>"$ns_err"; then
+            warn "NodeSource setup script failed:"
+            cat "$ns_err" >&2 || true
+        fi
+        rm -f "$ns_err"
+        if ! $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs >/dev/null 2>&1; then
+            warn "apt install nodejs failed after NodeSource; showing apt output…"
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs || \
+                warn "Node 20 install failed; install Node 20+ from https://nodejs.org"
+        fi
     fi
 }
 
@@ -157,7 +207,6 @@ mysql_test_connection() {
     MYSQL_PWD="$pass" mysql -h"$host" -P"$port" -u"$user" -N -e "SELECT 1" >/dev/null 2>&1
 }
 
-# Interactive: copy one source database into the already-configured target (replaces target contents).
 maybe_migrate_mysql_into_target() {
     local do_migrate=0
     if [[ "$MIGRATE_MYSQL" -eq 1 ]]; then
@@ -325,7 +374,6 @@ ensure_ioncube_loader() {
         echo "zend_extension=${full_so}" | $SUDO tee "${conf_d}/00-ioncube.ini" >/dev/null
     fi
 
-    # PHP-FPM / Apache SAPIs on Debian/Ubuntu (common on VPS behind nginx)
     local sapi php_ver
     php_ver="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
     for sapi in fpm apache2 cgi; do
@@ -358,8 +406,52 @@ ensure_composer() {
     export PATH="${dest}:${PATH}"
 }
 
+ensure_docker_for_mysql() {
+    need_cmd docker && docker info >/dev/null 2>&1 && return 0
+
+    if [[ "$SKIP_SYSTEM" -eq 1 ]]; then
+        die "Docker is required for --docker-db but was not found. Remove --skip-system to auto-install docker.io on Debian/Ubuntu, install Docker manually (https://docs.docker.com/engine/install/), or use --db-url instead."
+    fi
+    if ! need_cmd apt-get; then
+        die "Docker is required for --docker-db but was not found, and apt-get is unavailable. Install Docker or use --db-url."
+    fi
+    if [[ "$(id -u)" -ne 0 ]] && ! need_cmd sudo; then
+        die "Docker is required for --docker-db. Install Docker as root/sudo, or use --db-url."
+    fi
+
+    local SUDO=""
+    [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
+
+    if need_cmd docker && ! docker info >/dev/null 2>&1; then
+        log "Docker CLI found but daemon is not running; starting docker…"
+        if need_cmd systemctl; then
+            $SUDO systemctl enable --now docker 2>/dev/null || $SUDO systemctl start docker 2>/dev/null || true
+        else
+            $SUDO service docker start 2>/dev/null || true
+        fi
+        docker info >/dev/null 2>&1 && return 0
+        die "Docker daemon is not running. Try: sudo systemctl start docker"
+    fi
+
+    need_cmd docker && return 0
+
+    log "Docker not found; installing docker.io (Debian/Ubuntu via apt)…"
+    $SUDO apt-get update -qq || true
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io \
+        || die "Failed to install docker.io. Install Docker manually: https://docs.docker.com/engine/install/"
+
+    if need_cmd systemctl; then
+        $SUDO systemctl enable --now docker 2>/dev/null || $SUDO systemctl start docker 2>/dev/null || true
+    else
+        $SUDO service docker start 2>/dev/null || true
+    fi
+
+    need_cmd docker || die "docker.io installed but docker CLI not found. Open a new shell or run hash -r."
+    docker info >/dev/null 2>&1 || die "Docker is installed but the daemon is not running. Try: sudo systemctl start docker"
+}
+
 start_docker_mysql() {
-    need_cmd docker || die "Docker is required for --docker-db but was not found."
+    ensure_docker_for_mysql
     if docker ps -a --format '{{.Names}}' | grep -qx "$DOCKER_MYSQL_CONTAINER"; then
         log "Starting existing container ${DOCKER_MYSQL_CONTAINER}…"
         docker start "$DOCKER_MYSQL_CONTAINER" >/dev/null
@@ -434,18 +526,32 @@ apply_backend_db_env() {
     ' "$backend_env" "$host" "$port" "$database" "$user" "$password"
 }
 
+ensure_laravel_backend_layout() {
+    local backend="$1"
+    mkdir -p \
+        "${backend}/bootstrap/cache" \
+        "${backend}/storage/app/public" \
+        "${backend}/storage/framework/cache/data" \
+        "${backend}/storage/framework/sessions" \
+        "${backend}/storage/framework/testing" \
+        "${backend}/storage/framework/views" \
+        "${backend}/storage/logs"
+}
+
 setup_backend() {
     local root="$1"
     local backend="${root}/backend"
     [[ -f "${backend}/composer.json" ]] || die "No backend/composer.json under ${root}"
 
-    log "Composer install (backend)…"
-    (cd "$backend" && composer install --no-interaction --prefer-dist)
-
     if [[ ! -f "${backend}/.env" ]]; then
         cp "${backend}/.env.example" "${backend}/.env"
         log "Created backend/.env from .env.example"
     fi
+
+    ensure_laravel_backend_layout "$backend"
+
+    log "Composer install (backend)…"
+    (cd "$backend" && composer install --no-interaction --prefer-dist)
 
     php "${backend}/artisan" key:generate --force
 
@@ -532,9 +638,8 @@ if [[ -z "$REPO_URL" ]]; then
     fi
 else
     need_cmd git || die "git is required to clone the repository."
-    CLONE_PARENT="$(pwd)"
     if [[ -z "$TARGET_DIR" ]]; then
-        TARGET_DIR="${CLONE_PARENT}/${DEFAULT_CLONE_DIR}"
+        TARGET_DIR="$DEFAULT_INSTALL_DIR"
     fi
     if [[ -d "$TARGET_DIR/.git" ]] || [[ -f "${TARGET_DIR}/backend/composer.json" ]]; then
         log "Using existing directory: ${TARGET_DIR}"
@@ -542,6 +647,7 @@ else
         git -C "$TARGET_DIR" checkout "$BRANCH" 2>/dev/null || git -C "$TARGET_DIR" checkout -B "$BRANCH" "origin/${BRANCH}" 2>/dev/null || true
         git -C "$TARGET_DIR" pull origin "$BRANCH" 2>/dev/null || true
     else
+        mkdir -p "$(dirname "$TARGET_DIR")"
         log "Cloning ${REPO_URL} (branch ${BRANCH}) → ${TARGET_DIR}…"
         git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$TARGET_DIR"
     fi

@@ -1,6 +1,8 @@
 import { getMetadata } from "@/lib/metadata";
 import { backendApi } from "@/lib/api";
 import { USER_THEME_DEFAULTS } from "@/lib/user-theme-defaults";
+import { type Rule } from "@/components/home/rules";
+import { type TeamMember } from "@/components/home/team";
 import { HomePageClient } from "./home-page-client";
 
 if (typeof HomePageClient === "undefined") {
@@ -17,8 +19,8 @@ interface PageSettings {
     showTeam?: boolean;
   };
   featureSettings?: {
-    serverRules?: { rules?: unknown[] };
-    team?: { members?: Array<Record<string, unknown>> };
+    serverRules?: { rules?: Rule[] };
+    team?: { members?: TeamMember[] };
   };
 }
 
@@ -66,7 +68,7 @@ export default async function Home() {
       };
     }
 
-    let teamMembersWithRoles = (settings?.featureSettings?.team?.members || []) as Array<Record<string, unknown>>;
+    let teamMembersWithRoles: TeamMember[] = settings?.featureSettings?.team?.members ?? [];
     const showTeam = settings?.features?.showTeam ?? false;
     if (showTeam && teamMembersWithRoles.length > 0) {
       const userIds = teamMembersWithRoles.map((m) => m.userId).filter(Boolean) as string[];

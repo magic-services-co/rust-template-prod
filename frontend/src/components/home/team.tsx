@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface TeamMember {
+export interface TeamMember {
   userId: string;
   name?: string;
   image?: string;

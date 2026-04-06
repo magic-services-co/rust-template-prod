@@ -1,10 +1,14 @@
-import type { Instrumentation } from "next";
+type OnRequestErrorContext = {
+  routePath?: string;
+  routeType?: string;
+  renderSource?: string;
+};
 
-export const onRequestError: Instrumentation["onRequestError"] = async (
-  err,
-  _request,
-  context
-) => {
+export async function onRequestError(
+  err: unknown,
+  _request: unknown,
+  context: OnRequestErrorContext | undefined
+): Promise<void> {
   const error = err instanceof Error ? err : new Error(String(err));
   console.error(
     "[Next.js Server Error]",
@@ -19,4 +23,4 @@ export const onRequestError: Instrumentation["onRequestError"] = async (
   if (error.stack) {
     console.error("[Next.js Server Error] Full stack:\n", error.stack);
   }
-};
+}
