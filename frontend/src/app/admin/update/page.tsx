@@ -18,7 +18,6 @@ type ReleasePayload = {
   localReleasedAt?: string | null;
   latestReleasedAt?: string | null;
   latestNotes?: string[];
-  webSelfUpdateEnabled?: boolean;
   manifestUrl?: string;
   autoUpdateTemplate?: boolean;
 };
@@ -139,9 +138,9 @@ export default function AdminUpdatePage() {
               <div className="space-y-0.5">
                 <Label htmlFor="auto-update">Automatic updates</Label>
                 <p className="text-muted-foreground text-xs">
-                  Off by default. When on, the scheduler runs <code className="text-xs">template:auto-update-check</code>{" "}
-                  daily (requires <code className="text-xs">php artisan schedule:run</code> in cron) and only applies if{" "}
-                  <code className="text-xs">WEB_SELF_UPDATE=true</code> in backend <code className="text-xs">.env</code>.
+                  Off by default. When on, the daily scheduler runs{" "}
+                  <code className="text-xs">template:auto-update-check</code> if this server has cron calling{" "}
+                  <code className="text-xs">php artisan schedule:run</code>.
                 </p>
               </div>
               <Switch
@@ -156,23 +155,12 @@ export default function AdminUpdatePage() {
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              disabled={
-                updateMutation.isPending ||
-                !r?.updateAvailable ||
-                !r?.webSelfUpdateEnabled ||
-                !!r?.manifestFetchError
-              }
+              disabled={updateMutation.isPending || !r?.updateAvailable || !!r?.manifestFetchError}
               onClick={() => updateMutation.mutate()}
             >
               {updateMutation.isPending ? "Running update…" : "Run update now"}
             </Button>
-            {!r?.webSelfUpdateEnabled && (
-              <p className="text-muted-foreground text-xs">
-                Web-triggered updates are disabled. Set <code className="text-xs">WEB_SELF_UPDATE=true</code> in{" "}
-                <code className="text-xs">backend/.env</code>, then reload.
-              </p>
-            )}
-            {r?.webSelfUpdateEnabled && !r?.updateAvailable && !r?.manifestFetchError && (
+            {!r?.updateAvailable && !r?.manifestFetchError && (
               <p className="text-muted-foreground text-xs">Already on the latest published version.</p>
             )}
           </div>

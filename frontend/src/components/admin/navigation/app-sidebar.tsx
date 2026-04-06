@@ -166,7 +166,7 @@ const data = {
           url: "system-control",
         },
         {
-          title: "Template update",
+          title: "Website update",
           url: "/update",
         },
         {
