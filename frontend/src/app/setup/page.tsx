@@ -1,25 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { backendApi } from "@/lib/api";
+import { getAuthToken } from "@/lib/laravel-auth";
 import { signIn } from "@/lib/laravel-auth-react";
 import { fetchSanctumCsrfCookie, csrfHeaderInit } from "@/lib/sanctum-csrf";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SteamIcon } from "@/components/icons";
-
-type SetupStatus = {
-  wizardPending?: boolean;
-  wizardCompleted?: boolean;
-  hasSiteLicense?: boolean;
-  steamConfigured?: boolean;
-  ownerClaimed?: boolean;
-  importStepResolved?: boolean;
-};
 
 const STEPS = [
   "License",
@@ -33,12 +27,45 @@ const STEPS = [
   "Finish",
 ] as const;
 
+const SETUP_WIZARD_STEP_KEY = "setup_wizard_step";
+
+function readStoredSetupStep(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(SETUP_WIZARD_STEP_KEY);
+  if (raw == null || raw === "") return null;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0 || n >= STEPS.length) return null;
+  return n;
+}
+
+type SetupWizardSessionUser = {
+  name?: string | null;
+  image?: string | null;
+  steamId?: string;
+  roles?: { role?: { name?: string } | null }[];
+};
+
+function sessionUserIsOwner(user: SetupWizardSessionUser): boolean {
+  return user.roles?.some((r) => r?.role?.name === "Owner") === true;
+}
+
+type SetupStatus = {
+  wizardPending?: boolean;
+  wizardCompleted?: boolean;
+  hasSiteLicense?: boolean;
+  steamConfigured?: boolean;
+  ownerClaimed?: boolean;
+  importStepResolved?: boolean;
+};
+
 export default function SetupPage() {
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [signInSessionUser, setSignInSessionUser] = useState<SetupWizardSessionUser | null>(null);
+  const setupStepRestoredRef = useRef(false);
 
   const [siteLicenseKey, setSiteLicenseKey] = useState("");
   const [steamSecret, setSteamSecret] = useState("");
@@ -78,6 +105,51 @@ export default function SetupPage() {
     if (!status?.wizardPending) return;
     void fetchSanctumCsrfCookie();
   }, [status?.wizardPending]);
+
+  useLayoutEffect(() => {
+    if (!status?.wizardPending) return;
+    if (setupStepRestoredRef.current) return;
+    setupStepRestoredRef.current = true;
+    const stored = readStoredSetupStep();
+    if (stored !== null) {
+      setStep(stored);
+    }
+  }, [status?.wizardPending]);
+
+  useEffect(() => {
+    if (!status?.wizardPending) return;
+    if (!setupStepRestoredRef.current) return;
+    sessionStorage.setItem(SETUP_WIZARD_STEP_KEY, String(step));
+  }, [step, status?.wizardPending]);
+
+  useEffect(() => {
+    if (step !== 3 || !status?.wizardPending) {
+      setSignInSessionUser(null);
+      return;
+    }
+    let cancelled = false;
+    const token = getAuthToken();
+    void (async () => {
+      try {
+        const res = await fetch(backendApi("auth/session"), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const json = (await res.json().catch(() => ({}))) as { user?: SetupWizardSessionUser };
+        if (cancelled) return;
+        const user = json?.user;
+        setSignInSessionUser(user?.steamId ? user : null);
+      } catch {
+        if (!cancelled) setSignInSessionUser(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, status?.wizardPending]);
 
   async function postJson(path: string, body: Record<string, unknown>) {
     setBusy(true);
@@ -302,6 +374,36 @@ export default function SetupPage() {
 
             {step === 3 && (
               <div className="space-y-4">
+                {signInSessionUser?.steamId ? (
+                  <div className="border-border/80 space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-14 w-14 border border-border/60">
+                        {signInSessionUser.image ? (
+                          <AvatarImage src={signInSessionUser.image} alt="" />
+                        ) : null}
+                        <AvatarFallback className="text-lg">
+                          {(signInSessionUser.name ?? "S").slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">
+                          {signInSessionUser.name?.trim() || "Steam user"}
+                        </p>
+                        <p className="text-muted-foreground truncate font-mono text-xs">
+                          {signInSessionUser.steamId}
+                        </p>
+                        {sessionUserIsOwner(signInSessionUser) && (
+                          <Badge variant="active" className="mt-2">
+                            Owner
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      You are signed in. This Steam account is the site owner for this install.
+                    </p>
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   onClick={() => {
@@ -549,6 +651,7 @@ export default function SetupPage() {
                   onClick={async () => {
                     const data = await postJson("setup/complete", {});
                     if (data && (data as { success?: boolean }).success) {
+                      sessionStorage.removeItem(SETUP_WIZARD_STEP_KEY);
                       window.location.href = "/";
                     }
                   }}

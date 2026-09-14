@@ -62,11 +62,10 @@ export function ServerCard({ server, isDragging }: ServerCardProps) {
                         enabled={server.enabled ?? false}
                         serverImagePath={server.image_path ?? null}
                         serverAddress={server.server_address ?? null}
-                        rconIp={server.rcon_ip}
-                        rconPort={server.rcon_port}
-                        rconPassword={server.rcon_password}
                         wipeSchedule={server.wipe_schedule ?? 'auto'}
                         currentMapThumbnailUrl={server.current_map_thumbnail_url ?? null}
+                        pterodactylPanelId={server.pterodactyl_panel_id ?? null}
+                        pterodactylServerIdentifier={server.pterodactyl_server_identifier ?? null}
                     />
                 </CardContent>
             </Card>

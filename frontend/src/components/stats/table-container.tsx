@@ -271,7 +271,7 @@ export function StatsTableContainer({ leaderboardTheme: serverTheme }: StatsTabl
                   selected ? "border-red-500/50 bg-red-500/10 text-white" : "border-white/10 text-zinc-400",
                 )}
               >
-                <LeaderboardTabIcon tabKey={tab.tabKey} className="h-4 w-4" />
+                <LeaderboardTabIcon tabKey={tab.tabKey} icon={tab.icon} className="h-4 w-4" />
                 {tab.tabLabel}
               </button>
             );
@@ -301,6 +301,7 @@ export function StatsTableContainer({ leaderboardTheme: serverTheme }: StatsTabl
                 >
                   <LeaderboardTabIcon
                     tabKey={tab.tabKey}
+                    icon={tab.icon}
                     className={cn("h-4 w-4 shrink-0", selected ? "text-red-400" : "text-zinc-500")}
                   />
                   <span className="truncate">{tab.tabLabel}</span>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
+import { prepareSanctumMutationHeaders } from '@/lib/sanctum-csrf';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -261,9 +262,10 @@ export function GlobalThemeSettings({ hideControls = false }: { hideControls?: b
   const handleToggle = async (enabled: boolean) => {
     try {
       setIsToggling(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const response = await fetch(backendApi('admin/theme?action=toggle'), {
         method: 'POST',
         credentials: 'include',
@@ -288,9 +290,10 @@ export function GlobalThemeSettings({ hideControls = false }: { hideControls?: b
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const response = await fetch(backendApi('admin/theme?mode=global'), {
         method: 'POST',
         credentials: 'include',
@@ -325,9 +328,10 @@ export function GlobalThemeSettings({ hideControls = false }: { hideControls?: b
   const handleResetToDefault = async () => {
     try {
       setIsSaving(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const resetResponse = await fetch(backendApi('admin/theme?mode=global'), {
         method: 'POST',
         credentials: 'include',

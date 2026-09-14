@@ -32,7 +32,6 @@ function clientFacingHost(headersList: Headers): string {
 
 export default async function UserLayout({ children }: { children: ReactNode }) {
   const headersList = await headers();
-  const forwardedFor = headersList.get("x-forwarded-for") ?? headersList.get("x-real-ip");
   const host = clientFacingHost(headersList);
   const pathname = headersList.get("x-pathname") ?? "";
 
@@ -40,7 +39,6 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
     const setupRes = await fetch(backendApi("setup/status"), {
       headers: {
         Accept: "application/json",
-        ...(forwardedFor && { "X-Forwarded-For": forwardedFor }),
         ...(host && { Host: host }),
         ...(host && { "X-Forwarded-Host": host }),
       },
@@ -57,7 +55,6 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
   const licenseRes = await fetch(backendApi("license/status"), {
     headers: {
       Accept: "application/json",
-      ...(forwardedFor && { "X-Forwarded-For": forwardedFor }),
       ...(host && { Host: host }),
       ...(host && { "X-Forwarded-Host": host }),
     },
@@ -74,8 +71,8 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
   const res = await fetch(backendApi("data?include=navigationItems,themeSettings"), {
     headers: {
       Accept: "application/json",
-      ...(forwardedFor && { "X-Forwarded-For": forwardedFor }),
       ...(host && { Host: host }),
+      ...(host && { "X-Forwarded-Host": host }),
     },
     next: { revalidate: 60 },
   });

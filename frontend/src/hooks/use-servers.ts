@@ -9,6 +9,8 @@ export type Server = {
   order?: number;
   image_path?: string | null;
   server_address?: string | null;
+  pterodactyl_panel_id?: number | null;
+  pterodactyl_server_identifier?: string | null;
 };
 
 export type ServerCategory = {

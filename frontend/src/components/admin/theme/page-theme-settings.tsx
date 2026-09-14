@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
+import { prepareSanctumMutationHeaders } from '@/lib/sanctum-csrf';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -892,9 +893,10 @@ export function PageThemeSettings() {
   const onCreateNewPage = async (data: NewPageFormValues) => {
     try {
       setIsSubmitting(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const response = await fetch(backendApi('admin/theme/page'), {
         method: 'POST',
         credentials: 'include',
@@ -941,9 +943,10 @@ export function PageThemeSettings() {
         ...(globalFeatureSettings ? { featureSettings: globalFeatureSettings } : {}),
       };
             
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const response = await fetch(backendApi('admin/theme/page'), {
         method: 'PUT',
         credentials: 'include',
@@ -978,9 +981,9 @@ export function PageThemeSettings() {
   const onDelete = async () => {
     try {
       setIsSubmitting(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        bearerToken: getAuthToken(),
+      });
       const response = await fetch(backendApi(`admin/theme/page?slug=${selectedPage}`), {
         method: 'DELETE',
         credentials: 'include',

@@ -15,6 +15,8 @@ export type CategoryWithServers = {
     server_address?: string | null;
     wipe_schedule?: string;
     current_map_thumbnail_url?: string | null;
+    pterodactyl_panel_id?: number | null;
+    pterodactyl_server_identifier?: string | null;
   }>;
 };
 

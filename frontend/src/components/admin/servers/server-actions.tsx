@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -21,6 +20,8 @@ import { Info } from 'lucide-react'
 import Image from 'next/image'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { WIPE_SCHEDULE_OPTIONS, WIPE_SCHEDULE_VALUES } from '@/lib/wipe-schedule-presets'
+import { PterodactylServerPicker, type PterodactylServerOption } from '@/components/admin/servers/pterodactyl-server-picker'
+import { PterodactylConsoleDialog } from '@/components/admin/servers/pterodactyl-console-dialog'
 
 interface ServerActionsProps {
     serverId: string;
@@ -28,11 +29,10 @@ interface ServerActionsProps {
     enabled: boolean;
     serverImagePath: string | null;
     serverAddress: string | null;
-    rconIp?: string | null;
-    rconPort?: number | null;
-    rconPassword?: string | null;
     wipeSchedule?: string | null;
     currentMapThumbnailUrl?: string | null;
+    pterodactylPanelId?: number | null;
+    pterodactylServerIdentifier?: string | null;
 }
 
 const serverFormSchema = z.object({
@@ -41,9 +41,6 @@ const serverFormSchema = z.object({
     name: z.string().min(1, 'Server name is required'),
     image_path: z.string().nullable(),
     server_address: z.string().nullable(),
-    rcon_ip: z.string().nullable(),
-    rcon_port: z.string().nullable(),
-    rcon_password: z.string().nullable(),
     wipe_schedule: z
         .string()
         .refine((v) => (WIPE_SCHEDULE_VALUES as readonly string[]).includes(v), {
@@ -60,16 +57,18 @@ export function ServerActions({
     enabled,
     serverImagePath,
     serverAddress,
-    rconIp,
-    rconPort,
-    rconPassword,
     wipeSchedule,
     currentMapThumbnailUrl,
+    pterodactylPanelId,
+    pterodactylServerIdentifier,
 }: ServerActionsProps) {
     const router = useRouter()
     const queryClient = useQueryClient()
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+    const [isConsoleOpen, setIsConsoleOpen] = useState(false)
     const [infoHoverOpen, setInfoHoverOpen] = useState(false)
+    const [ptPanelId, setPtPanelId] = useState<number | null>(pterodactylPanelId ?? null)
+    const [ptServerId, setPtServerId] = useState<string | null>(pterodactylServerIdentifier ?? null)
 
     const form = useForm<ServerFormData>({
         resolver: zodResolver(serverFormSchema),
@@ -79,9 +78,6 @@ export function ServerActions({
             name: serverName,
             image_path: serverImagePath,
             server_address: serverAddress,
-            rcon_ip: rconIp || null,
-            rcon_port: rconPort?.toString() || null,
-            rcon_password: rconPassword || null,
             wipe_schedule: (wipeSchedule && WIPE_SCHEDULE_VALUES.includes(wipeSchedule as typeof WIPE_SCHEDULE_VALUES[number]))
                 ? wipeSchedule
                 : 'auto',
@@ -133,12 +129,11 @@ export function ServerActions({
                     name: data.name,
                     imagePath: data.image_path,
                     serverAddress: data.server_address,
-                    rconIp: data.rcon_ip,
-                    rconPort: data.rcon_port,
-                    rconPassword: data.rcon_password,
                     enabled: data.enabled,
                     wipeSchedule: data.wipe_schedule,
                     currentMapThumbnailUrl: (data.current_map_thumbnail_url?.trim() ?? '') || null,
+                    pterodactylPanelId: ptPanelId,
+                    pterodactylServerIdentifier: ptServerId,
                 }),
             })
             if (!response.ok) {
@@ -173,25 +168,34 @@ export function ServerActions({
             name: serverName,
             image_path: serverImagePath,
             server_address: serverAddress,
-            rcon_ip: rconIp || null,
-            rcon_port: rconPort?.toString() || null,
-            rcon_password: rconPassword || null,
             wipe_schedule: (wipeSchedule && WIPE_SCHEDULE_VALUES.includes(wipeSchedule as typeof WIPE_SCHEDULE_VALUES[number]))
                 ? wipeSchedule
                 : 'auto',
             current_map_thumbnail_url: currentMapThumbnailUrl ?? null,
         })
+        setPtPanelId(pterodactylPanelId ?? null)
+        setPtServerId(pterodactylServerIdentifier ?? null)
     }
 
     function onSubmit(data: ServerFormData) {
         updateMutation.mutate(data)
     }
 
+    const hasPterodactyl =
+        pterodactylPanelId != null && Boolean(pterodactylServerIdentifier?.trim())
+
     return (
         <div className="flex items-center space-x-2">
-            <Button variant="outline" asChild>
-                <Link href={`/admin/servers/${encodeURIComponent(serverId)}/rcon`}>Rcon</Link>
+            <Button variant="outline" onClick={() => setIsConsoleOpen(true)}>
+                Console
             </Button>
+            <PterodactylConsoleDialog
+                serverId={serverId}
+                serverName={serverName}
+                hasPterodactyl={hasPterodactyl}
+                open={isConsoleOpen}
+                onOpenChange={setIsConsoleOpen}
+            />
             <Button onClick={handleEdit} disabled={updateMutation.isPending}>Edit</Button>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -225,6 +229,18 @@ export function ServerActions({
                     </DialogHeader>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <PterodactylServerPicker
+                                panelId={ptPanelId}
+                                serverIdentifier={ptServerId}
+                                onPanelChange={setPtPanelId}
+                                onServerChange={(id) => setPtServerId(id)}
+                                onServerSelected={(server: PterodactylServerOption) => {
+                                    form.setValue('name', server.name, { shouldDirty: true })
+                                    if (server.address) {
+                                        form.setValue('server_address', server.address, { shouldDirty: true })
+                                    }
+                                }}
+                            />
                             <FormField
                                 control={form.control}
                                 name="enabled"
@@ -379,50 +395,6 @@ export function ServerActions({
                                             <FormLabel>Header Image Path (optional)</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value || ''} onChange={(e) => field.onChange(e.target.value || null)} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <FormLabel className="text-sm font-medium text-muted-foreground">RCON Settings</FormLabel>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="rcon_ip"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>RCON IP (optional)</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} value={field.value || ''} onChange={(e) => field.onChange(e.target.value || null)} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="rcon_port"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>RCON Port (optional)</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} type="number" value={field.value || ''} onChange={(e) => field.onChange(e.target.value || null)} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                <FormField
-                                    control={form.control}
-                                    name="rcon_password"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>RCON Password (optional)</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} type="password" value={field.value || ''} onChange={(e) => field.onChange(e.target.value || null)} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { AddServerForm } from '@/components/admin/servers/add-server-form'
 import { AddCategoryForm } from '@/components/admin/servers/add-category-form'
+import { PterodactylPanelSettings } from '@/components/admin/servers/pterodactyl-panel-settings'
 import { CategoryList } from '@/components/admin/categories/category-list'
 import { Metadata } from 'next'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,10 @@ export default async function AdminServersPage() {
     }
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Server Management</h1>
+            <div className="flex items-center justify-between gap-4">
+                <h1 className="text-2xl font-bold">Server Management</h1>
+                <PterodactylPanelSettings />
+            </div>
             <Suspense fallback={<div className="animate-pulse space-y-4">
                 <div className="h-12 bg-secondary/20 rounded-md" />
                 <div className="h-12 bg-secondary/20 rounded-md" />

@@ -21,12 +21,17 @@ export type TicketStats = {
   categories: { name: string; count: number }[];
 };
 
-export type MonthlyStats = {
-  month: string;
+export type UserGrowthPeriod = "1d" | "7d" | "30d" | "90d" | "monthly";
+
+export type UserGrowthStats = {
+  label: string;
   newUsers: number;
   discordLinked: number;
   retentionRate: number;
 };
+
+/** @deprecated Use UserGrowthStats */
+export type MonthlyStats = UserGrowthStats & { month?: string };
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -81,13 +86,30 @@ export async function getTicketStats(): Promise<TicketStats[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function getMonthlyStats(): Promise<MonthlyStats[]> {
-  const res = await fetch(backendApi("admin/dashboard/monthly-stats"), {
-    headers: authHeaders(),
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error("Failed to load monthly stats");
+export async function getUserGrowthStats(
+  period: UserGrowthPeriod = "monthly",
+): Promise<UserGrowthStats[]> {
+  const res = await fetch(
+    backendApi(`admin/dashboard/monthly-stats?period=${encodeURIComponent(period)}`),
+    {
+      headers: authHeaders(),
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) throw new Error("Failed to load user growth stats");
   const data = await res.json();
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+
+  return data.map((row) => ({
+    label: String(row?.label ?? row?.month ?? ""),
+    newUsers: Number(row?.newUsers ?? 0),
+    discordLinked: Number(row?.discordLinked ?? 0),
+    retentionRate: Number(row?.retentionRate ?? 0),
+  }));
+}
+
+/** @deprecated Use getUserGrowthStats */
+export async function getMonthlyStats(): Promise<UserGrowthStats[]> {
+  return getUserGrowthStats("monthly");
 }

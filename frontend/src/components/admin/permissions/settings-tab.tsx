@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Role } from "@/types/user";
 import { Trash } from "lucide-react";
 import {
@@ -34,6 +34,11 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X, ShoppingCart, Loader2, Clock, Verified, Bot, Users } from 'lucide-react';
+import { RoleGrantCommandsEditor } from '@/components/role-grant-commands-editor';
+import {
+    type RoleGrantCommandEntry,
+    type RoleGrantCommandValue,
+} from '@/lib/game-server-command';
 
 interface SettingsTabProps {
     role: Role;
@@ -62,7 +67,54 @@ interface Association {
     discordRoleIds?: string[];
     serverIds?: string[];
     oxideGroupNames?: string[];
+    grantCommands?: RoleGrantCommandValue[];
     type?: "discord" | "rust";
+}
+
+function parseRoleGrantCommands(role: {
+    grantCommands?: unknown;
+    serverIds?: unknown;
+    grantCommandChannels?: unknown;
+}): RoleGrantCommandEntry[] {
+    const raw = role.grantCommands;
+    if (!Array.isArray(raw) || raw.length === 0) {
+        return [];
+    }
+    const first = raw[0];
+    if (first && typeof first === 'object' && first !== null && 'serverId' in first) {
+        return (raw as RoleGrantCommandEntry[])
+            .filter((e) => e.serverId?.trim() && e.command?.trim())
+            .map((e) => ({
+                ...e,
+                action: e.action === 'revoke' ? 'revoke' : 'add',
+            }));
+    }
+    const serverIds = Array.isArray(role.serverIds) ? role.serverIds : [];
+    const channels = Array.isArray(role.grantCommandChannels) ? role.grantCommandChannels : [];
+    return raw
+        .map((cmd, i) => ({
+            serverId: String(serverIds[i] ?? '').trim(),
+            channel: (channels[i] === 'ptero' ? 'ptero' : 'bm') as 'ptero' | 'bm',
+            command: String(cmd ?? '').trim(),
+            action: 'add' as const,
+        }))
+        .filter((e) => e.serverId && e.command);
+}
+
+function grantCommandsForServer(
+    parsed: RoleGrantCommandEntry[],
+    serverId: string
+): RoleGrantCommandValue[] {
+    if (!serverId.trim()) {
+        return [];
+    }
+    return parsed
+        .filter((e) => e.serverId === serverId)
+        .map(({ command, channel, action }) => ({
+            command,
+            channel,
+            action: action === 'revoke' ? 'revoke' : 'add',
+        }));
 }
 
 interface FormValues {
@@ -98,6 +150,7 @@ function expandAssociationsFromRole(role: any): Association[] {
     const discordRoleIds = Array.isArray(role.discordRoleIds) ? role.discordRoleIds : (role.discordRoleIds ? [role.discordRoleIds] : []);
     const serverIds = Array.isArray(role.serverIds) ? role.serverIds : (role.serverIds ? [role.serverIds] : []);
     const oxideGroupNames = Array.isArray(role.oxideGroupNames) ? role.oxideGroupNames : (role.oxideGroupNames ? [role.oxideGroupNames] : []);
+    const parsedGrantCommands = parseRoleGrantCommands(role);
 
     const associations: Association[] = [];
     
@@ -119,11 +172,13 @@ function expandAssociationsFromRole(role: any): Association[] {
     for (let i = 0; i < rustMaxLen; i++) {
         const hasRust = serverIds[i] || oxideGroupNames[i];
         if (hasRust) {
+            const sid = serverIds[i] || "";
             associations.push({
                 discordGuildIds: [""],
                 discordRoleIds: [""],
-                serverIds: [serverIds[i] || ""],
+                serverIds: [sid],
                 oxideGroupNames: [oxideGroupNames[i] || ""],
+                grantCommands: grantCommandsForServer(parsedGrantCommands, sid),
                 type: "rust",
             });
         }
@@ -166,6 +221,36 @@ export function SettingsTab({ role }: SettingsTabProps) {
     });
 
     const { data: servers, ...serversQuery } = useServers();
+
+    const { data: bmSettings } = useQuery({
+        queryKey: ['battlemetricsIntegration'],
+        queryFn: async () => {
+            const token = getAuthToken();
+            const headers: Record<string, string> = { Accept: 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(backendApi('admin/settings/battlemetrics'), {
+                credentials: 'include',
+                headers,
+            });
+            if (!res.ok) throw new Error('Failed to load BattleMetrics settings');
+            return res.json() as Promise<{ enabled?: boolean; apiKey?: string | null }>;
+        },
+    });
+
+    const bmEnabled = Boolean(bmSettings?.enabled && bmSettings?.apiKey);
+
+    const serverPterodactylById = React.useMemo(() => {
+        const map = new Map<string, boolean>();
+        for (const cat of servers ?? []) {
+            for (const s of cat.servers) {
+                map.set(
+                    s.server_id,
+                    Boolean(s.pterodactyl_panel_id && s.pterodactyl_server_identifier?.trim())
+                );
+            }
+        }
+        return map;
+    }, [servers]);
 
     useEffect(() => {
         fetchProducts();
@@ -282,8 +367,30 @@ export function SettingsTab({ role }: SettingsTabProps) {
         
         const discordGuildIds = discordAssociations.map(a => a.discordGuildIds?.[0] || "").filter(Boolean);
         const discordRoleIds = discordAssociations.map(a => a.discordRoleIds?.[0] || "").filter(Boolean);
-        const serverIds = rustAssociations.map(a => a.serverIds?.[0] || "").filter(Boolean);
-        const oxideGroupNames = rustAssociations.map(a => a.oxideGroupNames?.[0] || "").filter(Boolean);
+        const rustPairs = rustAssociations
+            .map((a) => ({
+                serverId: a.serverIds?.[0] || "",
+                oxide: a.oxideGroupNames?.[0] || "",
+            }))
+            .filter((p) => p.serverId);
+
+        const serverIds = rustPairs.map((p) => p.serverId);
+        const oxideGroupNames = rustPairs.map((p) => p.oxide);
+
+        const grantCommands: RoleGrantCommandEntry[] = rustAssociations.flatMap((a) => {
+            const sid = (a.serverIds?.[0] || "").trim();
+            if (!sid) {
+                return [];
+            }
+            return (a.grantCommands ?? [])
+                .map((gc) => ({
+                    serverId: sid,
+                    channel: gc.channel,
+                    action: gc.action === 'revoke' ? 'revoke' : 'add',
+                    command: gc.command.trim(),
+                }))
+                .filter((gc) => gc.command !== "");
+        });
 
         const finalPurchaseProductIds = data.assignOnPurchase ? purchaseProductIds : [];
         const finalPlaytimeThreshold = data.assignOnPlaytime ? data.playtimeThresholdHours : null;
@@ -295,6 +402,7 @@ export function SettingsTab({ role }: SettingsTabProps) {
             discordRoleIds,
             serverIds,
             oxideGroupNames,
+            grantCommands,
             purchaseProductIds: finalPurchaseProductIds,
             assignOnPurchase: data.assignOnPurchase || false,
             assignOnPlaytime: data.assignOnPlaytime || false,
@@ -441,6 +549,35 @@ export function SettingsTab({ role }: SettingsTabProps) {
                                                     <Trash size={18} />
                                                 </Button>
                                             </div>
+                                            <div className="md:col-span-2">
+                                                <Controller
+                                                    name={`associations.${idx}`}
+                                                    control={control}
+                                                    render={({ field }) => {
+                                                        const sid = field.value?.serverIds?.[0] ?? '';
+                                                        return (
+                                                            <RoleGrantCommandsEditor
+                                                                serverId={sid}
+                                                                commands={field.value?.grantCommands ?? []}
+                                                                onChange={(grantCommands) =>
+                                                                    field.onChange({
+                                                                        ...field.value,
+                                                                        grantCommands,
+                                                                    })
+                                                                }
+                                                                hasPterodactyl={
+                                                                    sid
+                                                                        ? serverPterodactylById.get(sid) ??
+                                                                          false
+                                                                        : false
+                                                                }
+                                                                bmEnabled={bmEnabled}
+                                                                disabled={!sid}
+                                                            />
+                                                        );
+                                                    }}
+                                                />
+                                            </div>
                                         </>
                                     )}
                                 </div>
@@ -457,7 +594,16 @@ export function SettingsTab({ role }: SettingsTabProps) {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => append({ discordGuildIds: [""], discordRoleIds: [""], serverIds: [""], oxideGroupNames: [""], type: "rust" })}
+                                onClick={() =>
+                                    append({
+                                        discordGuildIds: [""],
+                                        discordRoleIds: [""],
+                                        serverIds: [""],
+                                        oxideGroupNames: [""],
+                                        grantCommands: [],
+                                        type: "rust",
+                                    })
+                                }
                             >
                                 + Add Rust Server
                             </Button>

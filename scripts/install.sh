@@ -15,7 +15,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.4.3"
 INSTALL_TITLE="Magic Rust Template Installer"
 
 WHITE=$'\e[0;37m'
@@ -54,7 +54,7 @@ DOCKER_MYSQL_IMAGE="${DOCKER_MYSQL_IMAGE:-mariadb:11}"
 DOCKER_MYSQL_PORT="${DOCKER_MYSQL_PORT:-3307}"
 DOCKER_DB_NAME="${DOCKER_DB_NAME:-templatephp}"
 DOCKER_DB_USER="${DOCKER_DB_USER:-template}"
-DOCKER_DB_PASS="${DOCKER_DB_PASS:-template_secret_change_me}"
+DOCKER_DB_PASS="${DOCKER_DB_PASS:-}"
 
 REPO_URL="${RUST_TEMPLATE_REPO:-}"
 BRANCH="${RUST_TEMPLATE_BRANCH:-Production}"
@@ -77,7 +77,6 @@ SKIP_NGINX=0
 INSTALL_SKIP_SSL=0
 CERTBOT_EMAIL_ARG=""
 INSTALL_PUBLIC_FRONTEND_URL_RESULT=""
-# Laravel always listens on loopback; Next.js reaches it here (no public APP_URL / BACKEND_URL prompts).
 INTERNAL_LARAVEL_URL="http://127.0.0.1:8000"
 usage() {
     cat <<'EOF'
@@ -107,7 +106,7 @@ Environment:
   RUST_TEMPLATE_REPO   Same as --repo (default prod repo if not in template tree)
   RUST_TEMPLATE_BRANCH Same as --branch
   RUST_TEMPLATE_USE_DOCKER_DB  Set to 0/false/no to skip Docker MariaDB (use --db-url)
-  DOCKER_DB_PASS               App user password for Docker MariaDB (default: random hex on first container create)
+  DOCKER_DB_PASS               App user password for Docker MariaDB (omit for random hex on new container; when reusing an existing container, read from .install-docker-mysql / backend/.env or set explicitly)
   INSTALL_IONCUBE=1     Same as --ioncube
   CI=1                  Disables interactive prompts (whiptail / read); use INSTALL_* env vars
   INSTALL_BACKEND_URL   Ignored if set (backward compatibility). Use INSTALL_FRONTEND_URL only.
@@ -482,12 +481,41 @@ ensure_docker_for_mysql() {
     docker info >/dev/null 2>&1 || die "Docker is installed but the daemon is not running. Try: sudo systemctl start docker"
 }
 
-maybe_generate_docker_mysql_password() {
-    [[ "$USE_DOCKER_DB" -eq 1 ]] || return 0
-    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$DOCKER_MYSQL_CONTAINER"; then
+load_docker_mysql_pass_from_prev_install() {
+    local root="$1"
+    local f line val
+    for f in "${root}/.install-docker-mysql" "${root}/backend/.env"; do
+        [[ -r "$f" ]] || continue
+        line="$(grep -E '^DB_PASSWORD=' "$f" 2>/dev/null | tail -n1)" || true
+        [[ -n "$line" ]] || continue
+        val="${line#DB_PASSWORD=}"
+        val="${val#\"}"
+        val="${val%\"}"
+        val="${val#\'}"
+        val="${val%\'}"
+        [[ -n "$val" ]] || continue
+        printf '%s' "$val"
         return 0
+    done
+    return 1
+}
+
+maybe_generate_docker_mysql_password() {
+    local root="$1"
+    [[ "$USE_DOCKER_DB" -eq 1 ]] || return 0
+
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$DOCKER_MYSQL_CONTAINER"; then
+        if [[ -n "$DOCKER_DB_PASS" ]]; then
+            return 0
+        fi
+        if DOCKER_DB_PASS="$(load_docker_mysql_pass_from_prev_install "$root")"; then
+            log "Using MariaDB password from existing install files for container ${DOCKER_MYSQL_CONTAINER}."
+            return 0
+        fi
+        die "Docker container ${DOCKER_MYSQL_CONTAINER} already exists but DOCKER_DB_PASS is unset. Export the password you used at create time, or remove the container (docker rm -f ${DOCKER_MYSQL_CONTAINER}) and re-run."
     fi
-    if [[ "$DOCKER_DB_PASS" != "template_secret_change_me" ]]; then
+
+    if [[ -n "$DOCKER_DB_PASS" ]]; then
         return 0
     fi
     need_cmd openssl || die "openssl is required to generate a random MariaDB password."
@@ -1237,6 +1265,40 @@ NGX
     $SUDO ln -sf /etc/nginx/sites-available/rust-template /etc/nginx/sites-enabled/rust-template
 }
 
+port_80_listen_lines() {
+    command -v ss >/dev/null 2>&1 || return 0
+    ss -tlnpH 2>/dev/null | awk '$4 ~ /:80$/ {print}' || true
+}
+
+port_80_available_for_nginx() {
+    local lines bad
+    lines="$(port_80_listen_lines)"
+    [[ -z "$lines" ]] && return 0
+    bad="$(echo "$lines" | grep -v nginx || true)"
+    if [[ -n "$bad" ]]; then
+        warn "Port 80 is in use by a non-nginx process. Stop it (e.g. systemctl stop apache2, or a container publishing :80) so nginx can bind and certbot can reload nginx."
+        while IFS= read -r l; do
+            [[ -n "$l" ]] && warn "  $l"
+        done <<<"$lines"
+        return 1
+    fi
+    return 0
+}
+
+nginx_reload_or_restart() {
+    local SUDO="$1"
+    if $SUDO systemctl reload nginx 2>/dev/null; then
+        return 0
+    fi
+    if $SUDO service nginx reload 2>/dev/null; then
+        return 0
+    fi
+    if $SUDO systemctl restart nginx 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
 resolve_certbot_email() {
     local fe_host="$1"
     local out="${CERTBOT_EMAIL_ARG:-${INSTALL_CERTBOT_EMAIL:-}}"
@@ -1308,10 +1370,20 @@ maybe_setup_nginx_domain_proxy() {
     write_nginx_forwarded_proto_map "$SUDO"
     write_nginx_site_rust_template "$SUDO" "$fe_host"
 
+    local nginx_ok=0
     if $SUDO nginx -t 2>/dev/null; then
         $SUDO systemctl enable nginx >/dev/null 2>&1 || true
-        $SUDO systemctl reload nginx 2>/dev/null || $SUDO service nginx reload 2>/dev/null || $SUDO systemctl restart nginx 2>/dev/null || true
-        log "nginx configured for ${fe_host} → http://127.0.0.1:3000 (Cloudflare real_ip snippet included)."
+        port_80_available_for_nginx || true
+        if nginx_reload_or_restart "$SUDO"; then
+            nginx_ok=1
+            log "nginx configured for ${fe_host} → http://127.0.0.1:3000 (Cloudflare real_ip snippet included)."
+        else
+            warn "nginx did not reload/restart — port 80 is probably already taken (certbot will fail the same way). Inspect: sudo ss -tlnp | awk '\$4 ~ /:80\$/'"
+            while IFS= read -r l; do
+                [[ -n "$l" ]] && warn "  $l"
+            done <<<"$(port_80_listen_lines)"
+            warn "Site config is on disk at /etc/nginx/sites-available/rust-template; free port 80, then: sudo systemctl restart nginx"
+        fi
     else
         warn "nginx -t failed after writing site config; fix /etc/nginx and reload nginx manually."
         return 0
@@ -1334,6 +1406,11 @@ maybe_setup_nginx_domain_proxy() {
         return 0
     }
 
+    [[ "$nginx_ok" -eq 1 ]] || {
+        warn "Skipping Let’s Encrypt until nginx is listening on port 80. Free the port, then: sudo systemctl restart nginx && sudo certbot --nginx -d ${fe_host}"
+        return 0
+    }
+
     log "Requesting Let’s Encrypt certificate (certbot --nginx)…"
     if $SUDO certbot --nginx -d "$fe_host" --non-interactive --agree-tos --email "$cert_email" --redirect; then
         local fe_https="https://${fe_host}"
@@ -1351,7 +1428,7 @@ maybe_setup_nginx_domain_proxy() {
             warn "Restart Next.js to pick up .env changes: kill \$(cat ${root}/.rust-template-frontend-serve.pid) and start again, or reboot your process manager."
         fi
     else
-        warn "certbot failed (DNS must point here, port 80 reachable). HTTP reverse proxy still works; fix DNS/firewall and run: sudo certbot --nginx -d ${fe_host}"
+        warn "certbot failed. Common causes: DNS not pointing here, firewall blocking :80, or port 80 in use so nginx cannot restart. Check: sudo ss -tlnp | awk '\$4 ~ /:80\$/'  then retry: sudo certbot --nginx -d ${fe_host}"
     fi
 }
 
@@ -1462,7 +1539,7 @@ MYSQL_PASSWORD=""
 if [[ -n "$DB_URL_INPUT" ]]; then
     parse_mysql_url "$DB_URL_INPUT"
 elif [[ "$USE_DOCKER_DB" -eq 1 ]]; then
-    maybe_generate_docker_mysql_password
+    maybe_generate_docker_mysql_password "$ROOT"
     start_docker_mysql
     MYSQL_HOST="127.0.0.1"
     MYSQL_PORT="$DOCKER_MYSQL_PORT"

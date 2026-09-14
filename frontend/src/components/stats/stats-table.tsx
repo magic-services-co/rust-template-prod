@@ -294,13 +294,13 @@ const getColumns = (
                 header: ({ column }: { column: Column<Record<string, any>, unknown> }) =>
                     sortHeader(column, columnData, columnData.columnLabel),
                 cell: ({ row }: { row: Row<Record<string, any>> }) =>
-                    columnData.columnKey === "favorite_weapon" ? (
+                    columnFormat(columnData) === "weapon" ? (
                         <div className="flex items-center justify-center">
                             <FavoriteWeaponCell row={row.original} theme={theme} />
                         </div>
                     ) : (
                         <div className="flex items-center justify-center gap-1">
-                            {columnData.columnKey === "kdr" ? (
+                            {columnFormat(columnData) === "computed" ? (
                                 <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500/90" aria-hidden />
                             ) : null}
                             <span className="tabular-nums">
@@ -326,24 +326,36 @@ const getColumns = (
     ];
 }
 
-function renderValue(columnData: LeaderboardColumn, value: any) {
-    if (columnData.columnKey === "kdr") {
-        return Number(value).toFixed(2)
+function columnFormat(columnData: LeaderboardColumn): string {
+    if (columnData.format) return columnData.format;
+    if (columnData.columnKey === "kdr") return "computed";
+    if (columnData.columnKey === "favorite_weapon") return "weapon";
+    if (columnData.columnKey === "time_played") return "duration";
+    return "number";
+}
+
+function renderValue(columnData: LeaderboardColumn, value: unknown) {
+    const fmt = columnFormat(columnData);
+    if (fmt === "computed" || columnData.columnKey === "kdr") {
+        return Number(value).toFixed(2);
     }
-    if (columnData.columnKey === "favorite_weapon") {
+    if (fmt === "weapon") {
         return value == null || value === "" ? "—" : String(value);
     }
-    if (columnData.columnKey === "time_played") {
-        const duration = intervalToDuration({ start: 0, end: value * 1000 });
+    if (fmt === "duration") {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return "—";
+        const duration = intervalToDuration({ start: 0, end: n * 1000 });
         return formatDuration(duration, {
-            format: value >= 86400 ? ['days', 'hours'] :
-                value >= 3600 ? ['hours', 'minutes'] :
-                    ['minutes', 'seconds'],
+            format: n >= 86400 ? ["days", "hours"] : n >= 3600 ? ["hours", "minutes"] : ["minutes", "seconds"],
             zero: false,
-            delimiter: ' '
+            delimiter: " ",
         });
     }
-    return value
+    if (fmt === "percent") {
+        return `${Number(value).toFixed(1)}%`;
+    }
+    return value as React.ReactNode;
 }
 
 export function StatsTable({

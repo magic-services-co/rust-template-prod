@@ -6,12 +6,11 @@ export interface Server {
   image_path?: string | null;
   server_address?: string | null;
   enabled?: boolean;
-  rcon_ip?: string | null;
-  rcon_port?: number | null;
-  rcon_password?: string | null;
   wipe_schedule?: string;
   /** RustMaps CDN thumbnail URL; overrides BattleMetrics for map preview / 3D viewer. */
   current_map_thumbnail_url?: string | null;
+  pterodactyl_panel_id?: number | null;
+  pterodactyl_server_identifier?: string | null;
   [key: string]: unknown;
 }
 

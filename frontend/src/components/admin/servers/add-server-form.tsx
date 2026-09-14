@@ -16,6 +16,7 @@ import { getCategories } from '@/app/actions/admin'
 import { Loader2, Info } from 'lucide-react'
 import { WIPE_SCHEDULE_OPTIONS } from '@/lib/wipe-schedule-presets'
 import Image from 'next/image'
+import { PterodactylServerPicker, type PterodactylServerOption } from '@/components/admin/servers/pterodactyl-server-picker'
 
 interface ServerFormData {
     id: string
@@ -25,17 +26,16 @@ interface ServerFormData {
     image_path: string
     server_address: string
     current_map_thumbnail_url: string
-    rcon_ip: string
-    rcon_port: string
-    rcon_password: string
     wipe_schedule: string
 }
 
 export function AddServerForm() {
     const [open, setOpen] = useState(false)
     const [infoHoverOpen, setInfoHoverOpen] = useState(false)
+    const [pterodactylPanelId, setPterodactylPanelId] = useState<number | null>(null)
+    const [pterodactylServerIdentifier, setPterodactylServerIdentifier] = useState<string | null>(null)
     const router = useRouter()
-    const { control, register, handleSubmit, reset } = useForm<ServerFormData>({
+    const { control, register, handleSubmit, reset, setValue } = useForm<ServerFormData>({
         defaultValues: {
             wipe_schedule: 'auto',
             current_map_thumbnail_url: '',
@@ -72,8 +72,9 @@ export function AddServerForm() {
                     categoryId: parseInt(data.categoryId, 10),
                     image_path: data.image_path || null,
                     current_map_thumbnail_url: data.current_map_thumbnail_url?.trim() || null,
-                    rcon_port: data.rcon_port || null,
                     wipe_schedule: data.wipe_schedule || 'auto',
+                    pterodactylPanelId: pterodactylPanelId,
+                    pterodactylServerIdentifier: pterodactylServerIdentifier,
                 }),
             })
             if (!response.ok) {
@@ -86,6 +87,8 @@ export function AddServerForm() {
         },
         onSuccess: () => {
             reset()
+            setPterodactylPanelId(null)
+            setPterodactylServerIdentifier(null)
             setOpen(false)
             queryClient.invalidateQueries({ queryKey: ['fetch-server-list'] })
             queryClient.invalidateQueries({ queryKey: ['serverData'] })
@@ -114,6 +117,18 @@ export function AddServerForm() {
                     <DialogTitle>Add New Server</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <PterodactylServerPicker
+                        panelId={pterodactylPanelId}
+                        serverIdentifier={pterodactylServerIdentifier}
+                        onPanelChange={setPterodactylPanelId}
+                        onServerChange={(id) => setPterodactylServerIdentifier(id)}
+                        onServerSelected={(server: PterodactylServerOption) => {
+                            setValue('name', server.name, { shouldDirty: true })
+                            if (server.address) {
+                                setValue('server_address', server.address, { shouldDirty: true })
+                            }
+                        }}
+                    />
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                             {...register('name', { required: true })}
@@ -234,26 +249,6 @@ export function AddServerForm() {
                     <p className="text-xs text-muted-foreground -mt-2">
                         Overrides BattleMetrics for map preview and 3D viewer on the public server list.
                     </p>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">RCON Settings</label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                {...register('rcon_ip')}
-                                type="text"
-                                placeholder="RCON IP (optional)"
-                            />
-                            <Input
-                                {...register('rcon_port')}
-                                type="number"
-                                placeholder="RCON Port (optional)"
-                            />
-                        </div>
-                        <Input
-                            {...register('rcon_password')}
-                            type="password"
-                            placeholder="RCON Password (optional)"
-                        />
-                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input
                             {...register('order', { required: true, valueAsNumber: true })}

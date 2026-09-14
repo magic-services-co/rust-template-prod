@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as React from 'react';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
+import { prepareSanctumMutationHeaders } from '@/lib/sanctum-csrf';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -967,9 +968,10 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
     try {
       setIsSaving(true);
 
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const themeResponse = await fetch(backendApi('admin/theme?mode=visual'), {
         method: 'POST',
         credentials: 'include',
@@ -988,7 +990,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
           fetch(backendApi('admin/page-elements'), {
             method: 'POST',
             credentials: 'include',
-            headers: { ...headers, 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(edit),
           })
         );
@@ -1025,9 +1027,10 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
   const handleResetToDefault = async () => {
     try {
       setIsSaving(true);
-      const token = getAuthToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
 
       const resetResponse = await fetch(backendApi('admin/theme?mode=visual'), {
         method: 'POST',

@@ -22,3 +22,22 @@ export async function fetchSanctumCsrfCookie(): Promise<void> {
     headers: { Accept: "application/json" },
   });
 }
+
+export async function prepareSanctumMutationHeaders(options?: {
+  json?: boolean;
+  bearerToken?: string | null;
+}): Promise<Record<string, string>> {
+  await fetchSanctumCsrfCookie();
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...csrfHeaderInit(),
+  };
+  if (options?.json) {
+    headers["Content-Type"] = "application/json";
+  }
+  const token = options?.bearerToken;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}

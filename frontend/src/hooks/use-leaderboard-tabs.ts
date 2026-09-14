@@ -8,26 +8,17 @@ export type LeaderboardColumn = {
   columnLabel: string;
   icon?: string | null;
   order?: number;
+  format?: string | null;
 };
 
 export type LeaderboardTab = {
   tabKey: string;
   tabLabel: string;
+  icon?: string | null;
   columns: LeaderboardColumn[];
 };
 
-const DEFAULT_TABS: LeaderboardTab[] = [
-  {
-    tabKey: 'pvp_stats',
-    tabLabel: 'PvP Stats',
-    columns: [
-      { columnKey: 'steam_id', columnLabel: 'Steam ID' },
-      { columnKey: 'username', columnLabel: 'Username' },
-      { columnKey: 'kdr', columnLabel: 'K/D' },
-      { columnKey: 'time_played', columnLabel: 'Time Played' },
-    ],
-  },
-];
+const DEFAULT_TABS: LeaderboardTab[] = [];
 
 async function fetchLeaderboardTabs(): Promise<LeaderboardTab[]> {
   const res = await fetch(backendApi('leaderboard/tabs'), {
@@ -41,8 +32,15 @@ async function fetchLeaderboardTabs(): Promise<LeaderboardTab[]> {
     return data.map((tab: Record<string, unknown>) => ({
       tabKey: String(tab.tabKey ?? tab.tab_key ?? ''),
       tabLabel: String(tab.tabLabel ?? tab.tab_label ?? ''),
+      icon: tab.icon != null ? String(tab.icon) : null,
       columns: Array.isArray(tab.columns)
-        ? (tab.columns as LeaderboardColumn[])
+        ? (tab.columns as LeaderboardColumn[]).map((c) => ({
+            columnKey: c.columnKey,
+            columnLabel: c.columnLabel,
+            icon: c.icon,
+            order: c.order,
+            format: c.format ?? null,
+          }))
         : [],
     }));
   }
