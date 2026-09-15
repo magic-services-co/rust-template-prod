@@ -17,6 +17,17 @@ export function openPayNowPopup(checkoutUrl: string, productIds?: string[], chec
 
   if (!PayNow?.checkout) {
     console.warn("PayNow.js checkout not loaded; redirecting to URL.");
+    if (productIds && productIds.length > 0) {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const authToken = getAuthToken();
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+      void fetch(backendApi("store/pending-checkout"), {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ productIds }),
+      }).catch(() => undefined);
+    }
     window.location.href = checkoutUrl;
     return;
   }
@@ -29,6 +40,18 @@ export function openPayNowPopup(checkoutUrl: string, productIds?: string[], chec
       console.error("No token found in checkout URL");
       window.location.href = checkoutUrl;
       return;
+    }
+
+    if (productIds && productIds.length > 0) {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const authToken = getAuthToken();
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+      void fetch(backendApi("store/pending-checkout"), {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ productIds }),
+      }).catch(() => undefined);
     }
 
     PayNow.checkout.on("completed", async (event: unknown) => {

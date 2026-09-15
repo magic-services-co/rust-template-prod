@@ -56,7 +56,7 @@ const checkboxSections: CheckboxSection[] = [
             { key: "assignOnVerification", label: "Verification Role", description: "Assign this role when a user links their discord and steam account." },
             { key: "assignOnBoost", label: "Discord Booster Role", description: "Assign this role when a user boosts the discord server." },
             { key: "assignOnGroupJoin", label: "Steam Group Role", description: "Assign this role when a user joins the steam group." },
-            { key: "assignOnPurchase", label: "Purchase Role", description: "Assign this role when a user purchases specific products from the store." },
+            { key: "assignOnPurchase", label: "Purchase Role", description: "Map PayNow product UUIDs to this site role. PayNow owns entitlement; the site grants or revokes this role and then syncs Discord and Oxide." },
             { key: "assignOnPlaytime", label: "Playtime Role", description: "Assign this role when a user reaches a certain playtime threshold." },
         ],
     },

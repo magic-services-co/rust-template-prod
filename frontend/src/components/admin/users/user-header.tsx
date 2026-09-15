@@ -91,6 +91,31 @@ export default function UserHeader({ user }: { user: User }) {
         }
     });
 
+    const recheckPaynowMutation = useMutation({
+        mutationFn: async () => {
+            const token = getAuthToken();
+            const headers: Record<string, string> = { Accept: 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const response = await fetch(backendApi(`admin/users/${user.id}/recheck-paynow-roles`), {
+                method: 'POST',
+                credentials: 'include',
+                headers,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error((data.error || data.message || 'Failed to recheck roles') as string);
+            }
+            return data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+            toast.success(`Roles rechecked — granted ${data?.granted ?? 0}, revoked ${data?.revoked ?? 0}`);
+        },
+        onError: (error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to recheck PayNow roles');
+        }
+    });
+
     const banUserMutation = useMutation({
         mutationFn: async (reason: string) => {
             const token = getAuthToken();
@@ -505,8 +530,21 @@ export default function UserHeader({ user }: { user: User }) {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-                <GiftPackage customerId={typeof user.storeId === 'string' ? user.storeId : ''} />
-                <div />
+                <GiftPackage
+                    customerId={typeof user.storeId === 'string' ? user.storeId : ''}
+                    steamId={typeof user.steamId === 'string' ? user.steamId : undefined}
+                />
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    type="button"
+                    className="w-fit md:w-full justify-start"
+                    onClick={() => recheckPaynowMutation.mutate()}
+                    disabled={recheckPaynowMutation.isPending}
+                >
+                    <RefreshCw className={cn("mr-2 h-4 w-4", recheckPaynowMutation.isPending && "animate-spin")} />
+                    Recheck roles
+                </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button

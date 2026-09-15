@@ -15,13 +15,13 @@ import { useMutation } from "@tanstack/react-query";
 import { assignPackage } from "@/app/actions/admin-store";
 import { toast } from "sonner";
 
-export function GiftPackage({ customerId }: { customerId: string }) {
+export function GiftPackage({ customerId, steamId }: { customerId: string; steamId?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [contentMounted, setContentMounted] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async (productId: string) => {
-      const result = await assignPackage(customerId, productId);
+      const result = await assignPackage(customerId, productId, steamId);
       if (result.error) {
         throw new Error(result.error);
       }

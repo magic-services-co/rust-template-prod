@@ -57,15 +57,17 @@ export async function getInventory(customerId: string) {
   return handleResponse(res);
 }
 
-export async function assignPackage(customerId: string, productId: string) {
+export async function assignPackage(customerId: string, productId: string, steamId?: string) {
   const res = await fetch(backendApi("admin/store/command_delivery"), {
     method: "POST",
     headers: authHeaders(),
     credentials: "include",
     body: JSON.stringify({
       customer_id: customerId,
+      steam_id: steamId || undefined,
       product_id: productId,
       quantity: 1,
+      permanent: true,
     }),
   });
   return handleResponse(res);

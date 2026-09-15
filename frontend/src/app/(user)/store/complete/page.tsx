@@ -2,6 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { backendApi } from "@/lib/api";
+import { getAuthToken } from "@/lib/laravel-auth";
 
 function StoreCompleteContent() {
     const searchParams = useSearchParams();
@@ -24,6 +26,16 @@ function StoreCompleteContent() {
         }
         
         setRedirectUrl(targetUrl);
+
+        const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
+        const authToken = getAuthToken();
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+        void fetch(backendApi("store/assign-purchase-roles"), {
+            method: "POST",
+            headers,
+            credentials: "include",
+            body: JSON.stringify({}),
+        }).catch(() => undefined);
         
         const redirectTimer = setTimeout(() => {
             setIsRedirecting(true);

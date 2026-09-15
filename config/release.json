@@ -1,12 +1,17 @@
 {
-  "version": "2.0.1",
+  "version": "2.1.0",
   "releasedAt": "2026-09-14",
   "notes": [
-    "Fixes assigning and revoking admin user roles on Sanctum SPA installs."
+    "PayNow now owns paid ranks: purchases, refunds, gifts, and recheck grant or revoke site roles, then sync Discord and in-game Oxide groups."
+  ],
+  "added": [
+    "PayNow webhook, checkout return, admin gift, and Recheck roles now grant or revoke mapped site roles.",
+    "Store-managed roles fan out to Discord guild roles and an Oxide group queue for game servers.",
+    "Admin gifts create a PayNow delivery item and grant locally; Recheck roles reconciles missed webhooks."
   ],
   "changed": [
-    "Assigning or revoking a user role now sends the Laravel Sanctum CSRF token, so those actions no longer fail with CSRF token mismatch.",
-    "The Next.js /api proxy forwards X-XSRF-TOKEN from the XSRF-TOKEN cookie and preserves all Set-Cookie headers from Laravel.",
-    "Revoking a role no longer errors with \"No primary key defined on model\" (UserRole uses a composite userId + roleId key)."
+    "PayNow product UUIDs on Admin → Roles are the entitlement map. Auto-assign, Discord booster, and verification skip those roles so they cannot fight a purchase.",
+    "Manual staff role assigns (Steam64) survive PayNow refunds. Staff removing a store role stores an exemption so it is not slapped back on.",
+    "Subscription cancel keeps access until the current period ends unless PayNow already marked the subscription failed, unpaid, or ended."
   ]
 }

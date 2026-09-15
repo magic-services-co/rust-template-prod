@@ -283,7 +283,7 @@ export function TicketView({ ticketId, currentUser }: TicketViewProps) {
                         <ExternalLink className='mr-2' size={18} />
                         Visit PayNow
                     </Link>
-                    <GiftPackage customerId={ticket.user?.storeId || ''} />
+                    <GiftPackage customerId={ticket.user?.storeId || ''} steamId={ticket.user?.steamId} />
                 </CardFooter>
             </Card>
 
