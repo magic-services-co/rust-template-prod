@@ -15,7 +15,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.4.3"
+SCRIPT_VERSION="1.4.4"
 INSTALL_TITLE="Magic Rust Template Installer"
 
 WHITE=$'\e[0;37m'
@@ -132,6 +132,9 @@ Optional: --paynow-key / --steam-secret or INSTALL_PAYNOW_KEY / INSTALL_STEAM_SE
 Copying data from an older MySQL install of this template is done in /setup (Previous install step), not here.
 
 After install, Laravel and Next.js start in production style (0.0.0.0) unless --skip-start-servers.
+
+When run as root (or with sudo), installs a per-minute cron job: cd ${ROOT}/backend && php artisan schedule:run
+(template auto-update, server automations, etc.) for the backend directory owner (or www-data).
 
 Examples:
   sudo bash -c "$(curl -fsSL https://magicservices.co/rust-template/install.sh)"
@@ -1014,6 +1017,91 @@ setup_frontend() {
     fi
 }
 
+install_laravel_scheduler_cron() {
+    local root="$1"
+    local backend="${root}/backend"
+    [[ -f "${backend}/artisan" ]] || return 0
+
+    local php_bin
+    php_bin="$(command -v php 2>/dev/null || true)"
+    [[ -n "$php_bin" ]] || {
+        warn "php not in PATH; skipping Laravel scheduler cron."
+        return 0
+    }
+
+    local SUDO=""
+    [[ "$(id -u)" -ne 0 ]] && SUDO="sudo"
+
+    if ! need_cmd crontab; then
+        if need_cmd apt-get && { [[ "$(id -u)" -eq 0 ]] || need_cmd sudo; }; then
+            log "Installing cron package for Laravel scheduler…"
+            $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cron >/dev/null 2>&1 \
+                || $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y cron >/dev/null 2>&1 || true
+        fi
+    fi
+    if ! need_cmd crontab; then
+        warn "crontab not available. Add manually every minute:"
+        warn "  * * * * * cd ${backend} && php artisan schedule:run >> /dev/null 2>&1"
+        return 0
+    fi
+
+    local cron_marker="# magic-rust-template-laravel-schedule"
+    local cron_line="* * * * * cd $(printf '%q' "$backend") && $(printf '%q' "$php_bin") artisan schedule:run >> /dev/null 2>&1"
+
+    local cron_user=""
+    if [[ "$(id -u)" -eq 0 ]]; then
+        cron_user="$(stat -c '%U' "$backend" 2>/dev/null || true)"
+        if [[ -z "$cron_user" || "$cron_user" == "UNKNOWN" ]]; then
+            cron_user="${SUDO_USER:-}"
+        fi
+        if [[ -z "$cron_user" ]] && id www-data &>/dev/null; then
+            cron_user="www-data"
+        fi
+        if [[ -z "$cron_user" ]]; then
+            cron_user="root"
+        fi
+        if ! id "$cron_user" &>/dev/null; then
+            warn "User ${cron_user} not found; skipping scheduler cron."
+            return 0
+        fi
+    else
+        cron_user="${USER:-}"
+        [[ -n "$cron_user" ]] || {
+            warn "Could not determine user for scheduler cron."
+            return 0
+        }
+    fi
+
+    local existing crontab_cmd=()
+    if [[ "$(id -u)" -eq 0 ]]; then
+        crontab_cmd=(crontab -u "$cron_user")
+        existing="$($SUDO "${crontab_cmd[@]}" -l 2>/dev/null || true)"
+    else
+        crontab_cmd=(crontab)
+        existing="$(crontab -l 2>/dev/null || true)"
+    fi
+
+    if echo "$existing" | grep -qF "$cron_marker"; then
+        log "Laravel scheduler cron already configured for ${cron_user}."
+        return 0
+    fi
+    if echo "$existing" | grep -Fq "${backend}" && echo "$existing" | grep -Fq "schedule:run"; then
+        log "Laravel scheduler cron already present for ${cron_user} (skipping duplicate)."
+        return 0
+    fi
+
+    local new_crontab
+    if [[ -n "$existing" ]]; then
+        new_crontab="${existing}"$'\n\n'"${cron_marker}"$'\n'"${cron_line}"
+    else
+        new_crontab="${cron_marker}"$'\n'"${cron_line}"
+    fi
+
+    echo "$new_crontab" | $SUDO "${crontab_cmd[@]}" -
+    log "Installed Laravel scheduler cron for ${cron_user}:"
+    log "  ${cron_line}"
+}
+
 start_backend_production() {
     local root="$1"
     local backend="${root}/backend"
@@ -1578,6 +1666,7 @@ else
 fi
 
 setup_backend "$ROOT"
+install_laravel_scheduler_cron "$ROOT"
 setup_frontend "$ROOT" "$INTERNAL_LARAVEL_URL" "$PUBLIC_FRONTEND_URL"
 
 if [[ -d "${ROOT}/backend/storage/app" ]]; then
@@ -1613,6 +1702,11 @@ Install finished.
   Restart later (production-style, all interfaces):
     cd ${ROOT}/backend && php artisan serve --host=0.0.0.0 --port=8000
     cd ${ROOT}/frontend && npm run start -- --hostname 0.0.0.0 --port 3000
+
+  Laravel scheduler (cron, installed by this script when root/sudo + crontab available):
+    * * * * * cd ${ROOT}/backend && php artisan schedule:run >> /dev/null 2>&1
+    Runs template auto-update checks, server automations (map vote / wipe workflows), etc.
+    Verify: sudo crontab -u \$(stat -c '%U' ${ROOT}/backend) -l
 
   Nginx (when a domain hostname was used): /etc/nginx/sites-available/rust-template
     Cloudflare real IP snippet: /etc/nginx/snippets/rust-template-cloudflare-real-ip.conf

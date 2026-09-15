@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { backendApi } from "@/lib/api";
+import { getAuthToken } from "@/lib/laravel-auth";
+import { prepareSanctumMutationHeaders } from "@/lib/sanctum-csrf";
 import { siteSettingsQueryKey } from "@/hooks/use-site-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,10 +67,14 @@ export default function AdminUpdatePage() {
 
   const autoMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
+      const headers = await prepareSanctumMutationHeaders({
+        json: true,
+        bearerToken: getAuthToken(),
+      });
       const res = await fetch(backendApi("admin/site-settings"), {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers,
         body: JSON.stringify({ autoUpdateTemplate: enabled }),
       });
       if (!res.ok) {
@@ -87,10 +93,13 @@ export default function AdminUpdatePage() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      const headers = await prepareSanctumMutationHeaders({
+        bearerToken: getAuthToken(),
+      });
       const res = await fetch(backendApi("admin/system/update"), {
         method: "POST",
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

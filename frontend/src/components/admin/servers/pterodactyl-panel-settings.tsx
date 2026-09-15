@@ -19,6 +19,12 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { ExternalLink, Loader2, Plus, Settings, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { PterodactylStartupVarKeysFields } from '@/components/admin/servers/pterodactyl-startup-var-keys-fields'
+import {
+    defaultPterodactylStartupVarKeys,
+    normalizePterodactylStartupVarKeys,
+    type PterodactylStartupVarKeys,
+} from '@/lib/pterodactyl-startup-vars'
 
 type PterodactylPanel = {
     id: number
@@ -28,6 +34,7 @@ type PterodactylPanel = {
     apiKeyConfigured: boolean
     apiKeyCreateUrl: string
     clientApiUrl: string
+    startupVarKeys: PterodactylStartupVarKeys
 }
 
 function authHeaders(json = false): Record<string, string> {
@@ -55,6 +62,9 @@ export function PterodactylPanelSettings() {
     const [name, setName] = useState('')
     const [panelUrl, setPanelUrl] = useState('')
     const [apiKey, setApiKey] = useState('')
+    const [startupVarKeys, setStartupVarKeys] = useState<PterodactylStartupVarKeys>({
+        ...defaultPterodactylStartupVarKeys,
+    })
     const queryClient = useQueryClient()
 
     const { data, isLoading } = useQuery({
@@ -81,6 +91,7 @@ export function PterodactylPanelSettings() {
         setName('')
         setPanelUrl('')
         setApiKey('')
+        setStartupVarKeys({ ...defaultPterodactylStartupVarKeys })
     }
 
     const saveMutation = useMutation({
@@ -88,6 +99,7 @@ export function PterodactylPanelSettings() {
             const body = {
                 name: name.trim(),
                 panelUrl: panelUrl.trim(),
+                startupVarKeys: normalizePterodactylStartupVarKeys(startupVarKeys),
                 ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
             }
             const url = editingId
@@ -153,6 +165,7 @@ export function PterodactylPanelSettings() {
         setName(panel.name)
         setPanelUrl(panel.panelUrl)
         setApiKey('')
+        setStartupVarKeys(normalizePterodactylStartupVarKeys(panel.startupVarKeys))
     }
 
     return (
@@ -162,7 +175,7 @@ export function PterodactylPanelSettings() {
                     <Settings className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Pterodactyl Panels</DialogTitle>
                     <DialogDescription>
@@ -280,6 +293,12 @@ export function PterodactylPanelSettings() {
                                 </p>
                             )}
                         </div>
+
+                        <PterodactylStartupVarKeysFields
+                            value={startupVarKeys}
+                            onChange={setStartupVarKeys}
+                            disabled={saveMutation.isPending}
+                        />
 
                         {testMutation.data && (
                             <Alert variant={testMutation.data.valid ? 'default' : 'destructive'} className="py-2">

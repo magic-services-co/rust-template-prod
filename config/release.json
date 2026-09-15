@@ -2,16 +2,23 @@
   "version": "2.1.0",
   "releasedAt": "2026-09-14",
   "notes": [
-    "PayNow now owns paid ranks: purchases, refunds, gifts, and recheck grant or revoke site roles, then sync Discord and in-game Oxide groups."
+    "PayNow now owns paid ranks: purchases, refunds, gifts, and recheck grant or revoke site roles, then sync Discord and in-game Oxide groups.",
+    "Wipe automations can run on a schedule or when a map vote ends or the map starts, including applying the winning map on Pterodactyl.",
+    "BattleMetrics now requires an API key on every request, including public server player counts and map details."
   ],
   "added": [
     "PayNow webhook, checkout return, admin gift, and Recheck roles now grant or revoke mapped site roles.",
     "Store-managed roles fan out to Discord guild roles and an Oxide group queue for game servers.",
-    "Admin gifts create a PayNow delivery item and grant locally; Recheck roles reconciles missed webhooks."
+    "Admin gifts create a PayNow delivery item and grant locally; Recheck roles reconciles missed webhooks.",
+    "Admin → Automation: schedule, map-vote-end, and map-start workflows with power, RCON, delay, and apply-map-winner steps.",
+    "Pterodactyl panel settings now store seed, size, and custom map URL startup variable keys for wipe automations.",
+    "Installer installs a per-minute Laravel scheduler cron so automations and template auto-update checks actually run."
   ],
   "changed": [
     "PayNow product UUIDs on Admin → Roles are the entitlement map. Auto-assign, Discord booster, and verification skip those roles so they cannot fight a purchase.",
     "Manual staff role assigns (Steam64) survive PayNow refunds. Staff removing a store role stores an exemption so it is not slapped back on.",
-    "Subscription cancel keeps access until the current period ends unless PayNow already marked the subscription failed, unpaid, or ended."
+    "Subscription cancel keeps access until the current period ends unless PayNow already marked the subscription failed, unpaid, or ended.",
+    "Every BattleMetrics API call sends the stored Bearer token. Server listing no longer goes out unauthenticated.",
+    "Admin → Template update now sends the Sanctum CSRF token on save and run-update, matching other admin POST/PATCH actions."
   ]
 }

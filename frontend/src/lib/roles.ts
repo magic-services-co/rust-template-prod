@@ -26,6 +26,7 @@ export const permissions: Permission[] = [
   { id: "user_full:read", title: "View Full User Details", description: "View full user details, including transactions.", resource: "user_full", action: "read", category: "Users" },
   { id: "user_store:grant", title: "Grant Store Packages", description: "Grant store packages to users", resource: "user_grant", action: "create", category: "Users" },
   { id: "servers:manage", title: "Manage Servers", description: "Manage game servers", resource: "servers", action: "manage", category: "Servers" },
+  { id: "automation:manage", title: "Manage Automation", description: "Manage server automations and wipe workflows", resource: "automation", action: "manage", category: "Servers" },
   { id: "mapvoting:manage", title: "Manage Map Voting", description: "Manage map voting", resource: "mapvoting", action: "manage", category: "Map Voting" },
   { id: "tickets:read", title: "View Tickets", description: "View support tickets", resource: "tickets", action: "read", category: "Tickets" },
   { id: "tickets:manage", title: "Manage Tickets", description: "Manage support tickets", resource: "tickets", action: "manage", category: "Tickets" },

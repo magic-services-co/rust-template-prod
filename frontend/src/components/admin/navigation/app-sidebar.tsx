@@ -7,6 +7,7 @@ import {
   Bot,
   Command,
   Cpu,
+  Workflow,
   Frame,
   FileText,
   GalleryVerticalEnd,
@@ -71,6 +72,11 @@ const data = {
       title: "Servers",
       url: "/servers",
       icon: Server,
+    },
+    {
+      title: "Automation",
+      url: "/automation",
+      icon: Workflow,
     },
     {
       title: "Pages",
