@@ -1,18 +1,12 @@
 {
-  "version": "2.0.0",
-  "releasedAt": "2026-04-04",
+  "version": "2.0.1",
+  "releasedAt": "2026-09-14",
   "notes": [
-    "General / maintenance items that are not add/change/remove (optional)."
-  ],
-  "added": [
-    "Example: Admin → Template update page with release manifest and optional auto-updates.",
-    "Example: config/release.json shipped with production builds for version comparison."
+    "Fixes assigning and revoking admin user roles on Sanctum SPA installs."
   ],
   "changed": [
-    "Example: Steam OpenID realm aligned with public FRONTEND_URL behind proxies.",
-    "Example: Setup wizard can import data from another MySQL database via mysql:// URL."
-  ],
-  "removed": [
-    "Example: install.sh interactive MySQL migration prompt (use /setup → Previous install instead)."
+    "Assigning or revoking a user role now sends the Laravel Sanctum CSRF token, so those actions no longer fail with CSRF token mismatch.",
+    "The Next.js /api proxy forwards X-XSRF-TOKEN from the XSRF-TOKEN cookie and preserves all Set-Cookie headers from Laravel.",
+    "Revoking a role no longer errors with \"No primary key defined on model\" (UserRole uses a composite userId + roleId key)."
   ]
 }

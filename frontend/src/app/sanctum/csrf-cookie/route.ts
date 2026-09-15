@@ -34,8 +34,28 @@ export async function GET(request: NextRequest) {
   });
   res.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (lower === "content-encoding" || lower === "transfer-encoding" || lower === "connection") return;
+    if (
+      lower === "content-encoding" ||
+      lower === "transfer-encoding" ||
+      lower === "connection" ||
+      lower === "set-cookie"
+    ) {
+      return;
+    }
     out.headers.append(key, value);
   });
+  const setCookies =
+    typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+  if (setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      out.headers.append("set-cookie", cookie);
+    }
+  } else {
+    res.headers.forEach((value, key) => {
+      if (key.toLowerCase() === "set-cookie") {
+        out.headers.append("set-cookie", value);
+      }
+    });
+  }
   return out;
 }

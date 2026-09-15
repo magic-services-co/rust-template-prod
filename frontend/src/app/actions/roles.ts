@@ -1,5 +1,6 @@
 import { backendApi } from "@/lib/api";
 import { getAuthToken } from "@/lib/laravel-auth";
+import { prepareSanctumMutationHeaders } from "@/lib/sanctum-csrf";
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -38,9 +39,13 @@ export async function addUserToRole({
   roleId: string;
   userId: string;
 }): Promise<void> {
+  const headers = await prepareSanctumMutationHeaders({
+    json: true,
+    bearerToken: getAuthToken(),
+  });
   const res = await fetch(backendApi(`admin/roles/${roleId}/users`), {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers,
     credentials: "include",
     body: JSON.stringify({ userId }),
   });
@@ -62,11 +67,14 @@ export async function removeUserFromRole({
   roleId: string;
   userId: string;
 }): Promise<void> {
+  const headers = await prepareSanctumMutationHeaders({
+    bearerToken: getAuthToken(),
+  });
   const res = await fetch(
     backendApi(`admin/roles/${roleId}/users/${encodeURIComponent(userId)}`),
     {
       method: "DELETE",
-      headers: authHeaders(),
+      headers,
       credentials: "include",
     }
   );

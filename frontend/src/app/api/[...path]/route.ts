@@ -59,6 +59,50 @@ function buildBackendUrl(path: string[], search: string): string {
   return `${base}/api/${pathStr}${query}`;
 }
 
+/** Laravel Sanctum expects the XSRF-TOKEN cookie value on X-XSRF-TOKEN for stateful POSTs. */
+function attachXsrfHeader(request: NextRequest, headers: Headers): void {
+  if (headers.has('x-xsrf-token') || headers.has('x-csrf-token')) return;
+  const cookie = request.headers.get('cookie');
+  if (!cookie) return;
+  const match = cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/i);
+  if (!match?.[1]) return;
+  try {
+    headers.set('X-XSRF-TOKEN', decodeURIComponent(match[1]));
+  } catch {
+    headers.set('X-XSRF-TOKEN', match[1]);
+  }
+}
+
+function copyBackendResponseHeaders(res: Response): Headers {
+  const resHeaders = new Headers();
+  res.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (
+      lower === 'content-encoding' ||
+      lower === 'transfer-encoding' ||
+      lower === 'connection' ||
+      lower === 'set-cookie'
+    ) {
+      return;
+    }
+    resHeaders.set(key, value);
+  });
+  const setCookies =
+    typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+  if (setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      resHeaders.append('set-cookie', cookie);
+    }
+  } else {
+    res.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'set-cookie') {
+        resHeaders.append('set-cookie', value);
+      }
+    });
+  }
+  return resHeaders;
+}
+
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxy(request, context);
 }
@@ -113,6 +157,7 @@ async function proxy(
     headers.set('Authorization', `Bearer ${token}`);
     headers.set('X-Auth-Token', token);
   }
+  attachXsrfHeader(request, headers);
 
   let body: string | undefined;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -143,12 +188,7 @@ async function proxy(
     );
   }
 
-  const resHeaders = new Headers();
-  res.headers.forEach((value, key) => {
-    const lower = key.toLowerCase();
-    if (lower === 'content-encoding' || lower === 'transfer-encoding' || lower === 'connection') return;
-    resHeaders.set(key, value);
-  });
+  const resHeaders = copyBackendResponseHeaders(res);
 
   const resBody = await res.text();
   return new NextResponse(resBody, {
