@@ -1,16 +1,14 @@
 {
-  "version": "2.2.1",
+  "version": "2.2.2",
   "releasedAt": "2026-09-26",
   "notes": [
-    "Template update now hard-resets to Production, finds Composer outside PATH, and skips composer install when vendor is already shipped so Run update can finish on typical servers.",
-    "Profile subscriptions and orders type-check so npm run build no longer fails during update.",
-    "Mobile navigation matches the restyled header: gold menu button, square panel, and the same account block as desktop."
+    "Production frontend build now type-checks so template-self-update and /admin/update finish instead of failing in next build.",
+    "Server list, store cart, support ticket form, and theme defaults no longer trip implicit any or readonly assignment errors under Next.js strict TypeScript."
   ],
-  "added": [
-    "Restyled mobile nav with gold L-corners, MENU links, and Sign in / profile actions."
-  ],
+  "added": [],
   "changed": [
-    "Theme and page-element stylesheets load from same-origin /api so browsers stop asking to reach localhost apps.",
-    "Self-update looks for Composer in /usr/local/bin and ~/.local/bin before failing."
-  ]
+    "Typed server-list reduce/map, store cart lines, and support form step names for a clean production build.",
+    "Theme default types widen as const literals so layout, home, and chrome themes stay assignable."
+  ],
+  "removed": []
 }

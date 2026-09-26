@@ -113,7 +113,7 @@ export const HOME_THEME_DEFAULTS = {
 } as const;
 
 export type HomeTheme = {
-  [K in keyof typeof HOME_THEME_DEFAULTS]: (typeof HOME_THEME_DEFAULTS)[K] extends boolean
+  -readonly [K in keyof typeof HOME_THEME_DEFAULTS]: (typeof HOME_THEME_DEFAULTS)[K] extends boolean
     ? boolean
     : (typeof HOME_THEME_DEFAULTS)[K] extends number
       ? number

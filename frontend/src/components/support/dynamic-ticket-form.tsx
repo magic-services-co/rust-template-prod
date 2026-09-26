@@ -295,10 +295,10 @@ export function DynamicTicketForm({ categorySlug, serverTheme }: DynamicTicketFo
             <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-5" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
                 <div>
                     <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">
-                        {(currentStepMeta?.name || "DETAILS").toUpperCase()}
+                        {String(currentStepMeta?.name || "DETAILS").toUpperCase()}
                     </p>
                     <p className="support-form-title pt-1 text-[18px] font-extrabold leading-7">
-                        {category.name.toUpperCase()}
+                        {String(category.name || "").toUpperCase()}
                     </p>
                 </div>
                 <p className="support-form-meta text-[10px] tracking-[1.2px]">

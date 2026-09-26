@@ -36,7 +36,7 @@ export const LAYOUT_CHROME_DEFAULTS = {
 } as const;
 
 export type LayoutChromeTheme = {
-  [K in keyof typeof LAYOUT_CHROME_DEFAULTS]: string;
+  -readonly [K in keyof typeof LAYOUT_CHROME_DEFAULTS]: string;
 };
 
 export type LayoutChromeGroupId = "nav" | "account" | "footer";

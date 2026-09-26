@@ -70,10 +70,10 @@ export default function ServerList({ serverTheme, initialRustalyzerEnabled = fal
     }, {});
 
     const sortedCategories = Object.entries(groupedServers)
-        .map(([categoryId, category]) => ({
+        .map(([categoryId, category]: [string, GroupedServers[number]]) => ({
             id: Number(categoryId),
             ...category,
-            servers: category.servers.sort((a: EnhancedServerData, b: EnhancedServerData) => a.order - b.order),
+            servers: [...category.servers].sort((a, b) => a.order - b.order),
         }))
         .sort((a, b) => a.categoryOrder - b.categoryOrder);
 
@@ -89,7 +89,7 @@ export default function ServerList({ serverTheme, initialRustalyzerEnabled = fal
     return (
         <div className="space-y-[15px] pt-6">
             {sortedCategories.map((category) => {
-                const online = category.servers.reduce((sum, server) => sum + (server.attributes.players || 0), 0);
+                const online = category.servers.reduce((sum: number, server: EnhancedServerData) => sum + (server.attributes.players || 0), 0);
                 return (
                     <section key={category.id} className="pt-4">
                         <div className="pb-[15px]">

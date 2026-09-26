@@ -77,7 +77,11 @@ export const PRIVACY_THEME_DEFAULTS = {
   sidebarSupportText: "For account help or a privacy request,",
 } as const;
 
-export type LayoutTheme = Partial<typeof LAYOUT_THEME_DEFAULTS> & {
+type WidenTheme<T> = {
+  -readonly [K in keyof T]: T[K] extends string ? string : T[K] extends number ? number : T[K];
+};
+
+export type LayoutTheme = Partial<WidenTheme<typeof LAYOUT_THEME_DEFAULTS>> & {
   logoImage?: string;
   backgroundImage?: string;
   backgroundOpacity?: number;

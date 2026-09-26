@@ -19,8 +19,11 @@ export interface TicketCategory {
 export interface CategoryWithId extends TicketCategory {
   id: string;
   steps?: Array<{
+    name?: string;
+    order?: number;
     fields?: Array<{
       type?: string;
+      key?: string;
       options?: Record<string, unknown>;
       [key: string]: unknown;
     }>;

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
-import type { Order, Subscription } from '@/types/store';
+import type { Order, Subscription, Cart } from '@/types/store';
 
 export type NavLink = {
   node_id: string;
@@ -84,9 +84,9 @@ export function useStoreData() {
   };
 }
 
-const emptyCart = { lines: [], total: 0, currency: 'usd', store_id: null, customer_id: null };
+const emptyCart: Cart = { lines: [], total: 0, currency: 'usd', store_id: null, customer_id: null };
 
-function normalizeCart(payload: unknown): typeof emptyCart {
+function normalizeCart(payload: unknown): Cart {
   const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
   const nested =
     (root.cart && typeof root.cart === 'object' ? (root.cart as Record<string, unknown>) : null) ??
@@ -114,8 +114,20 @@ function normalizeCart(payload: unknown): typeof emptyCart {
         name: String(row.name ?? product.name ?? productId),
         price: Number(row.price ?? row.unit_price ?? pricing.price_final ?? product.price ?? 0),
         subscription: Boolean(row.subscription),
-        selected_gameserver_id: (row.selected_gameserver_id ?? row.gameserver_id ?? row.game_server_id ?? null) as string | null,
-        game_server_id: (row.game_server_id ?? row.gameserver_id ?? row.selected_gameserver_id ?? null) as string | null,
+        selected_gameserver_id: typeof row.selected_gameserver_id === 'string'
+          ? row.selected_gameserver_id
+          : typeof row.gameserver_id === 'string'
+            ? row.gameserver_id
+            : typeof row.game_server_id === 'string'
+              ? row.game_server_id
+              : undefined,
+        game_server_id: typeof row.game_server_id === 'string'
+          ? row.game_server_id
+          : typeof row.gameserver_id === 'string'
+            ? row.gameserver_id
+            : typeof row.selected_gameserver_id === 'string'
+              ? row.selected_gameserver_id
+              : undefined,
         selected_gameserver: row.selected_gameserver,
       };
     })
