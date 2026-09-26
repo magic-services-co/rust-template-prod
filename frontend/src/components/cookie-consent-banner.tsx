@@ -1,16 +1,17 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { useCookieConsent, type CookieConsent } from '@/hooks/use-cookie-consent';
-import { Settings, X, Check, Shield, BarChart3, Target, Cookie } from 'lucide-react';
+import { useState } from "react";
+import Link from "next/link";
+import { CookieCta, CookiePreferencesDialog } from "@/components/cookie-preferences-dialog";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
+import { useCookieConsent, type CookieConsent } from "@/hooks/use-cookie-consent";
+import { useSiteSettings } from "@/hooks/use-site-settings";
+
+const GOLD = "#ba9142";
 
 export function CookieConsentBanner() {
   const { isLoaded, needsConsent, acceptAll, denyAll, acceptCustom } = useCookieConsent();
+  const { data: settings } = useSiteSettings();
   const [showDetails, setShowDetails] = useState(false);
   const [customConsent, setCustomConsent] = useState<CookieConsent>({
     necessary: true,
@@ -18,150 +19,81 @@ export function CookieConsentBanner() {
     marketing: false,
     preferences: false,
   });
+  const siteName = (settings?.name || "this site").replace(/\s+/g, " ").trim();
 
   if (!isLoaded || !needsConsent) {
     return null;
   }
 
-  const handleCustomAccept = () => {
-    acceptCustom(customConsent);
-    setShowDetails(false);
-  };
-
-  const cookieCategories = [
-    {
-      key: 'necessary' as const,
-      title: 'Necessary Cookies',
-      description: 'These cookies are essential for the website to function properly. They cannot be disabled.',
-      icon: Shield,
-      required: true,
-    },
-    {
-      key: 'analytics' as const,
-      title: 'Analytics Cookies',
-      description: 'These cookies help us understand how visitors interact with our website by collecting and reporting information anonymously.',
-      icon: BarChart3,
-      required: false,
-    },
-    {
-      key: 'marketing' as const,
-      title: 'Marketing Cookies',
-      description: 'These cookies are used to track visitors across websites to display relevant and engaging advertisements.',
-      icon: Target,
-      required: false,
-    },
-    {
-      key: 'preferences' as const,
-      title: 'Preference Cookies',
-      description: 'These cookies allow the website to remember choices you make and provide enhanced, more personal features.',
-      icon: Settings,
-      required: false,
-    },
-  ];
-
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 shadow-lg">
-        <div className="container mx-auto p-4">
-          <Card className="border-0 shadow-none">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Cookie className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Cookie Preferences</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4 sm:mb-0">
-                    We use cookies to enhance your browsing experience, serve personalized content, and analyze our traffic. 
-                    By clicking &ldquo;Accept All&rdquo;, you consent to our use of cookies.
-                  </p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Dialog open={showDetails} onOpenChange={setShowDetails}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Customize
-                      </Button>
-                    </DialogTrigger>
-                  </Dialog>
-                  
-                  <Button variant="outline" size="sm" onClick={denyAll}>
-                    <X className="h-4 w-4 mr-2" />
-                    Reject All
-                  </Button>
-                  
-                  <Button size="sm" onClick={acceptAll}>
-                    <Check className="h-4 w-4 mr-2" />
-                    Accept All
-                  </Button>
-                </div>
+      <div className="cookie-banner-wrap pointer-events-none fixed bottom-0 left-0 right-0 z-[80] p-3 sm:p-5">
+        <div className="pointer-events-auto mx-auto w-full max-w-[1196px]">
+          <article
+            className="cookie-banner support-ticket-card relative overflow-visible border"
+            style={{
+              borderColor: "rgba(72,97,125,0.55)",
+              backgroundColor: "#080c11",
+            }}
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(139.28deg, rgba(17, 23, 30, 0.96) 8.5%, rgba(8, 12, 17, 0.94) 91.5%)",
+              }}
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(90deg, rgba(186, 145, 66, 0.08) 0%, rgba(186, 145, 66, 0) 28%)",
+              }}
+            />
+
+            <div className="relative flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-7 sm:py-6">
+              <div className="max-w-[640px]">
+                <p className="support-hero-kicker font-mono text-[10px] font-medium tracking-[2.2px]">
+                  PRIVACY / COOKIES
+                </p>
+                <h3 className="pt-2 text-[22px] font-extrabold leading-7 tracking-[-0.8px] text-[#f2f7ff] sm:text-[26px] sm:leading-8">
+                  COOKIE <span style={{ color: GOLD }}>PREFERENCES</span>
+                </h3>
+                <p className="pt-2 max-w-[520px] text-[13px] leading-[20px] text-[#9facc0]">
+                  We use cookies to keep {siteName} working, remember your choices, and understand how people use the
+                  site.{" "}
+                  <Link href="/privacy-policy" className="text-[#d7b15a] hover:text-[#f0c970]">
+                    Privacy Policy
+                  </Link>
+                </p>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <CookieCta variant="secondary" onClick={() => setShowDetails(true)}>
+                  CUSTOMIZE
+                </CookieCta>
+                <CookieCta variant="secondary" onClick={denyAll}>
+                  REJECT ALL
+                </CookieCta>
+                <CookieCta onClick={acceptAll}>ACCEPT ALL</CookieCta>
+              </div>
+            </div>
+            <HomeCardCorners color={GOLD} show />
+          </article>
         </div>
       </div>
 
-      <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Cookie className="h-5 w-5" />
-              Cookie Preferences
-            </DialogTitle>
-            <DialogDescription>
-              Manage your cookie preferences. You can change these settings at any time.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {cookieCategories.map((category) => {
-              const IconComponent = category.icon;
-              return (
-                <div key={category.key} className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <IconComponent className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium">{category.title}</h4>
-                          {category.required && (
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                              Required
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {category.description}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Switch
-                      checked={customConsent[category.key]}
-                      onCheckedChange={(checked) => 
-                        setCustomConsent(prev => ({ ...prev, [category.key]: checked }))
-                      }
-                      disabled={category.required}
-                    />
-                  </div>
-                  {category.key !== 'preferences' && <Separator />}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 pt-4">
-            <Button variant="outline" onClick={() => setShowDetails(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={handleCustomAccept} className="flex-1">
-              Save Preferences
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CookiePreferencesDialog
+        open={showDetails}
+        onOpenChange={setShowDetails}
+        initialConsent={customConsent}
+        onSave={(next) => {
+          setCustomConsent(next);
+          acceptCustom(next);
+        }}
+      />
     </>
   );
-} 
+}

@@ -9,7 +9,8 @@ import { backendApi } from '@/lib/api'
 import { getAuthToken } from '@/lib/laravel-auth'
 import { AddNavigationDialog } from '@/components/admin/add-navigation-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 function authHeaders(): Record<string, string> {
     const token = getAuthToken();
@@ -361,13 +362,15 @@ function SortableNavigationItem({ item, onSelect, isSelected, onDelete }: { item
     }
 
     return (
-        <Button
+        <div
             ref={setNodeRef}
             style={style}
             {...attributes}
-            variant="ghost"
-            size="lg"
-            className={`w-full flex items-center px-2 cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
+            className={cn(
+                buttonVariants({ variant: 'ghost', size: 'lg' }),
+                'w-full flex items-center px-2 cursor-pointer',
+                isSelected && 'bg-accent'
+            )}
             onClick={onSelect}
         >
             <div className="flex-grow flex items-center">
@@ -378,7 +381,7 @@ function SortableNavigationItem({ item, onSelect, isSelected, onDelete }: { item
             </div>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                    <Button type="button" variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                         Delete
                     </Button>
                 </AlertDialogTrigger>
@@ -397,7 +400,7 @@ function SortableNavigationItem({ item, onSelect, isSelected, onDelete }: { item
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </Button>
+        </div>
     )
 }
 

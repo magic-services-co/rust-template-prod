@@ -1,10 +1,9 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { useSession, signIn, signOut } from "@/lib/laravel-auth-react";
 import Link from "next/link";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
     Sheet,
@@ -16,50 +15,57 @@ import {
 import { MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BrandMark } from "@/components/brand-mark";
+import { LAYOUT_THEME_DEFAULTS } from "@/lib/layout-theme-defaults";
 
 import { NavigationItem } from "@/types/navigation";
 
-export default function MobileNav({ items, logoImage }: { items: NavigationItem[], logoImage?: string }) {
+export default function MobileNav({
+    items,
+    logoImage,
+    wordmarkColor,
+    theme,
+}: {
+    items: NavigationItem[];
+    logoImage?: string;
+    wordmarkColor?: string;
+    theme?: {
+        navLinkColor?: string;
+        navLinkActiveColor?: string;
+        primaryButtonBg?: string;
+        primaryButtonText?: string;
+    };
+}) {
     const path = usePathname()
     const { data: session, status } = useSession();
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const visible = items.filter((item) => !item.hidden);
     return (
         <>
-            <Link href={"/"} className="hover:scale-110 duration-300">
-                <Image
-                    src={logoImage || "/images/logo.png"}
-                    alt="Server Logo"
-                    width={60}
-                    height={60}
-                    className="w-[60px] h-[60px]"
-                />
-            </Link>
+            <BrandMark logoImage={logoImage} wordmarkColor={wordmarkColor} size="header" />
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
                 <SheetTrigger>
-                    <MenuIcon size={35} />
+                    <MenuIcon size={28} />
                 </SheetTrigger>
-                <SheetContent className="bg-secondary/15 backdrop-blur-md border-border/15">
+                <SheetContent className="bg-[#05070a]/95 backdrop-blur-md border-border/15">
                     <SheetHeader className="h-full flex">
                         <SheetTitle>
-                            <Link href={"/"} className="hover:scale-110 duration-300">
-                                <Image
-                                    src={logoImage || "/images/logo.png"}
-                                    alt="Server Logo"
-                                    width={60}
-                                    height={60}
-                                    className="w-[60px] h-[60px]"
-                                />
-                            </Link>
+                            <BrandMark logoImage={logoImage} wordmarkColor={wordmarkColor} size="header" />
                         </SheetTitle>
                         <div className="w-full h-full flex flex-col gap-6 justify-between items-start">
-                            <nav className="flex-grow flex flex-col items-start pt-8 ml-4 mb-6 space-y-6 lg:space-y-8">
-                                {items.map((item, index) => (
+                            <nav className="flex-grow flex flex-col items-start pt-8 ml-1 mb-6 space-y-4">
+                                {visible.map((item, index) => (
                                     <Link
-                                        key={index}
+                                        key={item.id || index}
                                         href={item.url}
                                         className={cn(
-                                            "text-3xl font-normal text-left text-muted-foreground transition-colors hover:text-primary",
-                                            { "text-primary": item.url === path })}
+                                            "text-xl font-normal text-left transition-colors"
+                                        )}
+                                        style={{
+                                            color: item.url === path
+                                                ? theme?.navLinkActiveColor || LAYOUT_THEME_DEFAULTS.navLinkActiveColor
+                                                : theme?.navLinkColor || LAYOUT_THEME_DEFAULTS.navLinkColor,
+                                        }}
                                         onClick={() => setIsOpen(false)}
                                     >
                                         {item.label}
@@ -70,21 +76,16 @@ export default function MobileNav({ items, logoImage }: { items: NavigationItem[
                                 {status === "authenticated" ? (
                                     <Link
                                         href={"/profile"}
-                                        className={cn(
-                                            buttonVariants({
-                                                variant: "ghost"
-                                            }),
-                                            "relative justify-start items-start gap-2.5 p-0 opacity-75 hover:opacity-100 transition-opacity duration-300 hover:bg-transparent"
-                                        )}
+                                        className="relative flex items-center gap-2.5 p-0 opacity-75 hover:opacity-100 transition-opacity duration-300"
                                         onClick={() => setIsOpen(false)}
                                     >
-                                        <Avatar className="h-16 w-16">
+                                        <Avatar className="h-12 w-12">
                                             <AvatarImage src={typeof session?.user?.image === 'string' ? session.user.image : ''} alt={typeof session?.user?.name === 'string' ? session.user.name : ''} />
                                             <AvatarFallback>{typeof session?.user?.name === 'string' ? session.user.name.charAt(0) : '?'}</AvatarFallback>
                                         </Avatar>
                                         <div className="flex flex-col items-start">
-                                            <span className="text-2xl">{typeof session?.user?.name === 'string' ? session.user.name : ''}</span>
-                                            <span className="text-muted-foreground text-lg">View profile</span>
+                                            <span className="text-lg">{typeof session?.user?.name === 'string' ? session.user.name : ''}</span>
+                                            <span className="text-muted-foreground text-sm">View profile</span>
                                         </div>
                                     </Link>
                                 ) : null}
@@ -100,15 +101,19 @@ export default function MobileNav({ items, logoImage }: { items: NavigationItem[
                                         Logout
                                     </Button>
                                 ) : (
-                                    <Button
-                                        size={"lg"}
-                                        className="w-full"
+                                    <button
+                                        type="button"
+                                        className="flex h-11 w-full items-center justify-center rounded-md text-[15px] font-medium"
+                                        style={{
+                                            backgroundColor: theme?.primaryButtonBg || LAYOUT_THEME_DEFAULTS.primaryButtonBg,
+                                            color: theme?.primaryButtonText || LAYOUT_THEME_DEFAULTS.primaryButtonText,
+                                        }}
                                         onClick={() => {
                                             setIsOpen(false)
                                             signIn("steam")
                                         }}>
-                                        Login
-                                    </Button>
+                                        Sign in
+                                    </button>
                                 )}
                             </div>
                         </div>

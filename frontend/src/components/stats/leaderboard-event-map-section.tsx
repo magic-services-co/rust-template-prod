@@ -28,9 +28,9 @@ function ControlPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card/20 p-3 shadow-sm sm:p-4">
+    <div className="border border-[rgba(255,255,255,0.1)] bg-[rgba(8,12,17,0.94)] p-3 sm:p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-[10px] font-medium uppercase tracking-[1.45px] text-[#ba9142]">
           {title}
         </h3>
         {action}
@@ -65,13 +65,13 @@ export function LeaderboardEventMapSection({
 
   return (
     <section
-      className="rounded-xl border border-border bg-card/10 p-3 shadow-sm sm:p-4"
+      className="border border-[rgba(91,115,142,0.5)] bg-[rgba(8,12,17,0.6)] p-3 sm:p-4"
       aria-label="Event map"
     >
       <div className="mb-3 flex flex-col gap-1 border-b border-border pb-3 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex items-center gap-2">
-          <Map className="h-5 w-5 shrink-0 text-red-500" aria-hidden />
-          <h2 className="text-base font-semibold tracking-tight text-foreground">Event map</h2>
+          <Map className="h-5 w-5 shrink-0 text-[#ba9142]" aria-hidden />
+          <h2 className="text-base font-semibold tracking-tight text-[#edf5ff]">Event map</h2>
         </div>
         <span className="text-xs text-muted-foreground sm:ml-auto">
           Kill heat overlay when server data is available — pan and zoom to inspect
@@ -113,7 +113,7 @@ export function LeaderboardEventMapSection({
               <Switch
                 checked={heatmapOn}
                 onCheckedChange={setHeatmapOn}
-                className="data-[state=checked]:bg-red-600"
+                className="data-[state=checked]:bg-[#ba9142]"
                 aria-label="Toggle kill heat overlay"
               />
             }
@@ -160,10 +160,10 @@ export function LeaderboardEventMapSection({
         </div>
 
         {/* Right — event feed */}
-        <div className="flex min-h-0 min-w-0 w-full flex-col rounded-lg border border-border bg-card/20 p-1 shadow-sm sm:p-2">
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-            <ScrollText className="h-4 w-4 text-red-500" aria-hidden />
-            <h3 className="text-sm font-semibold text-foreground">Event feed</h3>
+        <div className="flex min-h-0 min-w-0 w-full flex-col border border-[rgba(255,255,255,0.1)] bg-[rgba(8,12,17,0.94)] p-1 sm:p-2">
+          <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.1)] px-3 py-2.5">
+            <ScrollText className="h-4 w-4 text-[#ba9142]" aria-hidden />
+            <h3 className="text-sm font-semibold text-[#edf5ff]">Event feed</h3>
           </div>
           <ul className="max-h-[min(70vh,560px)] min-h-[280px] flex-1 space-y-2 overflow-y-auto p-2 pr-1 [scrollbar-gutter:stable] lg:min-h-[520px]">
             {MOCK_FEED.map((ev, i) => (

@@ -25,6 +25,8 @@ import {
   Shield,
 } from "lucide-react"
 
+import { useQuery } from "@tanstack/react-query"
+
 import { NavMain } from "@/components/admin/navigation/nav-main"
 import { NavUser } from "@/components/admin/navigation/nav-user"
 import {
@@ -39,6 +41,8 @@ import {
 } from "@/components/ui/sidebar"
 import { useAddonAdminNavItems } from "@/hooks/use-addon-admin-nav"
 import { useSiteSettings } from "@/hooks/use-site-settings"
+import { backendApi } from "@/lib/api"
+import { LAYOUT_THEME_DEFAULTS } from "@/lib/layout-theme-defaults"
 import Link from "next/link"
 
 const data = {
@@ -190,6 +194,24 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: siteSettings, isLoading } = useSiteSettings();
+  const { data: logoImage } = useQuery({
+    queryKey: ["themeSettings", "logoImage"],
+    queryFn: async () => {
+      const res = await fetch(backendApi("theme-settings"), {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) return LAYOUT_THEME_DEFAULTS.logoImage;
+      const data = (await res.json()) as { logoImage?: string };
+      return data.logoImage || LAYOUT_THEME_DEFAULTS.logoImage;
+    },
+    staleTime: 60 * 1000,
+  });
+  const logoSrc = logoImage || LAYOUT_THEME_DEFAULTS.logoImage;
+  const [logoFailed, setLogoFailed] = React.useState(false);
+  React.useEffect(() => {
+    setLogoFailed(false);
+  }, [logoSrc]);
   const addonNavItems = useAddonAdminNavItems();
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -198,9 +220,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/admin">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Package2 className="size-4" />
-                </div>
+                {logoFailed ? (
+                  <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Package2 className="size-4" />
+                  </div>
+                ) : (
+                  <img
+                    src={logoSrc}
+                    alt=""
+                    className="size-8 shrink-0 rounded-lg object-contain"
+                    onError={() => setLogoFailed(true)}
+                  />
+                )}
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{isLoading ? "Loading..." : siteSettings?.name}</span>
                   <span className="truncate text-xs text-muted-foreground">magicthemes.co</span>

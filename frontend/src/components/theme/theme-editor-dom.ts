@@ -10,7 +10,11 @@ export interface ElementEdit {
 
 export function pathnameToPageSlug(pathname: string): string {
   if (!pathname || pathname === "/") return "home";
-  return pathname.replace(/^\//, "").split("/")[0] ?? "home";
+  const parts = pathname.replace(/^\//, "").split("/").filter(Boolean);
+  if (parts[0] === "servers" && parts.length >= 3) {
+    return `custom:${parts[1]}:${parts[2]}`;
+  }
+  return parts[0] ?? "home";
 }
 
 export function getComponentType(element: HTMLElement): string {
@@ -38,6 +42,9 @@ export function isSelectableElement(element: HTMLElement): boolean {
 }
 
 export function findBestSelectableElement(element: HTMLElement): HTMLElement {
+  const themed = element.closest("[data-theme-field]") as HTMLElement | null;
+  if (themed) return themed;
+
   const priorityTags = ["BUTTON", "A", "INPUT", "TEXTAREA", "H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "LABEL"];
   if (priorityTags.includes(element.tagName)) {
     return element;
@@ -46,6 +53,9 @@ export function findBestSelectableElement(element: HTMLElement): HTMLElement {
 }
 
 export function generateSelector(element: HTMLElement, forceClass = false): string {
+  const themeField = element.getAttribute("data-theme-field");
+  if (themeField) return `[data-theme-field="${CSS.escape(themeField)}"]`;
+
   if (element.id) return `#${CSS.escape(element.id)}`;
 
   if (!forceClass) {
@@ -94,6 +104,7 @@ export function generateSelector(element: HTMLElement, forceClass = false): stri
 }
 
 export function isTextEditable(element: HTMLElement): boolean {
+  if (element.getAttribute("data-theme-editable") === "text") return true;
   if (element.classList.contains("select-none")) return false;
   if (element.classList.contains("inline-flex")) return false;
   if (element.closest("button")) return false;

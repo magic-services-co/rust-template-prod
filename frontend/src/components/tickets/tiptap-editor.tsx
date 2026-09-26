@@ -18,9 +18,10 @@ interface TipTapEditorProps {
     handleFilesSelected?: (files: File[]) => void
     isScanning?: boolean
     initialContent?: string
+    tone?: "default" | "support"
 }
 
-export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning, initialContent }: TipTapEditorProps) {
+export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning, initialContent, tone = "default" }: TipTapEditorProps) {
     const [content, setContent] = useState(initialContent || '')
 
     const editor = useEditor({
@@ -112,9 +113,10 @@ export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning
                 <EditorContent
                     editor={editor}
                     className={cn(
-                        "min-h-[350px] md:min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background",
-                        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2",
-                        "focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        "min-h-[350px] md:min-h-[100px] w-full border px-3 py-2 text-sm",
+                        tone === "support"
+                            ? "support-form-input rounded-none"
+                            : "rounded-md border-input bg-transparent ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     )}
                 />
                 <style jsx global>{`
@@ -136,16 +138,22 @@ export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning
                     }
                 `}</style>
             </div>
-            <div className="flex gap-4">
+            <div className={cn("flex gap-3", tone === "support" && "gap-2")}>
                 {isUploadsEnabled && (
                     <UploadFile
-                        className="w-fit h-11 flex-grow"
-                        btnClassName="h-11"
+                        className={tone === "support" ? "w-auto shrink-0" : "w-fit h-11 flex-grow"}
+                        btnClassName={cn(
+                            "h-11",
+                            tone === "support" && "ghost support-form-btn-secondary h-[41px] w-[41px] rounded-none px-0"
+                        )}
                         onFilesSelected={handleFilesSelected}
                     />
                 )}
                 <Button
-                    className="w-full"
+                    className={cn(
+                        "w-full",
+                        tone === "support" && "ghost support-form-btn-primary h-[41px] rounded-none text-[10px] font-bold tracking-[1.4px]"
+                    )}
                     size={"lg"}
                     onClick={handleSend}
                     disabled={disabled}
@@ -159,13 +167,13 @@ export function TipTapEditor({ onSend, handleFilesSelected, disabled, isScanning
                         ) : (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Send Message
+                                {tone === "support" ? "SENDING" : "Send Message"}
                             </>
                         )
                     ) : (
                         <>
                             <Send className="mr-2 h-4 w-4" />
-                            Send Message
+                            {tone === "support" ? "SEND REPLY" : "Send Message"}
                         </>
                     )}
                 </Button>

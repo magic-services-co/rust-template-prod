@@ -10,9 +10,16 @@ import { signIn, useSession } from "@/lib/laravel-auth-react";
 
 type LinkedUser = { id: string; name?: string; image?: string };
 
-export function JoinCommunity() {
+export function JoinCommunity({
+    slots = 24,
+    emptyLabel = "Link Your Account",
+}: {
+    slots?: number;
+    emptyLabel?: string;
+}) {
     const { data: session } = useSession();
     const [users, setUsers] = useState<LinkedUser[]>([]);
+    const slotCount = Math.min(48, Math.max(6, slots));
 
     useEffect(() => {
         fetch(backendApi("linked-users"), { credentials: "include" })
@@ -21,50 +28,51 @@ export function JoinCommunity() {
             .catch(() => setUsers([]));
     }, []);
 
-    const avatarItems = Array(85).fill(null).map((_, index) => {
-        const user = users[index];
-        return (
-            <div
-                className="group relative rounded-full px-1.5 duration-300 z-[0] hover:z-[50] focus:outline-none focus:duration-0 focus-visible:ring-0 active:scale-105 active:duration-100 lg:py-0.5"
-                key={index}
-            >
-                <TooltipProvider>
-                    <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Avatar
-                                className={cn(
-                                    "h-12 w-12 rounded-2xl group-hover:scale-[1.2] duration-300 group-hover:rounded-[2rem] group-focus:outline-none group-focus:duration-0",
-                                    "group-focus-visible:ring-2 group-active:rounded-3xl group-active:duration-100 sm:h-16 sm:w-16 sm:rounded-3xl cursor-pointer"
-                                )}
-                                onClick={() => {
-                                    if (!session || !session.user) {
-                                        signIn("steam");
-                                    }
-                                }}
-                            >
-                                {user ? (
-                                    <AvatarImage src={user.image || ""} alt={user.name || "User"} />
-                                ) : (
-                                    <AvatarFallback>
-                                        <UserIcon className="h-6 w-6 sm:h-8 sm:w-8" />
-                                    </AvatarFallback>
-                                )}
-                            </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent className="z-[100]" side="top" align="center" sideOffset={10}>
-                            {user ? user.name : "Link Your Account"}
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </div>
-        );
-    });
-
     return (
-        <div className="hidden flex-1 pb-0 pl-6 xl:block">
-            <div className="honeycomboverride ml-auto flex flex-wrap xl:w-[38rem]">
-                {avatarItems}
-            </div>
+        <div
+            className="home-community grid w-full max-w-[520px] grid-cols-6 gap-2 sm:grid-cols-8"
+            data-theme-field="communitySlots"
+            data-theme-label="Avatar slots"
+        >
+            {Array.from({ length: slotCount }, (_, index) => {
+                const user = users[index];
+                return (
+                    <TooltipProvider key={index}>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "ghost relative size-12 overflow-hidden border sm:size-14",
+                                        !session?.user && "cursor-pointer",
+                                    )}
+                                    style={{
+                                        borderColor: "var(--home-avatar-border, rgba(161, 191, 218, 0.28))",
+                                        backgroundImage:
+                                            "linear-gradient(135deg, var(--home-avatar-from, rgb(48, 65, 80)) 0%, var(--home-avatar-to, rgb(17, 25, 33)) 100%)",
+                                    }}
+                                    onClick={() => {
+                                        if (!session?.user) signIn("steam");
+                                    }}
+                                >
+                                    <Avatar className="size-full rounded-none">
+                                        {user ? (
+                                            <AvatarImage src={user.image || ""} alt={user.name || "User"} />
+                                        ) : (
+                                            <AvatarFallback className="rounded-none bg-transparent text-[#8292a6]">
+                                                <UserIcon className="h-5 w-5 text-[#8292a6]" />
+                                            </AvatarFallback>
+                                        )}
+                                    </Avatar>
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="center" sideOffset={8}>
+                                {user ? user.name : emptyLabel}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                );
+            })}
         </div>
     );
 }

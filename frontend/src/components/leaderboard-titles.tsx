@@ -1,65 +1,66 @@
 "use client";
 
+import { LEADERBOARD_THEME_DEFAULTS, withLeaderboardDefaults } from "@/lib/leaderboard-theme-defaults";
 import { useLeaderboardTheme } from "@/hooks/use-leaderboard-theme";
-import { withLeaderboardDefaults } from "@/lib/leaderboard-theme-defaults";
-
-const LEADERBOARD_SUBTITLE_FALLBACK =
-  "Track top players across PvP, farming, explosives, wipes, and server events.";
 
 interface LeaderboardTitlesProps {
-  serverTheme?: any;
-  /** Tighter hero for dashboard-style leaderboard layout. */
-  compact?: boolean;
+  serverTheme?: Record<string, unknown>;
+  kicker?: string;
+  nextWipeLabel?: string;
+  lastUpdated?: string;
 }
 
-/** Matches {@link BansTitles} structure and token names (`titleTextColor`, `textSecondaryColor`, etc.). */
-export function LeaderboardTitles({ serverTheme, compact }: LeaderboardTitlesProps) {
+export function LeaderboardTitles({
+  serverTheme,
+  kicker,
+  nextWipeLabel,
+  lastUpdated,
+}: LeaderboardTitlesProps) {
   const { data: clientTheme } = useLeaderboardTheme();
   const theme = withLeaderboardDefaults(clientTheme || serverTheme);
   const subtitle =
-    typeof theme.subtitle === "string" && theme.subtitle.trim() !== ""
-      ? theme.subtitle
-      : LEADERBOARD_SUBTITLE_FALLBACK;
+    (typeof theme.pageSubtitle === "string" && theme.pageSubtitle.trim()) ||
+    (typeof theme.subtitle === "string" && theme.subtitle.trim()) ||
+    LEADERBOARD_THEME_DEFAULTS.pageSubtitle;
 
-  if (compact) {
-    return (
-      <div className="border-b border-border pb-4 text-left">
-        <h1
-          className="text-2xl font-bold tracking-tight text-white md:text-3xl"
-          style={{ color: theme.titleTextColor }}
+  return (
+    <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-[510px]">
+        <p
+          data-theme-field="kickerLabel"
+          data-theme-label="Hero kicker"
+          className="support-hero-kicker max-w-full truncate font-mono text-[10px] font-medium leading-[10px] tracking-[1.45px]"
         >
-          Leaderboard
+          {kicker || theme.kickerLabel || LEADERBOARD_THEME_DEFAULTS.kickerLabel}
+        </p>
+        <h1
+          data-theme-field="pageTitle"
+          data-theme-label="Hero title"
+          className="support-hero-title pt-2.5 text-[40px] font-extrabold leading-[56px] tracking-[-2.9px] sm:text-[56px] lg:text-[62px]"
+        >
+          {theme.pageTitle || LEADERBOARD_THEME_DEFAULTS.pageTitle}
         </h1>
         <p
-          className="mt-1 max-w-[70ch] text-sm leading-relaxed md:text-base"
-          style={{ color: theme.textSecondaryColor }}
+          data-theme-field="pageSubtitle"
+          data-theme-label="Hero subtitle"
+          className="support-hero-subtitle max-w-[510px] pt-4 text-[14px] leading-[22px]"
         >
           {subtitle}
         </p>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center pb-8 text-center">
-      <h1
-        className="mt-2 text-center text-4xl font-bold"
+      <div
+        className="relative min-w-[184px] shrink-0 border px-[17px] py-[15px]"
         style={{
-          color: theme.titleTextColor,
-          backgroundColor: theme.titleBackgroundColor,
-          border: theme.titleBorderColor ? `1px solid ${theme.titleBorderColor}` : "none",
-          borderRadius: theme.titleBorderRadius,
-          padding: theme.titleBorderColor ? "1rem" : "0",
+          borderColor: "rgba(186,145,66,0.38)",
+          backgroundColor: "rgba(10,14,19,0.62)",
         }}
       >
-        Leaderboard
-      </h1>
-      <p
-        className="max-w-[80ch] px-8 text-center leading-8 lg:px-0 mt-4"
-        style={{ color: theme.textSecondaryColor }}
-      >
-        {subtitle}
-      </p>
+        <p className="font-mono text-[9px] font-medium tracking-[1px] text-[#ba9142]">NEXT WIPE</p>
+        <p className="pt-2 font-medium tracking-[0.6px] text-[#f0c970]">{nextWipeLabel || "—"}</p>
+        <p className="pt-2 text-[9px] font-medium tracking-[1px] text-[rgba(189,204,220,0.62)]">
+          {lastUpdated || "Last updated: just now"}
+        </p>
+      </div>
     </div>
   );
 }

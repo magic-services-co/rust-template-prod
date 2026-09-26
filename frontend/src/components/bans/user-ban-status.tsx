@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Clock, Server, FolderOpen, Globe, AlertTriangle } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Clock, Server, FolderOpen, Globe, AlertTriangle, Check } from "lucide-react"
 import { format } from "date-fns"
 import { useProfileTheme } from "@/hooks/use-profile-theme"
 import { withUserDefaults } from "@/lib/user-theme-defaults"
+import { ProfileEmpty, ProfilePanel } from "@/components/profile/profile-ui"
+import { cn } from "@/lib/utils"
 
 interface UserBan {
   id: string
@@ -22,7 +20,7 @@ interface UserBan {
 
 interface UserBanStatusProps {
   userId: string
-  serverTheme?: any
+  serverTheme?: Record<string, unknown>
 }
 
 type BanTheme = ReturnType<typeof withUserDefaults>
@@ -30,11 +28,11 @@ type BanTheme = ReturnType<typeof withUserDefaults>
 function banAccentColor(type: string, theme: BanTheme): string {
   switch (type) {
     case "GLOBAL":
-      return theme.buttonDestructiveBackground
+      return "#e8a0a3"
     case "CATEGORY":
-      return "hsl(25, 95%, 55%)"
+      return "#f0c970"
     case "INDIVIDUAL":
-      return "hsl(48, 96%, 55%)"
+      return "#d7b15a"
     default:
       return theme.linkColor
   }
@@ -68,16 +66,6 @@ export function UserBanStatus({ userId, serverTheme }: UserBanStatusProps) {
   useEffect(() => {
     fetchUserBans()
   }, [fetchUserBans])
-
-  const cardClass =
-    "mt-4 backdrop-blur overflow-hidden hover:brightness-110 transition-all duration-300 shadow-none border-0 bg-transparent"
-  const cardStyle: CSSProperties = {
-    backgroundColor: theme.contentCardBackground,
-    border: `1px solid ${theme.contentCardBorder}`,
-    borderRadius: theme.cardBorderRadius,
-    boxShadow: theme.cardShadow,
-    color: theme.contentCardTitleColor,
-  }
 
   const getBanTypeIcon = (type: string, accent: string) => {
     const iconClass = "h-4 w-4 shrink-0"
@@ -113,138 +101,96 @@ export function UserBanStatus({ userId, serverTheme }: UserBanStatusProps) {
 
   if (loading) {
     return (
-      <Card className={cardClass} style={cardStyle}>
-        <CardHeader style={{ padding: theme.cardPadding }}>
-          <CardTitle style={{ color: theme.contentCardTitleColor }}>Ban Status</CardTitle>
-          <CardDescription style={{ color: theme.contentCardDescriptionColor }}>
-            Loading ban information...
-          </CardDescription>
-        </CardHeader>
-        <CardContent style={{ padding: theme.cardPadding, paddingTop: 0 }} className="space-y-3">
-          <Skeleton className="h-4 w-full max-w-md opacity-40" />
-          <Skeleton className="h-4 w-full max-w-sm opacity-40" />
-        </CardContent>
-      </Card>
+      <div
+        className="h-[140px] animate-pulse border"
+        style={{ borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(8,12,17,0.6)" }}
+      />
     )
   }
 
   if (bans.length === 0) {
     return (
-      <Card className={cardClass} style={cardStyle}>
-        <CardHeader style={{ padding: theme.cardPadding }}>
-          <CardTitle style={{ color: theme.contentCardTitleColor }}>Ban Status</CardTitle>
-          <CardDescription style={{ color: theme.contentCardDescriptionColor }}>No active bans</CardDescription>
-        </CardHeader>
-        <CardContent style={{ padding: theme.cardPadding, paddingTop: 0 }}>
-          <div
-            className="text-center py-4 rounded-md"
-            style={{
-              backgroundColor: theme.roleBadgeBackground,
-              border: `1px solid ${theme.contentCardBorder}`,
-              borderRadius: theme.buttonBorderRadius,
-            }}
-          >
-            <div className="text-sm font-medium" style={{ color: theme.buttonSuccessBackground }}>
-              ✓ Account in good standing
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <ProfileEmpty
+        kicker="STANDING"
+        title="ACCOUNT IN GOOD STANDING"
+        body="There are no active bans on this account."
+        action={
+          <span className="ticket-chip ticket-chip-yes">
+            <Check className="mr-1.5 h-3.5 w-3.5" />
+            CLEAR
+          </span>
+        }
+      />
     )
   }
 
   return (
-    <Card className={cardClass} style={cardStyle}>
-      <CardHeader style={{ padding: theme.cardPadding }}>
-        <CardTitle style={{ color: theme.contentCardTitleColor }}>Ban Status</CardTitle>
-        <CardDescription style={{ color: theme.contentCardDescriptionColor }}>
-          {bans.length} active ban{bans.length !== 1 ? "s" : ""}
-        </CardDescription>
-      </CardHeader>
-      <CardContent style={{ padding: theme.cardPadding, paddingTop: 0 }} className="space-y-4">
-        {bans.map((ban) => {
-          const accent = banAccentColor(ban.banType, theme)
-          return (
-            <Alert
-              key={ban.id}
-              className="border-0 [&>svg]:text-current [&>svg]:left-4 [&>svg]:top-4"
-              style={{
-                backgroundColor: theme.roleBadgeBackground,
-                border: `1px solid ${theme.contentCardBorder}`,
-                borderLeft: `4px solid ${accent}`,
-                borderRadius: theme.cardBorderRadius,
-                color: theme.contentCardTitleColor,
-              }}
-            >
-              <AlertTriangle className="h-4 w-4" style={{ color: accent }} />
-              <AlertDescription>
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-3">
+      <p className="support-form-help text-[12px]">
+        {bans.length} active ban{bans.length === 1 ? "" : "s"}
+      </p>
+      {bans.map((ban) => {
+        const accent = banAccentColor(ban.banType, theme)
+        const expired = ban.expiresAt ? isExpired(ban.expiresAt) : false
+        return (
+          <ProfilePanel key={ban.id}>
+            <div className="relative p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">{ban.banType}</p>
+                  <h3 className="support-form-title flex items-center gap-2 pt-1 text-[18px] font-extrabold leading-6">
                     {getBanTypeIcon(ban.banType, accent)}
-                    <span className="font-medium" style={{ color: theme.contentCardTitleColor }}>
-                      {getBanTypeDescription(ban.banType)}
-                    </span>
-                    {ban.expiresAt && isExpired(ban.expiresAt) && (
-                      <Badge
-                        variant="destructive"
-                        className="text-xs"
-                        style={{
-                          backgroundColor: theme.buttonDestructiveBackground,
-                          color: theme.buttonDestructiveText,
-                          borderRadius: theme.buttonBorderRadius,
-                        }}
-                      >
-                        Expired
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="text-sm" style={{ color: theme.contentCardDescriptionColor }}>
-                    <span className="font-medium" style={{ color: theme.contentCardTitleColor }}>
-                      Reason:
-                    </span>{" "}
-                    {ban.reason}
-                  </p>
-
-                  {ban.serverId && (
-                    <p className="text-sm" style={{ color: theme.contentCardDescriptionColor }}>
-                      <span className="font-medium" style={{ color: theme.contentCardTitleColor }}>
-                        Server ID:
-                      </span>{" "}
-                      {ban.serverId}
-                    </p>
-                  )}
-
-                  {ban.categoryId != null && (
-                    <p className="text-sm" style={{ color: theme.contentCardDescriptionColor }}>
-                      <span className="font-medium" style={{ color: theme.contentCardTitleColor }}>
-                        Category ID:
-                      </span>{" "}
-                      {ban.categoryId}
-                    </p>
-                  )}
-
-                  <div
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
-                    style={{ color: theme.contentCardDescriptionColor }}
-                  >
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 shrink-0" />
-                      <span>Banned: {format(new Date(ban.createdAt), "MMM d, yyyy")}</span>
-                    </div>
-                    {ban.expiresAt && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        <span>Expires: {format(new Date(ban.expiresAt), "MMM d, yyyy")}</span>
-                      </div>
-                    )}
-                  </div>
+                    {getBanTypeDescription(ban.banType).toUpperCase()}
+                  </h3>
                 </div>
-              </AlertDescription>
-            </Alert>
-          )
-        })}
-      </CardContent>
-    </Card>
+                <span className={cn("ticket-chip", expired ? "" : "ticket-chip-no")}>
+                  {expired ? "EXPIRED" : "ACTIVE"}
+                </span>
+              </div>
+
+              <p className="support-form-help pt-3 text-[13px] leading-5">
+                {ban.reason}
+              </p>
+
+              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-4">
+                {ban.serverId ? (
+                  <div>
+                    <p className="support-form-label">Server</p>
+                    <p className="pt-1 font-mono text-[12px]" style={{ color: "#eef4fb" }}>{ban.serverId}</p>
+                  </div>
+                ) : null}
+                {ban.categoryId != null ? (
+                  <div>
+                    <p className="support-form-label">Category</p>
+                    <p className="pt-1 font-mono text-[12px]" style={{ color: "#eef4fb" }}>{ban.categoryId}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="support-form-label">Issued</p>
+                  <p className="flex items-center gap-1.5 pt-1 text-[12px]" style={{ color: "#eef4fb" }}>
+                    <Clock className="h-3 w-3" />
+                    {format(new Date(ban.createdAt), "MMM d, yyyy")}
+                  </p>
+                </div>
+                {ban.expiresAt ? (
+                  <div>
+                    <p className="support-form-label">Expires</p>
+                    <p className="flex items-center gap-1.5 pt-1 text-[12px]" style={{ color: "#eef4fb" }}>
+                      <Clock className="h-3 w-3" />
+                      {format(new Date(ban.expiresAt), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="support-form-label">Expires</p>
+                    <p className="pt-1 text-[12px]" style={{ color: "#eef4fb" }}>Permanent</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </ProfilePanel>
+        )
+      })}
+    </div>
   )
 }

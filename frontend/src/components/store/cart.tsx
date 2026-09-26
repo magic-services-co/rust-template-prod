@@ -10,7 +10,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet"
-import { useCheckoutMutation, useSetCartItemMutation, useStoreData } from "@/hooks/store/use-storefront";
+import { useCheckoutMutation, useStoreData } from "@/hooks/store/use-storefront";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken } from "@/lib/laravel-auth";
@@ -20,15 +20,21 @@ import { useStoreSettings } from "@/hooks/use-store-settings";
 import { toast } from "sonner";
 import { openPayNowPopup } from "@/lib/paynow-popup";
 
-export default function Cart({ theme }: { theme?: any }) {
+export default function Cart({ theme, variant = "button" }: { theme?: any; variant?: "button" | "sidebar" | "inline" }) {
     const router = useRouter()
     const { data: session, status } = useSession()
     const { data: store } = useStoreData();
     const { data: storeSettings } = useStoreSettings();
-    const { cart, refetchCart, isLoading, isSuccess, isCartOpen, setIsCartOpen } = useCartContext();
+    const {
+        cart,
+        isLoading,
+        isSuccess,
+        isCartOpen,
+        setIsCartOpen,
+        setCartItem,
+        isUpdatingCart,
+    } = useCartContext();
     const { data, mutate, isSuccess: isCheckoutSuccess } = useCheckoutMutation();
-
-    const cartMutation = useSetCartItemMutation();
     const handleCheckout = useCallback(() => {
         if (!getAuthToken()) {
             toast.error("Please sign in to checkout.");
@@ -59,41 +65,48 @@ export default function Cart({ theme }: { theme?: any }) {
         }
     }, [isCheckoutSuccess, data, cart?.lines]);
 
-    useEffect(() => {
-        if (cartMutation.isSuccess) {
-            refetchCart();
-        }
-    }, [cartMutation.isSuccess, refetchCart]);
-
-    const setCartItem = (productId: string, amount: number, gameServerId?: string, subscription?: boolean) => {
-        cartMutation.mutate({
-            productId,
-            qty: amount,
-            gameServerId,
-            subscription
-        });
+    if (variant === "inline") {
+        return (
+            <CartBody
+                theme={theme}
+                compact
+                cart={cart}
+                store={store}
+                isLoading={isLoading}
+                isSuccess={isSuccess}
+                cartMutationPending={isUpdatingCart}
+                setCartItem={setCartItem}
+                handleCheckout={handleCheckout}
+            />
+        );
     }
-    /* 
-        const removeFromCart = (productId: string, amount: number) => {
-            const cartItem = cart?.lines.find((cartItem) => cartItem.product_id === productId);
-            if (!cartItem) {
-                return;
-            }
-            if (cartItem.quantity === 1) {
-                cartMutation.mutate({
-                    productId,
-                    qty: 0
-                });
-                return;
-            }
-            cartMutation.mutate({
-                productId,
-                qty: cartItem.quantity - amount
-            });
-        } */
+
     return (
         <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
             <SheetTrigger asChild>
+                {variant === "sidebar" ? (
+                    <button
+                        type="button"
+                        className="ghost flex h-[41px] w-full items-center justify-center border text-[10px] font-bold tracking-[1.4px]"
+                        style={{
+                            borderColor: "rgba(186,145,66,0.6)",
+                            color: theme?.buttonPrimaryText || "#f0c970",
+                            backgroundColor: "transparent",
+                        }}
+                        onClick={(event) => {
+                            if (status === "loading") {
+                                event.preventDefault();
+                                return;
+                            }
+                            if (status === "unauthenticated") {
+                                event.preventDefault();
+                                return signIn("steam");
+                            }
+                        }}
+                    >
+                        VIEW CART
+                    </button>
+                ) : (
                 <Button
                     size={"lg"}
                     variant={"secondary"}
@@ -140,6 +153,7 @@ export default function Cart({ theme }: { theme?: any }) {
                         </span>
                     )}
                 </Button>
+                )}
             </SheetTrigger>
             <SheetContent 
                 className="backdrop-blur-md p-0 md:max-w-md w-10/12"
@@ -174,137 +188,138 @@ export default function Cart({ theme }: { theme?: any }) {
                         style={{ color: theme?.sidebarTitleColor || '#ffffff' }}
                     />
                 </SheetHeader>
-                {isLoading ? (
-                    <div 
-                        className="text-center py-12"
-                        style={{ color: theme?.sidebarTextColor || '#b0b0b0' }}
-                    >
-                        Loading Cart...
-                    </div>
-                ) : (null)}
-                {isSuccess ? (
-                    <div className="py-6 px-6 space-y-4">
-                        {cart?.lines.map((product: { product_id: string; quantity?: number; name?: string; price?: number; game_server_id?: string; selected_gameserver_id?: string; selected_gameserver?: { name?: string } }) => (
-                            <div
-                                className="flex flex-row justify-between rounded-md py-2 px-4"
-                                style={{
-                                    backgroundColor: theme?.productCardBackground || 'rgba(255, 255, 255, 0.05)',
-                                    borderRadius: theme?.cardBorderRadius || '0.375rem'
-                                }}
-                                key={product.product_id}
-                            >
-                                <div className="">
-                                    <div 
-                                        className="font-semibold text-base"
-                                        style={{ color: theme?.productCardTitleColor || '#ffffff' }}
-                                    >
-                                        {product.name}
-                                    </div>
-                                    {product.selected_gameserver?.name && (
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Server: {product.selected_gameserver.name}
-                                        </div>
-                                    )}
-                                    {(product.selected_gameserver_id || product.game_server_id) && !product.selected_gameserver?.name && (
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Server ID: {product.selected_gameserver_id || product.game_server_id}
-                                        </div>
-                                    )}
-                                    <div 
-                                        className="font-normal text-sm uppercase"
-                                        style={{ color: theme?.productCardPriceColor || '#22c55e' }}
-                                    >
-                                        {((product.price ?? 0) / 100).toFixed(2)} {store?.currency}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2.5">
-                                    <Button
-                                        size={"icon"}
-                                        variant={"destructive"}
-                                        className="h-8 w-8"
-                                        onClick={() => setCartItem(product.product_id, (product.quantity ?? 1) === 1 ? 0 : (product.quantity ?? 1) - 1)}
-                                        disabled={cartMutation.isPending}
-                                        style={{
-                                            backgroundColor: theme?.errorTextColor || '#ef4444',
-                                            borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                        }}
-                                    >
-                                        <MinusIcon size={18} />
-                                    </Button>
-                                    <div 
-                                        className="font-normal select-none rounded h-8 w-8 flex items-center justify-center"
-                                        style={{
-                                            backgroundColor: theme?.inputBackground || 'rgba(255, 255, 255, 0.1)',
-                                            color: theme?.inputText || '#ffffff',
-                                            borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                        }}
-                                    >
-                                        {product.quantity}
-                                    </div>
-                                    <Button
-                                        size={"icon"}
-                                        variant={"secondary"}
-                                        className="h-8 w-8"
-                                        onClick={() => setCartItem(product.product_id, (product.quantity ?? 1) + 1)}
-                                        disabled={cartMutation.isPending}
-                                        style={{
-                                            backgroundColor: theme?.successTextColor || '#22c55e',
-                                            borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                        }}
-                                    >
-                                        <PlusIcon size={18} />
-                                    </Button>
-                                    <Button
-                                        size={"icon"}
-                                        variant={"ghost"}
-                                        className="h-8 w-8"
-                                        onClick={() => setCartItem(product.product_id, 0)}
-                                        disabled={cartMutation.isPending}
-                                        style={{
-                                            backgroundColor: 'transparent',
-                                            color: theme?.sidebarTextColor || '#b0b0b0',
-                                            borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                        }}
-                                    >
-                                        <Trash2Icon size={16} />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (null)}
-                <div className="px-6">
-                    {cart && cart.lines.length > 0 ? (
-                        <Button
-                            size={"lg"}
-                            className="w-full h-12 font-bold tracking-wide uppercase"
-                            onClick={handleCheckout}
-                            style={{
-                                backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
-                                color: theme?.buttonPrimaryText || '#ffffff',
-                                borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
-                            }}
-                        >
-                            Checkout
-                        </Button>
-                    ) : (
-                        <div className="text-center select-none mt-5">
-                            <span 
-                                className="text-base"
-                                style={{ color: theme?.sidebarTextColor || '#b0b0b0' }}
-                            >
-                                Your cart is empty.
-                            </span>
-                        </div>
-                    )}
-                </div>
+                <CartBody
+                    theme={theme}
+                    cart={cart}
+                    store={store}
+                    isLoading={isLoading}
+                    isSuccess={isSuccess}
+                    cartMutationPending={isUpdatingCart}
+                    setCartItem={setCartItem}
+                    handleCheckout={handleCheckout}
+                />
             </SheetContent>
         </Sheet >
     )
+}
+
+export function CartBody({
+    theme,
+    compact = false,
+    cart,
+    store,
+    isLoading,
+    isSuccess,
+    cartMutationPending,
+    setCartItem,
+    handleCheckout,
+}: {
+    theme?: any;
+    compact?: boolean;
+    cart?: { lines: Array<{ product_id: string; quantity?: number; name?: string; price?: number; game_server_id?: string; selected_gameserver_id?: string; selected_gameserver?: { name?: string }; subscription?: boolean }>; total?: number };
+    store?: { currency?: string } | null;
+    isLoading: boolean;
+    isSuccess: boolean;
+    cartMutationPending: boolean;
+    setCartItem: (productId: string, amount: number, gameServerId?: string, subscription?: boolean) => void;
+    handleCheckout: () => void;
+}) {
+    const currency = store?.currency || "USD";
+
+    if (isLoading) {
+        return (
+            <p className="store-order-meta py-4 text-center text-[11px]">Loading cart…</p>
+        );
+    }
+
+    if (!isSuccess) return null;
+
+    return (
+        <div className={compact ? "flex flex-col gap-3" : "space-y-4 px-6 py-6"}>
+            {cart?.lines.map((product) => (
+                <div
+                    key={product.product_id}
+                    className={compact ? "border-b border-[rgba(255,255,255,0.1)] pb-3" : "flex flex-row justify-between rounded-md px-4 py-2"}
+                    style={compact ? undefined : {
+                        backgroundColor: theme?.productCardBackground || "rgba(255, 255, 255, 0.05)",
+                        borderRadius: theme?.cardBorderRadius || "0.375rem",
+                    }}
+                >
+                    <div className={compact ? "" : "flex w-full flex-row justify-between"}>
+                        <p className="store-order-name text-[12px] font-extrabold leading-5">
+                            {(product.name || "Package").toUpperCase()}
+                        </p>
+                        {product.selected_gameserver?.name ? (
+                            <p className="store-order-meta pt-1 text-[10px]">
+                                {product.selected_gameserver.name}
+                            </p>
+                        ) : (product.selected_gameserver_id || product.game_server_id) ? (
+                            <p className="store-order-meta pt-1 text-[10px]">
+                                Server {product.selected_gameserver_id || product.game_server_id}
+                            </p>
+                        ) : null}
+                        {product.subscription ? (
+                            <p className="store-order-meta pt-1 text-[10px]">Subscription</p>
+                        ) : null}
+                        <div className="flex items-center justify-between pt-2">
+                            <p className="store-order-price text-[13px] font-bold">
+                                ${(((product.price ?? 0) / 100) * (product.quantity ?? 1)).toFixed(2)} {currency}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    className="ghost flex size-7 items-center justify-center text-[12px]"
+                                    style={{ color: theme?.sidebarTextColor || "#7d8da0" }}
+                                    disabled={cartMutationPending}
+                                    onClick={() =>
+                                        setCartItem(
+                                            product.product_id,
+                                            (product.quantity ?? 1) === 1 ? 0 : (product.quantity ?? 1) - 1
+                                        )
+                                    }
+                                >
+                                    <MinusIcon size={14} />
+                                </button>
+                                <span className="store-order-name w-4 text-center text-[11px]">{product.quantity ?? 1}</span>
+                                <button
+                                    type="button"
+                                    className="ghost flex size-7 items-center justify-center text-[12px]"
+                                    style={{ color: theme?.sidebarTextColor || "#7d8da0" }}
+                                    disabled={cartMutationPending}
+                                    onClick={() => setCartItem(product.product_id, (product.quantity ?? 1) + 1)}
+                                >
+                                    <PlusIcon size={14} />
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ghost flex size-7 items-center justify-center"
+                                    style={{ color: theme?.sidebarTextColor || "#7d8da0" }}
+                                    disabled={cartMutationPending}
+                                    onClick={() => setCartItem(product.product_id, 0)}
+                                >
+                                    <Trash2Icon size={13} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+            {cart && cart.lines.length > 0 ? (
+                <button
+                    type="button"
+                    className="ghost mt-1 flex h-[41px] w-full items-center justify-center border text-[10px] font-bold tracking-[1.4px]"
+                    style={{
+                        borderColor: "rgba(186,145,66,0.6)",
+                        color: theme?.buttonPrimaryText || "#f0c970",
+                        backgroundColor: "transparent",
+                    }}
+                    onClick={handleCheckout}
+                >
+                    CHECKOUT
+                </button>
+            ) : (
+                <p className="store-order-meta pt-2 text-center text-[11px]">Your cart is empty.</p>
+            )}
+        </div>
+    );
 }

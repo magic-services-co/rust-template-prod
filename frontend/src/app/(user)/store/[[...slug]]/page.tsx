@@ -8,8 +8,6 @@ import { parsePageTheme } from "@/lib/parse-page-theme";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 
-type StorePageTheme = { store?: { layoutPreset?: string; [key: string]: unknown } };
-
 export const revalidate = 300;
 
 export async function generateMetadata() {
@@ -41,27 +39,27 @@ export default async function StorePage({ params }: { params: Promise<{ slug?: s
     const pageTheme = pageData.pageTheme;
     const products = await getProducts(Object.keys(options).length ? options : undefined);
 
-    const theme: StorePageTheme = (parsePageTheme(pageTheme && "settings" in pageTheme ? pageTheme.settings : undefined) || {}) as StorePageTheme;
-    const layoutPreset = theme?.store?.layoutPreset || 'default';
+    const theme = parsePageTheme(pageTheme && "settings" in pageTheme ? pageTheme.settings : undefined, "store");
+    const layoutPreset = (theme?.layoutPreset as string | undefined) || "default";
     
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="min-h-[300px]" />}>
             {layoutPreset === 'tabs-left' ? (
                 <StoreContentTabsLeft 
                     initialProducts={products.data} 
                     params={{ slug: slug || [] }}
-                    theme={theme?.store}
+                    theme={theme}
                 />
             ) : layoutPreset === 'all-packs' ? (
                 <StoreContentAllPacks 
                     initialProducts={products.data} 
-                    theme={theme?.store}
+                    theme={theme}
                 />
             ) : (
                 <StoreContent 
                     initialProducts={products.data} 
                     params={{ slug: slug || [] }}
-                    theme={theme?.store}
+                    theme={theme}
                 />
             )}
         </Suspense>

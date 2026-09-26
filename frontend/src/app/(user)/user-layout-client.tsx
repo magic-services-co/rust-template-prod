@@ -4,15 +4,8 @@ import { ReactNode } from "react";
 import Footer from "@/components/footer";
 import Navigation from "@/components/nav/nav";
 import { NavigationItem } from "@/types/navigation";
-
-type LayoutTheme = {
-  navLinkColor?: string;
-  navLinkHoverColor?: string;
-  navLinkActiveColor?: string;
-  logoImage?: string;
-  backgroundImage?: string;
-  backgroundOpacity?: number;
-};
+import type { LayoutTheme } from "@/lib/layout-theme-defaults";
+import { useLayoutChromeTheme } from "@/hooks/use-layout-chrome-theme";
 
 export function UserLayoutClient({
   children,
@@ -23,31 +16,38 @@ export function UserLayoutClient({
   navItems: NavigationItem[];
   theme: LayoutTheme | undefined;
 }) {
+  const chrome = useLayoutChromeTheme(theme);
+  const navTheme: LayoutTheme = {
+    ...theme,
+    logoImage: chrome.logoImage,
+    primaryTitleColor: chrome.navWordmarkColor,
+    navLinkColor: chrome.navLinkColor,
+    navLinkHoverColor: chrome.navLinkHoverColor,
+    navLinkActiveColor: chrome.navLinkActiveColor,
+    primaryButtonBg: chrome.signInBackground,
+    primaryButtonHover: chrome.signInHover,
+    primaryButtonText: chrome.signInText,
+  };
+
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navigation
-        navigationItems={navItems}
-        theme={{
-          navLinkColor: theme?.navLinkColor,
-          navLinkHoverColor: theme?.navLinkHoverColor,
-          navLinkActiveColor: theme?.navLinkActiveColor,
-          logoImage: theme?.logoImage,
-        }}
-      />
-      <main className="flex-1 text-foreground">
-        {children ?? null}
-      </main>
-      <Footer />
-      <div
-        className="fixed z-[-2] inset-0 max-w-screen max-h-screen w-screen h-screen bg-cover"
-        style={{
-          backgroundImage: `url('${theme?.backgroundImage || "/images/background.jpg"}')`,
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "cover",
-          opacity: (theme?.backgroundOpacity ?? 10) / 100,
-        }}
-      />
-    </div>
+    <>
+      <Navigation navigationItems={navItems} theme={navTheme} />
+      <div className="relative z-0 flex min-h-screen flex-col">
+        <main className="relative z-0 isolate flex flex-1 flex-col text-foreground">
+          {children ?? null}
+        </main>
+        <Footer navigationItems={navItems} theme={navTheme} chrome={chrome} />
+        <div
+          className="pointer-events-none fixed inset-0 -z-10 h-screen max-h-screen w-screen max-w-screen bg-cover"
+          style={{
+            backgroundImage: `url('${theme?.backgroundImage || "/images/legal-hero.png"}')`,
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            opacity: (theme?.backgroundOpacity ?? 10) / 100,
+          }}
+        />
+      </div>
+    </>
   );
 }

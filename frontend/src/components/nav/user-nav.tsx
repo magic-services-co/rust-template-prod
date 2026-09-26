@@ -1,9 +1,7 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils";
-import { ShieldIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { ChevronDown, ShieldIcon, LogOutIcon, UserIcon } from "lucide-react";
 import { useSession, signIn, signOut } from "@/lib/laravel-auth-react"
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -11,11 +9,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "../ui/dropdown-menu";
-import { Skeleton } from "../ui/skeleton";
+import { LAYOUT_THEME_DEFAULTS } from "@/lib/layout-theme-defaults";
 
 function getHighestRole(roles: Array<{ role?: { name?: string; color?: string | null; order?: number } }> | undefined) {
     if (!roles?.length) return null;
@@ -28,9 +25,20 @@ function getHighestRole(roles: Array<{ role?: { name?: string; color?: string | 
     return withOrder.find((r) => r.order === lowest) ?? withOrder[0];
 }
 
-export function UserNav() {
+export function UserNav({
+    theme,
+}: {
+    theme?: {
+        primaryButtonBg?: string;
+        primaryButtonHover?: string;
+        primaryButtonText?: string;
+        primaryTitleColor?: string;
+        secondaryTextColor?: string;
+    };
+} = {}) {
     const [isOpen, setIsOpen] = useState(false)
     const { data: session, status } = useSession()
+    const [signInHover, setSignInHover] = useState(false)
 
     const highestRole = useMemo(
         () => getHighestRole(session?.user?.roles as Array<{ role?: { name?: string; color?: string | null; order?: number } }> | undefined),
@@ -41,112 +49,114 @@ export function UserNav() {
         signOut({ callbackUrl: "/" })
     }
 
+    const signInBg = signInHover
+        ? theme?.primaryButtonHover || LAYOUT_THEME_DEFAULTS.primaryButtonHover
+        : theme?.primaryButtonBg || LAYOUT_THEME_DEFAULTS.primaryButtonBg
+    const signInColor = theme?.primaryButtonText || LAYOUT_THEME_DEFAULTS.primaryButtonText
+    const nameColor = theme?.primaryTitleColor || LAYOUT_THEME_DEFAULTS.primaryTitleColor
+    const mutedColor = theme?.secondaryTextColor || LAYOUT_THEME_DEFAULTS.secondaryTextColor
+    const displayName = typeof session?.user?.name === "string" ? session.user.name : ""
+    const displayImage = typeof session?.user?.image === "string" ? session.user.image : ""
+    const roleLabel = highestRole?.name || "View profile"
+    const roleColor = highestRole?.color || mutedColor
+
     if (status === "loading") {
         return (
             <div
-                className={cn(
-                    buttonVariants({
-                        variant: "ghost"
-                    }),
-                    "relative h-full gap-2.5 p-0 opacity-75 hover:opacity-100 transition-opacity duration-300 hover:bg-transparent"
-                )}>
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="flex flex-col items-start gap-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-14" />
-                </div>
-            </div>
+                className="h-10 w-[168px] shrink-0"
+                style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+            />
         )
     }
 
     if (status === "unauthenticated") {
         return (
-            <Button
+            <button
+                type="button"
                 onClick={() => signIn("steam")}
-                variant="outline"
-                className="border-input/30 text-muted-foreground"
+                onMouseEnter={() => setSignInHover(true)}
+                onMouseLeave={() => setSignInHover(false)}
+                className="layout-sign-in ghost flex h-9 min-w-[96px] shrink-0 items-center justify-center rounded-md px-4 text-center text-[13px] font-medium leading-none"
+                style={{
+                    backgroundColor: signInBg,
+                    color: signInColor,
+                    ["--layout-signin-bg" as string]: signInBg,
+                    ["--layout-signin-text" as string]: signInColor,
+                }}
             >
-                Sign In with Steam
-            </Button>
-        )
-    }
-
-    if (!session?.user?.isAdmin) {
-        return (
-            <>
-                <Link
-                    href={"/profile"}
-                    className={cn(
-                        buttonVariants({
-                            variant: "ghost"
-                        }),
-                        "relative h-full gap-2.5 p-0 opacity-75 hover:opacity-100 transition-opacity duration-300 hover:bg-transparent"
-                    )}>
-                    <Avatar className="h-12 w-12">
-                        <AvatarImage src={typeof session?.user?.image === 'string' ? session.user.image : ''} alt={typeof session?.user?.name === 'string' ? session.user.name : ''} />
-                        <AvatarFallback>{typeof session?.user?.name === 'string' ? session.user.name.charAt(0) : '?'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start">
-                        <span className="text-lg">{typeof session?.user?.name === 'string' ? session.user.name : ''}</span>
-                        <span className="text-muted-foreground text-xs">View profile</span>
-                    </div>
-                </Link>
-            </>
+                Sign in
+            </button>
         )
     }
 
     return (
-        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
                 <button
-                    className={cn(
-                        buttonVariants({
-                            variant: "ghost"
-                        }),
-                        "relative h-full gap-2.5 p-0 opacity-75 hover:opacity-100 transition-opacity duration-300 hover:bg-transparent"
-                    )}>
-                    <Avatar className="h-12 w-12">
-                        <AvatarImage src={typeof session?.user?.image === 'string' ? session.user.image : ''} alt={typeof session?.user?.name === 'string' ? session.user.name : ''} />
-                        <AvatarFallback>{typeof session?.user?.name === 'string' ? session.user.name.charAt(0) : '?'}</AvatarFallback>
+                    type="button"
+                    className="ghost site-user-trigger relative flex h-full items-center gap-3 p-0 opacity-90 outline-none transition-opacity duration-300 hover:opacity-100"
+                    data-theme-field="userMenuBackground"
+                    data-theme-label="Profile dropdown"
+                >
+                    <Avatar className="h-10 w-10">
+                        <AvatarImage src={displayImage} alt={displayName} />
+                        <AvatarFallback>{displayName ? displayName.charAt(0) : "?"}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start">
-                        <span className="text-lg">{typeof session?.user?.name === 'string' ? session.user.name : ''}</span>
-                        <span className="text-xs" style={{ color: highestRole?.color || '#8e9db1' }}>
-                            {highestRole?.name || 'User'}
+                        <span className="text-[15px] font-medium leading-5" style={{ color: nameColor }}>
+                            {displayName}
+                        </span>
+                        <span className="text-[11px] leading-4" style={{ color: roleColor }}>
+                            {roleLabel}
                         </span>
                     </div>
+                    <ChevronDown
+                        className="h-4 w-4 shrink-0 transition-transform duration-200"
+                        style={{
+                            color: mutedColor,
+                            transform: isOpen ? "rotate(180deg)" : undefined,
+                        }}
+                    />
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full bg-secondary/15 border-border/5 backdrop-blur">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-secondary/45" />
-                <DropdownMenuItem className="p-0">
-                    <Link
-                        href={"/profile"}
-                        className="h-full w-full rounded-sm py-2 px-2 flex items-center"
-                        onClick={() => setIsOpen(false)}
-                    >
-                        <UserIcon className="w-4 h-4 mr-2 text-muted-foreground" />
-                        View Profile
+            <DropdownMenuContent
+                align="end"
+                sideOffset={14}
+                className="site-user-menu z-[200] min-w-[228px] rounded-none border p-0"
+                data-theme-field="userMenuBackground"
+                data-theme-label="Profile dropdown"
+                onCloseAutoFocus={(event) => event.preventDefault()}
+            >
+                <div className="px-4 py-3" data-theme-field="userMenuNameColor" data-theme-label="Dropdown name">
+                    <p className="site-user-menu-kicker text-[9px] font-bold tracking-[1.62px]" data-theme-field="userMenuKickerColor" data-theme-label="ACCOUNT label">ACCOUNT</p>
+                    <p className="site-user-menu-name truncate pt-1 text-[15px] font-extrabold leading-5">
+                        {displayName}
+                    </p>
+                </div>
+                <DropdownMenuSeparator className="site-user-menu-divider mx-0 my-0" />
+                <DropdownMenuItem asChild className="site-user-menu-item rounded-none px-4 py-2.5">
+                    <Link href="/profile" onClick={() => setIsOpen(false)} data-theme-field="userMenuItemColor" data-theme-label="Dropdown items">
+                        <UserIcon className="mr-2.5 h-4 w-4" />
+                        View profile
                     </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="p-0">
-                    <Link
-                        href={"/admin"}
-                        className="h-full w-full rounded-sm py-2 px-2 flex items-center"
-                        onClick={() => setIsOpen(false)}
-                    >
-                        <ShieldIcon className="w-4 h-4 mr-2 text-muted-foreground" />
-                        Admin Dashboard
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-secondary/45" />
+                {session?.user?.isAdmin ? (
+                    <DropdownMenuItem asChild className="site-user-menu-item rounded-none px-4 py-2.5">
+                        <Link href="/admin" onClick={() => setIsOpen(false)} data-theme-field="userMenuItemColor" data-theme-label="Dropdown items">
+                            <ShieldIcon className="mr-2.5 h-4 w-4" />
+                            Admin dashboard
+                        </Link>
+                    </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator className="site-user-menu-divider mx-0 my-0" />
                 <DropdownMenuItem
-                    className="py-2 hover:bg-destructive hover:text-destructive-foreground focus:bg-destructive focus:text-destructive-foreground group"
+                    className="site-user-menu-item site-user-menu-signout rounded-none px-4 py-2.5"
+                    data-theme-field="userMenuSignoutColor"
+                    data-theme-label="Sign out"
                     onClick={handleLogout}
                 >
-                    <LogOutIcon className="w-4 h-4 mr-2 text-muted-foreground group-hover:text-destructive-foreground" />
-                    Sign Out
+                    <LogOutIcon className="mr-2.5 h-4 w-4" />
+                    Sign out
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

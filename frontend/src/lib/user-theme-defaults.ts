@@ -13,18 +13,13 @@ const DS = {
   input: "hsl(217.2, 32.6%, 17.5%)",
 } as const;
 
-const cardBg = "rgba(14, 16, 20, 0.85)";
+const cardBg = "rgba(8, 12, 17, 0.94)";
 const cardBorder = "rgba(255, 255, 255, 0.1)";
-const cardShadow = "0 4px 6px rgba(0, 0, 0, 0.2)";
-
-const accentInteractive = "hsl(240, 4%, 46%)";
-const accentInteractiveHover = "hsl(240, 4%, 56%)";
-const accentLink = "hsl(240, 5%, 72%)";
-const accentOnAccentFg = DS.foreground;
+const cardShadow = "none";
 
 export const USER_THEME_DEFAULTS = {
-  primaryTitleColor: DS.foreground,
-  secondaryTextColor: DS.mutedForeground,
+  primaryTitleColor: "#f2f7ff",
+  secondaryTextColor: "#8292a6",
   backgroundColor: "transparent",
   pageBackground: "transparent",
   blurIntensity: undefined as number | undefined,
@@ -33,82 +28,125 @@ export const USER_THEME_DEFAULTS = {
   headerCardBorder: cardBorder,
   contentCardBackground: cardBg,
   contentCardBorder: cardBorder,
-  cardBorderRadius: "0.5rem",
-  cardPadding: "1.5rem",
+  cardBorderRadius: "0px",
+  cardPadding: "28px",
   cardShadow,
 
-  tabsBackground: cardBg,
+  tabsBackground: "#0a0e14",
   tabsBorder: cardBorder,
-  tabActiveText: accentOnAccentFg,
-  tabActiveBackground: accentInteractive,
-  tabInactiveText: DS.mutedForeground,
+  tabActiveText: "#080a0e",
+  tabActiveBackground: "#ba9142",
+  tabInactiveText: "#93a4b8",
   tabInactiveBackground: "transparent",
 
-  buttonBorderRadius: "0.375rem",
+  buttonBorderRadius: "0px",
   copyButtonBackground: "transparent",
-  copyButtonText: DS.mutedForeground,
-  buttonSuccessBackground: "hsl(142, 71%, 45%)",
-  buttonSuccessText: DS.foreground,
-  buttonDestructiveBackground: "hsl(0, 72%, 51%)",
-  buttonDestructiveText: DS.foreground,
-  buttonPrimaryBackground: accentInteractive,
-  buttonPrimaryText: DS.foreground,
+  copyButtonText: "#8292a6",
+  buttonSuccessBackground: "rgba(129, 216, 117, 0.16)",
+  buttonSuccessText: "#81d875",
+  buttonDestructiveBackground: "transparent",
+  buttonDestructiveText: "#e8a0a3",
+  buttonPrimaryBackground: "transparent",
+  buttonPrimaryText: "#f0c970",
   buttonSecondaryBackground: "transparent",
-  buttonSecondaryText: DS.mutedForeground,
-  buttonSecondaryBorder: DS.border,
+  buttonSecondaryText: "#c5d0de",
+  buttonSecondaryBorder: cardBorder,
 
-  userNameColor: DS.foreground,
-  userIdColor: DS.mutedForeground,
-  linkColor: accentLink,
-  avatarBorderColor: "rgba(255, 255, 255, 0.2)",
-  roleBadgeBackground: "rgba(255, 255, 255, 0.1)",
-  roleBadgeBorder: "rgba(255, 255, 255, 0.2)",
-  roleBadgeText: DS.foreground,
-  contentCardTitleColor: DS.foreground,
-  contentCardDescriptionColor: DS.mutedForeground,
-  connectedAccountIconColor: DS.foreground,
-  connectedAccountStageColor: DS.mutedForeground,
+  userNameColor: "#f2f7ff",
+  userIdColor: "#8292a6",
+  linkColor: "#d7b15a",
+  avatarBorderColor: "rgba(255, 255, 255, 0.1)",
+  roleBadgeBackground: "rgba(186, 145, 66, 0.12)",
+  roleBadgeBorder: "rgba(186, 145, 66, 0.45)",
+  roleBadgeText: "#f0c970",
+  contentCardTitleColor: "#eef4fb",
+  contentCardDescriptionColor: "#8292a6",
+  connectedAccountIconColor: "#eef4fb",
+  connectedAccountStageColor: "#8292a6",
 
-  titleColor: DS.foreground,
-  subtitleColor: DS.mutedForeground,
+  titleColor: "#f2f7ff",
+  subtitleColor: "#9facc0",
   layoutPreset: "default",
   sidebarBackground: cardBg,
   sidebarBorder: cardBorder,
-  sidebarTitleColor: DS.foreground,
+  sidebarTitleColor: "#eef4fb",
 
-  spacing: "1rem",
+  spacing: "16px",
 
-  // Bans page (same design system)
   cardBackground: cardBg,
   cardBorder,
-  textPrimaryColor: DS.foreground,
-  textSecondaryColor: DS.mutedForeground,
-  textMutedColor: DS.mutedForeground,
-  titleTextColor: DS.foreground,
+  textPrimaryColor: "#f2f7ff",
+  textSecondaryColor: "#8292a6",
+  textMutedColor: "#8292a6",
+  titleTextColor: "#f2f7ff",
   titleBackgroundColor: "transparent",
   titleBorderColor: cardBorder,
-  titleBorderRadius: "0.5rem",
-  buttonPrimaryHover: accentInteractiveHover,
-  inputBackground: cardBg,
+  titleBorderRadius: "0px",
+  buttonPrimaryHover: "rgba(186, 145, 66, 0.12)",
+  inputBackground: "#070a0e",
   inputBorder: cardBorder,
-  inputTextColor: DS.foreground,
-  inputPlaceholderColor: DS.mutedForeground,
-  inputBorderRadius: "0.375rem",
-  searchBackground: cardBg,
+  inputTextColor: "#eef4fb",
+  inputPlaceholderColor: "#708195",
+  inputBorderRadius: "0px",
+  searchBackground: "#070a0e",
   searchBorder: cardBorder,
-  searchBorderRadius: "0.375rem",
+  searchBorderRadius: "0px",
 
-  profileFilterBackground:
-    "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%)",
-  profileFilterBorder: "rgba(255, 255, 255, 0.28)",
-  profileFilterTextColor: DS.foreground,
-  profileFilterPlaceholderColor: "rgba(215, 220, 230, 0.55)",
-  profileDropdownBackground: "hsl(222, 18%, 9%)",
-  profileDropdownBorder: "rgba(255, 255, 255, 0.22)",
-  profileDropdownTextColor: DS.foreground,
-  profileDropdownItemHoverBackground: "rgba(255, 255, 255, 0.12)",
-  profileDropdownChevronColor: DS.mutedForeground,
+  profileFilterBackground: "#070a0e",
+  profileFilterBorder: cardBorder,
+  profileFilterTextColor: "#eef4fb",
+  profileFilterPlaceholderColor: "#708195",
+  profileDropdownBackground: "#0b0f15",
+  profileDropdownBorder: cardBorder,
+  profileDropdownTextColor: "#eef4fb",
+  profileDropdownItemHoverBackground: "rgba(255, 255, 255, 0.04)",
+  profileDropdownChevronColor: "#8292a6",
 } as const;
+
+const STALE_USER_VALUES = new Set([
+  "hsl(var(--background))",
+  "hsl(var(--foreground))",
+  "hsl(var(--card))",
+  "hsl(var(--border))",
+  "hsl(var(--muted-foreground))",
+  "hsl(var(--accent))",
+  "hsl(var(--primary))",
+  "hsl(var(--primary-foreground))",
+  "hsl(var(--destructive))",
+  "hsl(var(--destructive-foreground))",
+  "hsl(var(--muted))",
+  "hsl(var(--input))",
+  "hsl(var(--ring))",
+  "hsl(223.64, 16.27%, 2.75%)",
+  "hsl(230, 20%, 6%)",
+  "hsl(217.2, 32.6%, 17.5%)",
+  "hsl(215, 20.2%, 65.1%)",
+  "hsl(210, 40%, 98%)",
+  "hsl(240, 4%, 46%)",
+  "hsl(240, 5%, 72%)",
+  "rgba(14, 16, 20, 0.85)",
+  "#ffffff",
+  "#b0b0b0",
+  "#22c55e",
+  "#9ca3af",
+  "#52525b",
+  "#71717a",
+  "#374151",
+  "#ef4444",
+  "#101823",
+  "#5865f2",
+  "#e5e7eb",
+  "#f59e0b",
+  "rgba(15,20,25,0.1)",
+  "rgba(255, 255, 255, 0.05)",
+  "rgba(255,255,255,0.05)",
+  "rgba(255, 255, 255, 0.2)",
+  "0.5rem",
+  "0.375rem",
+  "0 4px 6px rgba(0, 0, 0, 0.2)",
+  "0 4px 6px rgba(0, 0, 0, 0.1)",
+  "0 1px 3px rgba(0,0,0,0.1)",
+]);
 
 export function withUserDefaults<T extends object>(
   serverTheme: T | undefined | null,
@@ -116,7 +154,22 @@ export function withUserDefaults<T extends object>(
   if (serverTheme == null || typeof serverTheme !== "object" || Array.isArray(serverTheme)) {
     return { ...USER_THEME_DEFAULTS } as T & typeof USER_THEME_DEFAULTS;
   }
-  return { ...USER_THEME_DEFAULTS, ...serverTheme } as T & typeof USER_THEME_DEFAULTS;
+  const incoming = { ...(serverTheme as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (typeof value === "string" && STALE_USER_VALUES.has(value.toLowerCase())) {
+      delete incoming[key];
+    }
+  }
+  if (incoming.cardBorderRadius === "0.5rem" || incoming.cardBorderRadius === "0.375rem") {
+    delete incoming.cardBorderRadius;
+  }
+  if (incoming.buttonBorderRadius === "0.5rem" || incoming.buttonBorderRadius === "0.375rem") {
+    delete incoming.buttonBorderRadius;
+  }
+  if (incoming.blurIntensity === 0.5) {
+    delete incoming.blurIntensity;
+  }
+  return { ...USER_THEME_DEFAULTS, ...incoming } as T & typeof USER_THEME_DEFAULTS;
 }
 
 export function getUserThemeDefault<K extends keyof typeof USER_THEME_DEFAULTS>(

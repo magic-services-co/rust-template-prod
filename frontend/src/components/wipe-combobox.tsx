@@ -89,7 +89,11 @@ export function WipeCombobox({
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-full justify-between bg-background/15 border-border/15 placeholder:text-muted-foreground/60"
+                    className={cn(
+                        "w-full justify-between bg-background/15 border-border/15 placeholder:text-muted-foreground/60",
+                        triggerClassName,
+                    )}
+                    style={triggerStyle}
                     disabled={!isLoading && wipes.length === 0}
                 >
                     <span className="truncate">{label}</span>

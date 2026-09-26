@@ -1,142 +1,31 @@
 'use client'
 
 import * as React from "react"
-import {
-    ColumnDef,
-    ColumnFiltersState,
-    SortingState,
-    VisibilityState,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    useReactTable,
-} from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import { useProfileTheme } from "@/hooks/use-profile-theme"
-import { withUserDefaults } from "@/lib/user-theme-defaults"
-
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import { Card, CardContent } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Ticket, TicketCategory } from "@/types/tickets";
-import { backendApi } from "@/lib/api";
-import { getAuthToken } from "@/lib/laravel-auth";
 import { format } from "date-fns"
 import Link from "next/link"
+import { Ticket } from "@/types/tickets"
+import { backendApi } from "@/lib/api"
+import { getAuthToken } from "@/lib/laravel-auth"
+import { cn } from "@/lib/utils"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
-
-type ProfileTicketsTheme = ReturnType<typeof withUserDefaults>
-
-function createTicketColumns(theme: ProfileTicketsTheme): ColumnDef<Ticket>[] {
-    const sortHeader = (column: { toggleSorting: (desc: boolean) => void; getIsSorted: () => false | "asc" | "desc" }, label: string) => (
-        <Button
-            variant="ghost"
-            className="profile-theme-table-sort h-9 -ml-2 px-2 transition-opacity"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-            {label}
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-    )
-
-    return [
-        {
-            accessorKey: "id",
-            header: "Ticket ID",
-            cell: ({ row }) => <div className="capitalize">#{row.getValue("id")}</div>,
-        },
-        {
-            accessorKey: "status",
-            header: "Status",
-            cell: ({ row }) => (
-                <Badge
-                    variant={row.getValue("status") === "open" ? "active" : "destructive"}
-                    className="capitalize select-none"
-                >
-                    {row.getValue("status")}
-                </Badge>
-            ),
-        },
-        {
-            accessorKey: "category",
-            header: "Title",
-            cell: ({ row }) => <div>{row.getValue<Partial<TicketCategory>>("category")?.name}</div>,
-        },
-        {
-            accessorKey: "updatedAt",
-            header: ({ column }) => sortHeader(column, "Updated"),
-            cell: ({ row }) => <div className="px-4">{format(new Date(row.getValue("updatedAt")), "MMM d, yyyy h:mm a")}</div>,
-        },
-        {
-            accessorKey: "createdAt",
-            header: ({ column }) => sortHeader(column, "Created"),
-            cell: ({ row }) => <div className="px-4">{format(new Date(row.getValue("createdAt")), "MMM d, yyyy h:mm a")}</div>,
-        },
-        {
-            id: "view",
-            accessorKey: "id",
-            header: "View",
-            cell: ({ row }) => (
-                <Link
-                    href={`/ticket/${row.getValue("id")}`}
-                    className={cn(
-                        buttonVariants({
-                            variant: "outline",
-                            size: "sm",
-                        }),
-                        "w-full md:w-auto hover:opacity-90 transition-opacity",
-                    )}
-                    style={{
-                        backgroundColor: theme.buttonSecondaryBackground,
-                        color: theme.buttonSecondaryText,
-                        border: `1px solid ${theme.buttonSecondaryBorder}`,
-                        borderRadius: theme.buttonBorderRadius,
-                    }}
-                >
-                    View
-                </Link>
-            ),
-        },
-    ]
-}
+    PROFILE_PAGE_SIZE,
+    ProfileEmpty,
+    ProfilePager,
+    ProfilePanel,
+    ProfileSearch,
+    ProfileStatusTabs,
+    padTicketId,
+} from "@/components/profile/profile-ui"
 
 interface TicketsProps {
-    serverTheme?: any;
+    serverTheme?: Record<string, unknown>
 }
 
-export default function Tickets({ serverTheme }: TicketsProps) {
-    const { data: clientTheme } = useProfileTheme();
-
-    const theme = React.useMemo(
-        () => withUserDefaults(clientTheme || serverTheme),
-        [clientTheme, serverTheme],
-    )
-    const columns = React.useMemo(() => createTicketColumns(theme), [theme])
-
-    const [sorting, setSorting] = React.useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-    const [statusFilter, setStatusFilter] = React.useState<string>("all")
+export default function Tickets({ serverTheme: _serverTheme }: TicketsProps) {
+    const [search, setSearch] = React.useState("")
+    const [statusFilter, setStatusFilter] = React.useState("all")
+    const [page, setPage] = React.useState(1)
 
     const { data: tickets, isLoading } = useQuery<Ticket[]>({
         queryKey: ['tickets'],
@@ -150,217 +39,132 @@ export default function Tickets({ serverTheme }: TicketsProps) {
         },
     })
 
-    const table = useReactTable({
-        data: tickets ?? [],
-        columns,
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-        },
-        filterFns: {
-            status: (row, id, filterValue) => {
-                return filterValue === "all" || row.getValue(id) === filterValue;
-            },
-        },
-    })
+    const filtered = React.useMemo(() => {
+        const q = search.trim().toLowerCase()
+        return (tickets ?? []).filter((ticket) => {
+            const status = String(ticket.status ?? "").toLowerCase()
+            if (statusFilter !== "all" && status !== statusFilter) return false
+            if (!q) return true
+            const hay = [
+                String(ticket.id ?? ""),
+                padTicketId(ticket.id),
+                ticket.category?.name ?? "",
+                status,
+            ].join(" ").toLowerCase()
+            return hay.includes(q)
+        }).sort((a, b) => {
+            const aTime = new Date(String(a.updatedAt ?? a.createdAt ?? 0)).getTime()
+            const bTime = new Date(String(b.updatedAt ?? b.createdAt ?? 0)).getTime()
+            return bTime - aTime
+        })
+    }, [tickets, search, statusFilter])
 
     React.useEffect(() => {
-        if (statusFilter !== "all") {
-            table.getColumn("status")?.setFilterValue(statusFilter)
-        } else {
-            table.getColumn("status")?.setFilterValue(undefined)
-        }
-    }, [statusFilter, table])
+        setPage(1)
+    }, [search, statusFilter])
 
-    const filterToolbarStyle = {
-        ["--profile-filter-bg" as string]: theme.profileFilterBackground,
-        ["--profile-filter-border" as string]: theme.profileFilterBorder,
-        ["--profile-filter-text" as string]: theme.profileFilterTextColor,
-        ["--profile-filter-placeholder" as string]: theme.profileFilterPlaceholderColor,
-        ["--profile-filter-ring" as string]: theme.linkColor,
-        gap: theme.spacing,
-    } as React.CSSProperties
-
-    const dropdownSurfaceStyle = {
-        ["--profile-dropdown-bg" as string]: theme.profileDropdownBackground,
-        ["--profile-dropdown-border" as string]: theme.profileDropdownBorder,
-        ["--profile-dropdown-text" as string]: theme.profileDropdownTextColor,
-        ["--profile-dropdown-item-hover" as string]: theme.profileDropdownItemHoverBackground,
-        borderRadius: theme.cardBorderRadius,
-    } as React.CSSProperties
-
-    const profileTableChromeStyle = {
-        ["--profile-table-sort-text" as string]: theme.contentCardTitleColor,
-        ["--profile-table-sort-hover-bg" as string]: theme.roleBadgeBackground,
-        ["--profile-pagination-bg" as string]: theme.buttonSecondaryBackground,
-        ["--profile-pagination-hover-bg" as string]: theme.profileDropdownItemHoverBackground,
-        ["--profile-pagination-text" as string]: theme.buttonSecondaryText,
-        ["--profile-pagination-border" as string]: theme.buttonSecondaryBorder,
-        ["--profile-pagination-radius" as string]: theme.buttonBorderRadius,
-        ["--profile-table-row-hover" as string]: theme.roleBadgeBackground,
-    } as React.CSSProperties
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PROFILE_PAGE_SIZE))
+    const paged = filtered.slice((page - 1) * PROFILE_PAGE_SIZE, page * PROFILE_PAGE_SIZE)
 
     return (
-        <Card
-            className={cn(
-                "mt-4 group relative backdrop-blur overflow-hidden hover:brightness-110 transition-all duration-300",
-                "profile-theme-data-table",
-            )}
-            style={{
-                backgroundColor: theme.contentCardBackground,
-                border: `1px solid ${theme.contentCardBorder}`,
-                borderRadius: theme.cardBorderRadius,
-                boxShadow: theme.cardShadow,
-                ...profileTableChromeStyle,
-            }}
-        >
-            <CardContent style={{ padding: theme.cardPadding }}>
-                <div
-                    className="profile-theme-filter-toolbar py-4 flex flex-col md:flex-row items-center justify-between"
-                    style={filterToolbarStyle}
-                >
-                    <Input
-                        placeholder="Filter Tickets..."
-                        value={(table.getColumn("id")?.getFilterValue() as string) ?? ""}
-                        onChange={(event) =>
-                            table.getColumn("id")?.setFilterValue(event.target.value)
-                        }
-                        className={cn(
-                            "profile-theme-filter-control md:max-w-sm h-10 px-3 py-2 text-sm shadow-none ring-0 border-0 focus-visible:ring-0 focus-visible:ring-offset-0",
-                        )}
-                        style={{ borderRadius: theme.inputBorderRadius }}
+        <div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <ProfileSearch value={search} onChange={setSearch} placeholder="Search tickets…" className="md:max-w-sm" />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <ProfileStatusTabs
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        options={[
+                            { value: "all", label: "ALL" },
+                            { value: "open", label: "OPEN" },
+                            { value: "closed", label: "CLOSED" },
+                        ]}
                     />
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger
-                            className="profile-theme-filter-trigger w-full md:w-[180px] h-10 px-3 py-2 text-sm shadow-none ring-0 border-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:ring-0"
-                            style={{ borderRadius: theme.inputBorderRadius }}
-                        >
-                            <SelectValue placeholder="Filter by Status" />
-                        </SelectTrigger>
-                        <SelectContent
-                            className="profile-theme-dropdown-content backdrop-blur z-[100]"
-                            style={dropdownSurfaceStyle}
-                        >
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="open">Open</SelectItem>
-                            <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div
-                    className="rounded-md overflow-hidden border"
-                    style={{ borderColor: theme.contentCardBorder }}
-                >
-                    <Table style={{ color: theme.contentCardTitleColor }}>
-                        <TableHeader>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <TableRow
-                                    key={headerGroup.id}
-                                    className="hover:bg-transparent"
-                                    style={{
-                                        backgroundColor: theme.roleBadgeBackground,
-                                        borderColor: theme.contentCardBorder,
-                                    }}
-                                >
-                                    {headerGroup.headers.map((header) => {
-                                        return (
-                                            <TableHead
-                                                key={header.id}
-                                                style={{ color: theme.contentCardTitleColor }}
-                                            >
-                                                {header.isPlaceholder
-                                                    ? null
-                                                    : flexRender(
-                                                          header.column.columnDef.header,
-                                                          header.getContext(),
-                                                      )}
-                                            </TableHead>
-                                        )
-                                    })}
-                                </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, index) => (
-                                    <TableRow
-                                        key={index}
-                                        style={{ borderColor: theme.contentCardBorder }}
-                                    >
-                                        {columns.map((column, cellIndex) => (
-                                            <TableCell key={cellIndex}>
-                                                <Skeleton className="h-6 w-full opacity-40" />
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        style={{ borderColor: theme.contentCardBorder }}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center"
-                                        style={{ color: theme.contentCardDescriptionColor }}
-                                    >
-                                        No results.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-                <div className="flex items-center justify-end space-x-2 py-4">
-                    <div
-                        className="flex-1 text-sm"
-                        style={{ color: theme.contentCardDescriptionColor }}
+                    <Link
+                        href="/support"
+                        className="ghost support-form-btn-primary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px]"
                     >
-                        {isLoading
-                            ? "Loading tickets..."
-                            : `${table.getFilteredRowModel().rows.length} ticket(s) total.`}
-                    </div>
-                    <div className="space-x-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="profile-theme-table-page transition-opacity"
-                            onClick={() => table.previousPage()}
-                            disabled={!table.getCanPreviousPage()}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="profile-theme-table-page transition-opacity"
-                            onClick={() => table.nextPage()}
-                            disabled={!table.getCanNextPage()}
-                        >
-                            Next
-                        </Button>
-                    </div>
+                        NEW TICKET
+                    </Link>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+
+            <div className="pt-5">
+                {isLoading ? (
+                    <div className="space-y-3">
+                        {Array.from({ length: 3 }).map((_, index) => (
+                            <div
+                                key={index}
+                                className="h-[108px] animate-pulse border"
+                                style={{ borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(8,12,17,0.6)" }}
+                            />
+                        ))}
+                    </div>
+                ) : paged.length === 0 ? (
+                    <ProfileEmpty
+                        kicker="SUPPORT"
+                        title={tickets && tickets.length > 0 ? "NO MATCHING TICKETS" : "NO TICKETS YET"}
+                        body={tickets && tickets.length > 0
+                            ? "Try a different search or status filter."
+                            : "Open a support ticket if you need help with a player, payment, or server issue."}
+                        action={
+                            <Link
+                                href="/support"
+                                className="ghost support-form-btn-primary inline-flex h-[41px] items-center px-5 text-[10px] font-bold tracking-[1.4px]"
+                            >
+                                OPEN SUPPORT
+                            </Link>
+                        }
+                    />
+                ) : (
+                    <div className="space-y-3">
+                        {paged.map((ticket) => {
+                            const open = String(ticket.status ?? "").toLowerCase() === "open"
+                            return (
+                                <Link key={String(ticket.id)} href={`/ticket/${ticket.id}`} className="block">
+                                    <ProfilePanel hover>
+                                        <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                                            <div className="min-w-0">
+                                                <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">
+                                                    TICKET {padTicketId(ticket.id)}
+                                                </p>
+                                                <h3 className="support-form-title truncate pt-1 text-[18px] font-extrabold leading-6">
+                                                    {(ticket.category?.name || "Support").toUpperCase()}
+                                                </h3>
+                                                <p className="support-form-help pt-1 text-[12px]">
+                                                    {ticket.updatedAt
+                                                        ? `Updated ${format(new Date(ticket.updatedAt), "MMM d, yyyy h:mm a")}`
+                                                        : ticket.createdAt
+                                                            ? `Opened ${format(new Date(ticket.createdAt), "MMM d, yyyy")}`
+                                                            : "Opened recently"}
+                                                </p>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-3">
+                                                <span className={cn("ticket-chip", open ? "ticket-chip-yes" : "ticket-chip-no")}>
+                                                    {open ? "OPEN" : "CLOSED"}
+                                                </span>
+                                                <span className="support-ticket-arrow support-form-kicker text-[18px] leading-none">
+                                                    →
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </ProfilePanel>
+                                </Link>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {!isLoading && filtered.length > 0 ? (
+                <ProfilePager
+                    page={page}
+                    pageCount={pageCount}
+                    onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                    onNext={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    summary={`${filtered.length} ticket${filtered.length === 1 ? "" : "s"}`}
+                />
+            ) : null}
+        </div>
     )
 }

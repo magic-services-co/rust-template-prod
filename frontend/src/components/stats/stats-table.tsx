@@ -24,10 +24,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-    ChevronLeft,
-    ChevronRight,
-    ChevronsLeft,
-    ChevronsRight,
     ArrowUp,
     ArrowDown,
     Filter,
@@ -40,7 +36,7 @@ import { parseAsInteger, useQueryState } from 'nuqs';
 import { cn } from "@/lib/utils";
 import { useStatsQuery } from '@/hooks/leaderboard-hooks';
 import useServers from '@/hooks/use-servers';
-import { useSession } from '@/lib/laravel-auth-react';
+import { useSession, signIn } from '@/lib/laravel-auth-react';
 import { useLeaderboardTheme } from '@/hooks/use-leaderboard-theme';
 import { withLeaderboardDefaults } from '@/lib/leaderboard-theme-defaults';
 import { LeaderboardColumn } from '@/hooks/use-leaderboard-tabs';
@@ -49,7 +45,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import { ServerCombobox } from '../server-combobox';
 import { WipeCombobox } from '../wipe-combobox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { formatDuration, intervalToDuration } from "date-fns";
 import Image from 'next/image';
 import { lootyWeaponImageUrl } from '@/lib/looty-item-image';
 import { useWipes } from '@/hooks/use-wipes';
@@ -70,21 +65,20 @@ function PlayerCell({
     const sid = String(row.steam_id ?? "");
     return (
         <div className="flex items-center gap-2 text-left">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-zinc-600/80 to-zinc-900 text-xs font-bold text-white shadow-inner">
+            <div
+                className="flex size-[27px] shrink-0 items-center justify-center rounded-[4px] border border-[rgba(161,191,218,0.3)] text-[12px] text-[#dff7ff]"
+                style={{ backgroundImage: "linear-gradient(135deg, rgb(48, 65, 80) 0%, rgb(17, 25, 33) 100%)" }}
+            >
                 {username.charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0">
-                <Link
-                    href={`https://steamcommunity.com/profiles/${sid}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block truncate text-sm font-semibold hover:underline"
-                    style={{ color: theme.linkColor }}
-                >
-                    {username}
-                </Link>
-                <div className="truncate font-mono text-[10px] text-zinc-500">{sid}</div>
-            </div>
+            <Link
+                href={`https://steamcommunity.com/profiles/${sid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate text-[11px] text-[#f1f6fc] hover:text-white"
+            >
+                {username}
+            </Link>
         </div>
     );
 }
@@ -145,13 +139,14 @@ type GetColumnsOpts = {
     lockSort: boolean;
     tab: string;
     dataColumns: LeaderboardColumn[];
+    sortedColumnId?: string | null;
 };
 
 const getColumns = (
     theme: LeaderboardThemeMerged,
     opts: GetColumnsOpts,
 ): ColumnDef<Record<string, any>>[] => {
-    const { page, pageSize, lockSort, tab, dataColumns } = opts;
+    const { page, pageSize, lockSort, tab, dataColumns, sortedColumnId } = opts;
 
     const sortHeader = (
         column: Column<Record<string, any>, unknown>,
@@ -169,8 +164,8 @@ const getColumns = (
                             onClick={() => {
                                 if (!lockSort) column.toggleSorting(column.getIsSorted() === "asc");
                             }}
-                            className="h-8 -ml-2 px-1.5 hover:bg-white/5"
-                            style={{ color: theme.textPrimaryColor }}
+                            className="leaderboard-sort h-8 -ml-2 px-1.5 hover:bg-white/5"
+                            style={{ color: theme.tableHeaderText }}
                         >
                             <div className="relative h-5 w-5">
                                 <Image
@@ -203,8 +198,8 @@ const getColumns = (
                 onClick={() => {
                     if (!lockSort) column.toggleSorting(column.getIsSorted() === "asc");
                 }}
-                className="h-8 -ml-2 px-1.5 text-xs hover:bg-white/5"
-                style={{ color: theme.textPrimaryColor }}
+                className="leaderboard-sort h-8 -ml-2 px-1.5 text-[10px] hover:bg-white/5"
+                style={{ color: column.getIsSorted() ? "#ba9142" : theme.tableHeaderText }}
             >
                 {label}
                 {column.getIsSorted() === "asc" ? (
@@ -223,14 +218,16 @@ const getColumns = (
             const globalRank = (page - 1) * pageSize + row.index + 1;
             const medalClass =
                 globalRank === 1
-                    ? "font-semibold text-amber-400 tabular-nums transition-colors duration-200 group-hover:text-amber-200 group-hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.45)]"
+                    ? "text-[#edca70]"
                     : globalRank === 2
-                      ? "font-semibold text-slate-300 tabular-nums transition-colors duration-200 group-hover:text-slate-50 group-hover:drop-shadow-[0_0_8px_rgba(226,232,240,0.35)]"
+                      ? "text-[#cbd8e7]"
                       : globalRank === 3
-                        ? "font-semibold text-[#CD7F32] tabular-nums transition-colors duration-200 group-hover:text-[#E8A86A] group-hover:drop-shadow-[0_0_8px_rgba(205,127,50,0.4)]"
-                        : "text-zinc-500 tabular-nums transition-colors duration-200 group-hover:text-zinc-400";
+                        ? "text-[#c58e61]"
+                        : "text-[rgba(173,191,209,0.58)]";
             return (
-                <span className={cn("font-mono text-xs", medalClass)}>#{globalRank}</span>
+                <span className={cn("text-[11px] tabular-nums", medalClass)}>
+                    {String(globalRank).padStart(2, "0")}
+                </span>
             );
         },
         enableSorting: false,
@@ -257,8 +254,8 @@ const getColumns = (
                         column.toggleSorting(column.getIsSorted() === "asc");
                     }
                 }}
-                className="h-8 -ml-2 px-1.5 text-xs hover:bg-white/5"
-                style={{ color: theme.textPrimaryColor }}
+                className="leaderboard-sort h-8 -ml-2 px-1.5 text-[10px] hover:bg-white/5"
+                style={{ color: theme.tableHeaderText }}
             >
                 Time played
                 {tab === "misc_stats" && column.getIsSorted() === "asc" ? (
@@ -274,7 +271,7 @@ const getColumns = (
                 return <span className="text-zinc-600">—</span>;
             }
             return (
-                <div className="text-xs tabular-nums text-zinc-200">
+                <div className="text-[11px] tabular-nums text-[#a7b7c9]">
                     {renderValue(
                         { columnKey: "time_played", columnLabel: "Time played" },
                         v,
@@ -301,9 +298,17 @@ const getColumns = (
                     ) : (
                         <div className="flex items-center justify-center gap-1">
                             {columnFormat(columnData) === "computed" ? (
-                                <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500/90" aria-hidden />
+                                <Trophy className="h-3.5 w-3.5 shrink-0 text-[#ba9142]" aria-hidden />
                             ) : null}
-                            <span className="tabular-nums">
+                            <span
+                                className="tabular-nums text-[12px]"
+                                style={{
+                                    color:
+                                        sortedColumnId === columnData.columnKey
+                                            ? "#f0cc76"
+                                            : "#d8e2ed",
+                                }}
+                            >
                                 {renderValue(columnData, row.getValue(columnData.columnKey))}
                             </span>
                         </div>
@@ -345,12 +350,10 @@ function renderValue(columnData: LeaderboardColumn, value: unknown) {
     if (fmt === "duration") {
         const n = Number(value);
         if (!Number.isFinite(n)) return "—";
-        const duration = intervalToDuration({ start: 0, end: n * 1000 });
-        return formatDuration(duration, {
-            format: n >= 86400 ? ["days", "hours"] : n >= 3600 ? ["hours", "minutes"] : ["minutes", "seconds"],
-            zero: false,
-            delimiter: " ",
-        });
+        const h = Math.floor(n / 3600);
+        const m = Math.floor((n % 3600) / 60);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
     }
     if (fmt === "percent") {
         return `${Number(value).toFixed(1)}%`;
@@ -495,6 +498,7 @@ export function StatsTable({
                 lockSort,
                 tab,
                 dataColumns,
+                sortedColumnId: sortingQuery,
             }),
         [
             leaderboardTheme,
@@ -503,6 +507,7 @@ export function StatsTable({
             lockSort,
             tab,
             dataColumns,
+            sortingQuery,
         ],
     );
     const table = useReactTable({
@@ -674,7 +679,7 @@ export function StatsTable({
             <Card
                 className={cn(
                     "transition-shadow",
-                    hideFilterCard ? "border-border bg-transparent shadow-none" : "hover:shadow-md",
+                    hideFilterCard ? "border-0 bg-transparent shadow-none" : "hover:shadow-md",
                 )}
                 style={hideFilterCard ? undefined : tableCardStyle}
             >
@@ -685,12 +690,10 @@ export function StatsTable({
                     }
                 >
                     <div
-                        className="overflow-hidden rounded-md border"
-                        style={{
-                            borderColor: tableBorderColor,
-                        }}
+                        className={cn(!hideFilterCard && "overflow-hidden rounded-md border")}
+                        style={hideFilterCard ? undefined : { borderColor: tableBorderColor }}
                     >
-                        <Table className="w-full text-sm" style={{ color: leaderboardTheme.tableHeaderText }}>
+                        <Table className="leaderboard-table w-full text-sm" style={{ color: leaderboardTheme.tableHeaderText }}>
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow
@@ -698,14 +701,14 @@ export function StatsTable({
                                         className="border-0 hover:bg-transparent"
                                         style={{
                                             backgroundColor: leaderboardTheme.tableHeaderBg,
-                                            borderColor: tableBorderColor,
+                                            borderColor: "rgba(154,179,205,0.1)",
                                         }}
                                     >
                                         {headerGroup.headers.map((header) => (
                                             <TableHead
                                                 key={header.id}
                                                 className={cn(
-                                                    "h-auto min-h-0 py-1.5 text-xs font-medium",
+                                                    "h-11 min-h-0 py-3 text-[8px] font-normal uppercase tracking-[0.15px]",
                                                     LEFT_ALIGN_IDS.has(header.column.id)
                                                         ? "pl-2 pr-1 text-left"
                                                         : "px-1 text-center",
@@ -728,38 +731,23 @@ export function StatsTable({
                             <TableBody>
                                 {table.getRowModel().rows?.length ? (
                                     table.getRowModel().rows.map((row) => {
-                                        const globalRank =
-                                            (page - 1) * pageSize + row.index + 1;
-                                        /* Inset shadow so hover reads over inline row backgroundColor */
-                                        const rowHoverInset =
-                                            globalRank === 1
-                                                ? "hover:shadow-[inset_0_0_0_9999px_rgba(245,158,11,0.14)]"
-                                                : globalRank === 2
-                                                  ? "hover:shadow-[inset_0_0_0_9999px_rgba(148,163,184,0.11)]"
-                                                  : globalRank === 3
-                                                    ? "hover:shadow-[inset_0_0_0_9999px_rgba(205,127,50,0.15)]"
-                                                    : "hover:shadow-[inset_0_0_0_9999px_rgba(255,255,255,0.04)]";
+                                        const isYou = row.original.steam_id === session?.user?.steamId;
                                         return (
                                         <TableRow
                                             key={row.id}
                                             data-state={row.getIsSelected() && "selected"}
-                                            className={cn(
-                                                "group border-0 transition-[box-shadow,color] duration-200",
-                                                rowHoverInset,
-                                            )}
+                                            className="group h-14 border-t border-[rgba(154,179,205,0.1)] hover:bg-white/[0.03]"
                                             style={{
-                                                borderColor: tableBorderColor,
-                                                backgroundColor:
-                                                    row.original.steam_id === session?.user?.steamId
-                                                        ? leaderboardTheme.tableRowHighlightBg
-                                                        : leaderboardTheme.tableRowBg,
+                                                backgroundColor: isYou
+                                                    ? leaderboardTheme.tableRowHighlightBg
+                                                    : "transparent",
                                             }}
                                         >
                                             {row.getVisibleCells().map((cell) => (
                                                 <TableCell
                                                     key={cell.id}
                                                     className={cn(
-                                                        "py-1.5 align-middle text-xs",
+                                                        "py-3 align-middle text-xs",
                                                         LEFT_ALIGN_IDS.has(cell.column.id)
                                                             ? "pl-2 pr-1 text-left"
                                                             : "px-1 text-center",
@@ -790,43 +778,53 @@ export function StatsTable({
                                         </TableCell>
                                     </TableRow>
                                 )}
+                                {!session?.user && hideFilterCard ? (
+                                    <TableRow className="h-14 border-t border-[rgba(154,179,205,0.1)]">
+                                        <TableCell className="pl-2 pr-1">
+                                            <span className="text-[8px] font-medium tracking-[0.6px] text-[#f0c970]">##</span>
+                                        </TableCell>
+                                        <TableCell colSpan={Math.max(1, table.getVisibleLeafColumns().length - 1)} className="pl-2">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex size-[27px] items-center justify-center rounded-[4px] border border-[rgba(240,201,112,0.7)] bg-[rgba(90,62,20,0.3)] text-[8px] font-medium tracking-[0.6px] text-[#f0c970]">
+                                                        YOU
+                                                    </div>
+                                                    <p className="text-[11px] text-[#f1f6fc]">Want to see where you are ranking?</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => signIn("steam")}
+                                                    className="ghost inline-flex h-5 min-w-[107px] items-center justify-center gap-1 border border-[#ba9142] bg-[rgba(57,42,17,0.45)] px-3 text-[10px] font-medium tracking-[0.35px] text-[#f3ead9]"
+                                                >
+                                                    Sign in →
+                                                </button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : null}
                             </TableBody>
                         </Table>
                         <div
-                            className="flex flex-col gap-3 border-t px-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                            className="flex flex-col gap-3 px-[26px] py-4 sm:flex-row sm:items-center sm:justify-between"
                             style={{
-                                borderColor: tableBorderColor,
-                                backgroundColor: leaderboardTheme.tableHeaderBg,
+                                backgroundImage:
+                                    "linear-gradient(90deg, rgba(63, 45, 14, 0.28) 0%, rgba(17, 20, 24, 0.92) 48%, rgba(58, 42, 15, 0.22) 100%)",
                             }}
                         >
-                            <p
-                                className="text-xs sm:text-sm"
-                                style={{ color: leaderboardTheme.textMutedColor }}
-                            >
-                                Page {page} of {data?.totalPages ?? 1}
+                            <p className="text-[10px] tracking-[0.4px] text-[rgba(159,184,207,0.52)]">
+                                Showing {table.getRowModel().rows.length} of{" "}
+                                {(data?.totalPages ?? 1) * pageSize} players
                             </p>
-                            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
                                 <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
-                                    style={secondaryButtonStyle}
-                                    className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-                                    onClick={() => setPage(1)}
-                                    disabled={!table.getCanPreviousPage()}
-                                >
-                                    <ChevronsLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    style={secondaryButtonStyle}
-                                    className="h-8 w-8 p-0 sm:h-9 sm:w-9"
+                                    className="leaderboard-page-btn h-6 min-w-6 px-2 text-[10px]"
                                     onClick={() => setPage(page - 1)}
                                     disabled={!table.getCanPreviousPage()}
                                 >
-                                    <ChevronLeft className="h-4 w-4" />
+                                    ←
                                 </Button>
                                 {Array.from({ length: Math.min(5, data?.totalPages ?? 1) }, (_, i) => {
                                     const pageNum = table.getState().pagination.pageIndex - 2 + i
@@ -837,12 +835,12 @@ export function StatsTable({
                                         <Button
                                             type="button"
                                             key={pageNum}
-                                            variant="outline"
+                                            variant="ghost"
                                             size="sm"
-                                            className="h-8 min-w-8 px-2 sm:h-9 sm:min-w-9"
-                                            style={
-                                                isActivePage ? primaryButtonStyle : secondaryButtonStyle
-                                            }
+                                            className={cn(
+                                                "leaderboard-page-btn h-6 min-w-6 px-2 text-[10px]",
+                                                isActivePage && "leaderboard-page-btn-active",
+                                            )}
                                             onClick={() => setPage(pageNum + 1)}
                                         >
                                             {pageNum + 1}
@@ -851,25 +849,13 @@ export function StatsTable({
                                 })}
                                 <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
-                                    style={secondaryButtonStyle}
-                                    className="h-8 w-8 p-0 sm:h-9 sm:w-9"
+                                    className="leaderboard-page-btn h-6 min-w-6 px-2 text-[10px]"
                                     onClick={() => setPage(page + 1)}
                                     disabled={!table.getCanNextPage()}
                                 >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    style={secondaryButtonStyle}
-                                    className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-                                    onClick={() => setPage(data?.totalPages ?? 1)}
-                                    disabled={!table.getCanNextPage()}
-                                >
-                                    <ChevronsRight className="h-4 w-4" />
+                                    →
                                 </Button>
                             </div>
                         </div>

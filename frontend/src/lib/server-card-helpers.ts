@@ -145,3 +145,27 @@ export function getServerImageUrl(data: ServerData): string | undefined {
 export function getBattleMetricsServerUrl(data: ServerData): string {
   return `https://www.battlemetrics.com/servers/${encodeURIComponent(data.id)}`;
 }
+
+export function mapOptionWorldSize(option: {
+  id?: string;
+  url?: string;
+  imageUrl?: string;
+  imageIconUrl?: string;
+  thumbnailUrl?: string;
+}): number | null {
+  const candidates = [option.url, option.imageUrl, option.imageIconUrl, option.thumbnailUrl, option.id];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const parsed = parseRustMapsMapPageUrl(raw) || parseRustMapsId(raw);
+    if (parsed) {
+      const n = Number(parsed.mapGen);
+      if (n >= 1000 && n <= 8000) return n;
+    }
+    const m = String(raw).match(/(?:^|[^\d])(\d{4,5})(?:[^\d]|$)/);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 1000 && n <= 8000) return n;
+    }
+  }
+  return null;
+}

@@ -1,43 +1,49 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import Link from "next/link"
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavigationItem } from "@/types/navigation";
 import React from "react";
+import { LAYOUT_THEME_DEFAULTS } from "@/lib/layout-theme-defaults";
 
 export function MainNav({
   items,
-  theme
+  theme,
 }: {
-  items: NavigationItem[],
+  items: NavigationItem[];
   theme?: {
     navLinkColor?: string;
     navLinkHoverColor?: string;
     navLinkActiveColor?: string;
-  }
+  };
 }) {
   const path = usePathname();
   const [hoveredItems, setHoveredItems] = React.useState<Record<number, boolean>>({});
+  const visible = items.filter((item) => !item.hidden);
 
   return (
-    <nav className="flex items-center space-x-4 lg:space-x-8">
-      {items.map((item, index) => {
-        const isActive = item.url === path;
+    <nav className="flex items-center gap-8" data-theme-field="navLinkColor" data-theme-label="Nav links">
+      {visible.map((item, index) => {
+        const isActive = item.url === path || (item.url !== "/" && path.startsWith(item.url));
         return (
           <Link
-            key={index}
+            key={item.id || index}
             href={item.url}
-            className={cn("text-lg font-normal transition-colors")}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "relative py-2 text-[15px] font-medium leading-5 tracking-[0.01em] transition-colors",
+              isActive && "active",
+            )}
             style={{
               color: isActive
-                ? theme?.navLinkActiveColor || "#f2f4f6"
+                ? theme?.navLinkActiveColor || LAYOUT_THEME_DEFAULTS.navLinkActiveColor
                 : hoveredItems[index]
-                  ? theme?.navLinkHoverColor || "#f2f4f6"
-                  : theme?.navLinkColor || "#a0abbe"
+                  ? theme?.navLinkHoverColor || LAYOUT_THEME_DEFAULTS.navLinkHoverColor
+                  : theme?.navLinkColor || LAYOUT_THEME_DEFAULTS.navLinkColor,
             }}
-            onMouseEnter={() => setHoveredItems(prev => ({ ...prev, [index]: true }))}
-            onMouseLeave={() => setHoveredItems(prev => ({ ...prev, [index]: false }))}
+            onMouseEnter={() => setHoveredItems((prev) => ({ ...prev, [index]: true }))}
+            onMouseLeave={() => setHoveredItems((prev) => ({ ...prev, [index]: false }))}
           >
             {item.label}
           </Link>

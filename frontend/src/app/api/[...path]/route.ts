@@ -19,6 +19,7 @@ const FORWARD_HEADERS = [
     'x-csrf-token',
     'x-auth-token',
     'x-api-key',
+    'x-paynow-customer-token',
 ];
 
 function getAuthTokenFromRequest(request: NextRequest): string | null {

@@ -1,35 +1,26 @@
 "use client";
 
-import { useProfileTheme } from "@/hooks/use-profile-theme";
-
 interface ProfileTitlesProps {
-    serverTheme?: any;
+    serverTheme?: Record<string, unknown>;
     userName?: string | null;
 }
 
-export function ProfileTitles({ serverTheme, userName }: ProfileTitlesProps) {
-    const { data: clientTheme } = useProfileTheme();
-    
-    const theme = clientTheme || serverTheme;
-
+export function ProfileTitles({ userName }: ProfileTitlesProps) {
     return (
-        <div className="flex flex-col items-center pb-8 text-center">
-            <h2 
-                className="mt-2 text-center text-4xl font-bold transition-colors duration-300"
-                style={{
-                    color: theme?.titleColor || "#ffffff"
-                }}
-            >
-                {userName ? `${userName}'s Profile` : 'User Profile'}
-            </h2>
-            <div 
-                className="max-w-[80ch] px-8 text-center leading-8 lg:px-0 transition-colors duration-300"
-                style={{
-                    color: theme?.subtitleColor || "#b0b0b0"
-                }}
-            >
-                Manage your account settings, view your activity, and customize your experience.
+        <div className="mx-auto flex max-w-[760px] flex-col items-center text-center">
+            <div className="flex items-center justify-center gap-3">
+                <span className="h-px w-7" style={{ backgroundColor: "rgba(186,145,66,0.78)" }} />
+                <p className="support-hero-kicker font-mono text-[11px] font-medium leading-[11px] tracking-[2.6px]">
+                    ACCOUNT / PROFILE
+                </p>
+                <span className="h-px w-7" style={{ backgroundColor: "rgba(186,145,66,0.78)" }} />
             </div>
+            <h1 className="support-hero-title pt-3.5 text-[40px] font-bold leading-[49px] tracking-[-2.25px] sm:text-[50px]">
+                {userName ? userName.toUpperCase() : "PROFILE"}
+            </h1>
+            <p className="support-hero-subtitle max-w-[555px] pt-2.5 text-[14px] leading-[22.4px]">
+                Tickets, linked accounts, orders, and bans.
+            </p>
         </div>
     );
 }

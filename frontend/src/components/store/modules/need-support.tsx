@@ -1,58 +1,33 @@
 "use client";
 
-import { DiscordIcon } from "@/components/icons";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { InfoIcon } from "lucide-react";
 import Link from "next/link";
-import { useSiteSettings } from "@/hooks/use-site-settings";
+import { withStoreDefaults } from "@/lib/layout-theme-defaults";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
 
 export default function NeedSupport({ theme }: { theme?: any }) {
-    const { data: settings } = useSiteSettings()
+    const t = withStoreDefaults(theme);
+
     return (
-        <div 
-            className="backdrop-blur p-4 rounded-md space-y-4"
+        <div
+            className="relative flex w-full flex-col overflow-visible border p-5"
             style={{
-                backgroundColor: theme?.sidebarBackground || 'rgba(255, 255, 255, 0.05)',
-                border: `1px solid ${theme?.sidebarBorder || 'rgba(255, 255, 255, 0.1)'}`,
-                borderRadius: theme?.cardBorderRadius || '0.375rem',
-                padding: theme?.cardPadding || '1rem'
+                borderColor: t.sidebarBorder,
+                backgroundImage:
+                    "linear-gradient(154deg, rgba(43, 110, 228, 0.16) 0%, rgba(10, 14, 20, 0.9) 100%)",
+                ["--store-help-title" as string]: t.helpTitleColor,
+                ["--store-help-body" as string]: t.helpBodyColor,
+                ["--store-help-cta" as string]: t.buttonPrimaryText,
             }}
         >
-            <div className="space-y-2">
-                <h3 
-                    className="text-2xl font-semibold flex gap-2.5 items-center"
-                    style={{ color: theme?.sidebarTitleColor || '#ffffff' }}
-                >
-                    <InfoIcon className="text-muted" />
-                    Need Support?
-                </h3>
-                <p 
-                    className="text-sm"
-                    style={{ color: theme?.sidebarTextColor || '#b0b0b0' }}
-                >
-                    Having difficulties purchasing a product? or needing general server side support, contact us on our Discord below
-                </p>
-            </div>
+            <p className="store-help-title text-[12px] font-bold leading-4">{t.helpTitle}</p>
+            <p className="store-help-body pt-2 text-[11px] leading-5">{t.helpBody}</p>
             <Link
-                href={settings?.discordInvite ?? ""}
-                target="_blank"
-                className="w-full group inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2"
-                style={{
-                    backgroundColor: theme?.buttonPrimaryBackground || '#52525b',
-                    color: theme?.buttonPrimaryText || '#ffffff',
-                    borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || '#71717a';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || '#52525b';
-                }}
+                href="/support"
+                className="store-help-cta mt-4 inline-flex text-[9px] font-bold tracking-[1.35px]"
             >
-                <DiscordIcon className="group-hover:rotate-[360deg] duration-700 mr-2.5 h-5 w-5" />
-                Contact Us
+                {t.helpCta}
             </Link>
+            <HomeCardCorners color="#ba9142" show />
         </div>
-    )
+    );
 }

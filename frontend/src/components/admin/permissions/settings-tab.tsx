@@ -6,7 +6,6 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -283,13 +282,20 @@ export function SettingsTab({ role }: SettingsTabProps) {
             const headers: Record<string, string> = { Accept: 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
             const response = await fetch(backendApi('admin/store/products'), { credentials: 'include', headers });
-            if (response.ok) {
-                const productsData = await response.json();
-                setProducts(productsData);
+            if (!response.ok) {
+                throw new Error('Failed to load products');
             }
+            const productsData = await response.json();
+            const list = Array.isArray(productsData)
+                ? productsData
+                : Array.isArray(productsData?.data)
+                    ? productsData.data
+                    : [];
+            setProducts(list);
         } catch (error) {
             console.error('Error fetching products:', error);
             toast.error('Failed to load products');
+            setProducts([]);
         } finally {
             setLoadingProducts(false);
         }
@@ -386,7 +392,7 @@ export function SettingsTab({ role }: SettingsTabProps) {
                 .map((gc) => ({
                     serverId: sid,
                     channel: gc.channel,
-                    action: gc.action === 'revoke' ? 'revoke' : 'add',
+                    action: gc.action === 'revoke' ? ('revoke' as const) : ('add' as const),
                     command: gc.command.trim(),
                 }))
                 .filter((gc) => gc.command !== "");
@@ -415,10 +421,10 @@ export function SettingsTab({ role }: SettingsTabProps) {
     };
 
     return (
-        <ScrollArea className="h-[calc(100vh-13rem)] mt-4 pr-4">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 px-4">
-                {role.canManage === false && (
-                    <div className="rounded-md bg-muted/50 border border-border p-3 text-sm text-muted-foreground">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-1 pr-3 pb-4">
+            {role.canManage === false && (
+                    <div className="mb-8 rounded-md bg-muted/50 border border-border p-3 text-sm text-muted-foreground">
                         You cannot edit this role. You can only manage roles below your highest role; the site owner can manage all roles.
                     </div>
                 )}
@@ -766,7 +772,9 @@ export function SettingsTab({ role }: SettingsTabProps) {
                     </div>
                 </div>
 
-                <div className="flex justify-between">
+                </fieldset>
+            </div>
+                <div className="flex shrink-0 items-center gap-2 border-t bg-card pt-4">
                     {role.canManage !== false && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -797,14 +805,13 @@ export function SettingsTab({ role }: SettingsTabProps) {
                     </AlertDialog>
                     )}
                     <Button
+                        className="ml-auto"
                         type="submit"
                         disabled={updateRoleSettingsMutation.isPending || role.canManage === false}
                     >
                         {updateRoleSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </div>
-                </fieldset>
-            </form>
-        </ScrollArea>
+        </form>
     );
 }

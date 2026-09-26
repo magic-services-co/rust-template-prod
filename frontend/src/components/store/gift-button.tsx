@@ -1,39 +1,30 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { useMutation } from "@tanstack/react-query"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ChevronDown, ChevronUp, Gift } from "lucide-react"
 import { useCheckoutMutation } from "@/hooks/store/use-storefront"
 import { signIn, useSession } from "@/lib/laravel-auth-react"
 import { Product } from "@/types/store"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useStoreSettings } from "@/hooks/use-store-settings"
 import { openPayNowPopup } from "@/lib/paynow-popup"
+import { Loader2 } from "lucide-react"
+import { withStoreDefaults } from "@/lib/layout-theme-defaults"
 
-const submitData = async (data: string): Promise<{ message: string }> => {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    return { message: `Gift submitted: ${data}` }
-}
-
-export default function GiftButton({ product, selectedServerId }: { product: Product; selectedServerId?: string }) {
-    const router = useRouter();
+export default function GiftButton({
+    product,
+    selectedServerId,
+    theme,
+}: {
+    product: Product;
+    selectedServerId?: string;
+    theme?: any;
+}) {
+    const t = withStoreDefaults(theme);
     const { data: storeSettings } = useStoreSettings();
     const { data: session, status } = useSession();
-    const { data: checkoutData, mutate, isSuccess: isSuccess, isPending } = useCheckoutMutation();
-    const [isVisible, setIsVisible] = useState(false)
+    const { data: checkoutData, mutate, isSuccess, isPending } = useCheckoutMutation();
     const [inputValue, setInputValue] = useState("")
 
-    /*     const mutation = useMutation({
-            mutationFn: submitData,
-            onSuccess: (data) => {
-                console.log(data.message)
-            },
-        })
-     */
     useEffect(() => {
         if (isSuccess && checkoutData?.url) {
             openPayNowPopup(checkoutData.url);
@@ -53,21 +44,21 @@ export default function GiftButton({ product, selectedServerId }: { product: Pro
             toast.error("Please link your Discord account to purchase this product.");
             return;
         }
-        if (!inputValue) {
+        if (!inputValue.trim()) {
             toast.error("Please input a steam id");
             return;
         }
-        
+
         if (product.single_game_server_only && !selectedServerId) {
             toast.error("Please select a server to continue.");
             return;
         }
 
-        const lineData: any = {
+        const lineData: Record<string, unknown> = {
             product_id: product.id,
             gift_to: {
                 platform: "steam",
-                id: inputValue,
+                id: inputValue.trim(),
             },
             quantity: 1,
         };
@@ -82,55 +73,35 @@ export default function GiftButton({ product, selectedServerId }: { product: Pro
     }
 
     return (
-        <div className="w-full">
-            <Button
-                onClick={() => setIsVisible(!isVisible)}
-                className="w-full mb-1.5"
-                variant="secondary"
-            >
-                <Gift
-                    size={18}
-                    className="mr-2"
+        <form
+            onSubmit={handleSubmit}
+            className="border-t border-[rgba(255,255,255,0.1)] pt-4"
+            style={{
+                ["--store-sidebar-text" as string]: t.sidebarTextColor,
+                ["--store-pack-accent" as string]: t.kickerColor,
+            }}
+        >
+            <p className="store-order-meta pb-2 text-[10px] tracking-[1.2px]">GIFT THIS PACKAGE</p>
+            <div className="flex gap-2">
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Recipient Steam ID"
+                    className="h-[41px] min-w-0 flex-1 border bg-[#070a0e] px-3 text-[11px] outline-none"
+                    style={{
+                        borderColor: t.inputBorder,
+                        color: inputValue ? t.inputText : t.inputPlaceholder,
+                    }}
                 />
-                {isVisible ? (
-                    <>
-                        Gift <ChevronUp className="ml-2 h-4 w-4" />
-                    </>
-                ) : (
-                    <>
-                        Gift <ChevronDown className="ml-2 h-4 w-4" />
-                    </>
-                )}
-            </Button>
-
-            <div className="overflow-hidden">
-                <AnimatePresence initial={false}>
-                    {isVisible && (
-                        <motion.div
-                            initial={{ y: -100, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -100, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                        >
-                            <form onSubmit={handleSubmit} className="space-y-2 p-2 bg-black/20 rounded-lg">
-                                <div className="flex items-center space-x-2">
-                                    {/* <Gift className="h-5 w-5 text-primary" /> */}
-                                    <Input
-                                        type="text"
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        placeholder="Steam ID"
-                                        className="flex-grow border-border/15 bg-black/45"
-                                    />
-                                </div>
-                                <Button type="submit" className="w-full" disabled={isPending}>
-                                    {isPending ? "Redirecting..." : "Send Gift"}
-                                </Button>
-                            </form>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                <button
+                    type="submit"
+                    className="ghost store-pack-select inline-flex h-[41px] shrink-0 items-center justify-center border px-3 text-[9px] font-bold tracking-[1.08px]"
+                    disabled={isPending}
+                >
+                    {isPending ? <Loader2 className="size-4 animate-spin" /> : "SEND GIFT"}
+                </button>
             </div>
-        </div>
+        </form>
     )
 }

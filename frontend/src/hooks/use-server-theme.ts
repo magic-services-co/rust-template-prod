@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { backendApi } from '@/lib/api';
 import { buildServersPageThemeFromApiPayloads } from '@/lib/merge-servers-leaderboard-theme';
+import { usePageThemeDraft } from '@/hooks/use-page-theme-draft';
 
 async function fetchServerTheme(): Promise<Record<string, unknown>> {
   const [serversRes, leaderboardRes] = await Promise.all([
@@ -26,8 +27,9 @@ export function useServerTheme() {
     queryFn: fetchServerTheme,
     staleTime: 60 * 1000,
   });
+  const draft = usePageThemeDraft('servers');
   return {
-    data: query.data,
+    data: draft ?? query.data,
     isLoading: query.isLoading,
     error: query.error,
   };

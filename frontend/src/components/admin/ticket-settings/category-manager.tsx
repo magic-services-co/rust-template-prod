@@ -14,6 +14,7 @@ import {
     FormField, FormItem, FormControl, FormLabel, FormDescription
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { SortableStep } from './sortable-step'
 import { CategoryList } from './category-list'
@@ -55,6 +56,7 @@ export const stepSchema = z.object({
 
 export const formSchema = z.object({
     name: z.string().min(1, 'Category name is required'),
+    description: z.string().optional(),
     steps: z.array(stepSchema),
     maxTicketsPerUser: z.coerce.number().min(1).optional(),
     ticketCooldownMinutes: z.coerce.number().min(1).optional(),
@@ -136,6 +138,7 @@ export function CategoryManager() {
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
+            description: '',
             steps: [{
                 name: 'Step 1',
                 fields: [{
@@ -260,6 +263,26 @@ export function CategoryManager() {
                                                 </FormControl>
                                                 <FormDescription>
                                                     The name of the ticket category.
+                                                </FormDescription>
+                                        </FormItem>
+                                    )}
+                                    />
+                                    <FormField
+                                        control={methods.control}
+                                        name="description"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Card description</FormLabel>
+                                                <FormControl>
+                                                    <Textarea
+                                                        {...field}
+                                                        value={field.value ?? ''}
+                                                        rows={3}
+                                                        placeholder={"Account, gameplay, or server questions\nAverage reply · under 2 hours"}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    First line appears under the title. A second line becomes the small footer note on the card.
                                                 </FormDescription>
                                             </FormItem>
                                         )}

@@ -31,7 +31,11 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string; width?:
 
 function pathnameToPageSlug(pathname: string): string {
   if (!pathname || pathname === '/') return 'home';
-  return pathname.replace(/^\//, '').split('/')[0] ?? 'home';
+  const parts = pathname.replace(/^\//, '').split('/').filter(Boolean);
+  if (parts[0] === 'servers' && parts.length >= 3) {
+    return `custom:${parts[1]}:${parts[2]}`;
+  }
+  return parts[0] ?? 'home';
 }
 
 function applyTextEdit(selector: string, content: string, doc: Document): void {

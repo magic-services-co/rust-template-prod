@@ -9,6 +9,7 @@ import { FormValues, formSchema } from './category-manager'
 import { Button } from '@/components/ui/button'
 import { FormField, FormItem, FormControl, FormMessage, FormLabel } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { SortableStep } from './sortable-step'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
@@ -155,6 +156,25 @@ export function EditCategoryForm({ category }: EditCategoryFormProps) {
                             <FormLabel>Category Name</FormLabel>
                             <FormControl>
                                 <Input {...field} placeholder="Category Name" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={methods.control}
+                    name="description"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Card description</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                    {...field}
+                                    value={field.value ?? ''}
+                                    rows={3}
+                                    placeholder={"Account, gameplay, or server questions\nAverage reply · under 2 hours"}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

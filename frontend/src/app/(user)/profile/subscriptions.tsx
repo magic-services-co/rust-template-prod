@@ -1,460 +1,281 @@
 'use client'
 
 import * as React from "react"
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, Copy, Check } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Card, CardContent } from "@/components/ui/card"
+import { Check, Copy } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
 import { useCancelSubscriptionMutation, useSubscriptions } from "@/hooks/store/use-storefront"
 import { Subscription } from "@/types/store"
-import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useState } from "react"
-import Image from "next/image"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useProfileTheme } from "@/hooks/use-profile-theme"
 import { withUserDefaults } from "@/lib/user-theme-defaults"
-import { cn } from "@/lib/utils"
+import {
+    PROFILE_PAGE_SIZE,
+    ProfileEmpty,
+    ProfilePager,
+    ProfilePanel,
+    ProfileSearch,
+    ProfileStatusTabs,
+} from "@/components/profile/profile-ui"
 
 type ProfileSubscriptionsTheme = ReturnType<typeof withUserDefaults>
 
-function CopyButton({ text, theme }: { text: string; theme: ProfileSubscriptionsTheme }) {
-  const [copied, setCopied] = useState(false)
+async function copyToClipboard(value: string): Promise<boolean> {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(value)
+            return true
+        } catch {
+            /* fall through */
+        }
+    }
+    try {
+        const ta = document.createElement("textarea")
+        ta.value = value
+        ta.setAttribute("readonly", "")
+        ta.style.position = "fixed"
+        ta.style.left = "-9999px"
+        document.body.appendChild(ta)
+        ta.select()
+        const ok = document.execCommand("copy")
+        document.body.removeChild(ta)
+        return ok
+    } catch {
+        return false
+    }
+}
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handleCopy}
-      className="w-8 h-8 p-0 hover:opacity-80 transition-opacity"
-      style={{
-        backgroundColor: theme.copyButtonBackground,
-        color: theme.copyButtonText,
-        borderRadius: theme.buttonBorderRadius,
-      }}
-    >
-      {copied ? (
-        <Check className="h-4 w-4" style={{ color: theme.buttonSuccessBackground }} />
-      ) : (
-        <Copy className="h-4 w-4" />
-      )}
-    </Button>
-  )
+function CopyButton({ text }: { text: string }) {
+    const [copied, setCopied] = React.useState(false)
+    return (
+        <button
+            type="button"
+            className="ghost support-form-meta h-7 w-7 p-0"
+            aria-label="Copy subscription id"
+            onClick={() => {
+                void copyToClipboard(text).then((ok) => {
+                    if (!ok) return
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                })
+            }}
+        >
+            {copied ? <Check className="h-3.5 w-3.5 ticket-status-open" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+    )
 }
 
 function CancelButton({
-  id,
-  status,
-  theme,
+    id,
+    status,
+    theme,
 }: {
-  id: string
-  status: string
-  theme: ProfileSubscriptionsTheme
+    id: string
+    status: string
+    theme: ProfileSubscriptionsTheme
 }) {
-  const { mutate, isPending } = useCancelSubscriptionMutation()
-  const [isOpen, setIsOpen] = useState(false)
+    const { mutate, isPending } = useCancelSubscriptionMutation()
+    const [isOpen, setIsOpen] = React.useState(false)
+    const canceled = status === "canceled" || status === "cancelled"
 
-  const handleCancel = () => {
-    mutate(id)
-    setIsOpen(false)
-  }
-
-  return (
-    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={isPending || status === "canceled"}
-          className="hover:opacity-90 transition-opacity"
-          style={{
-            backgroundColor: theme.buttonDestructiveBackground,
-            color: theme.buttonDestructiveText,
-            borderRadius: theme.buttonBorderRadius,
-          }}
-        >
-          {isPending ? "Canceling..." : status === "canceled" ? "Canceled" : "Cancel"}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent
-        className="backdrop-blur"
-        style={{
-          backgroundColor: theme.contentCardBackground,
-          border: `1px solid ${theme.contentCardBorder}`,
-          borderRadius: theme.cardBorderRadius,
-        }}
-      >
-        <AlertDialogHeader>
-          <AlertDialogTitle style={{ color: theme.contentCardTitleColor }}>Confirm Cancellation</AlertDialogTitle>
-          <AlertDialogDescription style={{ color: theme.contentCardDescriptionColor }}>
-            Are you sure you want to cancel this subscription? This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            className="hover:opacity-90 transition-opacity"
-            style={{
-              backgroundColor: theme.buttonSecondaryBackground,
-              color: theme.buttonSecondaryText,
-              border: `1px solid ${theme.buttonSecondaryBorder}`,
-              borderRadius: theme.buttonBorderRadius,
-            }}
-          >
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleCancel}
-            className="hover:opacity-90 transition-opacity"
-            style={{
-              backgroundColor: theme.buttonDestructiveBackground,
-              color: theme.buttonDestructiveText,
-              borderRadius: theme.buttonBorderRadius,
-            }}
-          >
-            Confirm Cancellation
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+    return (
+        <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+            <AlertDialogTrigger asChild>
+                <button
+                    type="button"
+                    disabled={isPending || canceled}
+                    className="ghost support-form-btn-secondary h-[41px] px-4 text-[10px] font-bold tracking-[1.4px] disabled:opacity-40"
+                    style={{ color: theme.buttonDestructiveText, borderColor: "rgba(232, 160, 163, 0.35)" }}
+                >
+                    {isPending ? "CANCELING…" : canceled ? "CANCELED" : "CANCEL"}
+                </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent
+                className="z-[200] rounded-none border"
+                style={{
+                    backgroundColor: theme.contentCardBackground,
+                    borderColor: theme.contentCardBorder,
+                }}
+            >
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="support-form-title">Cancel subscription</AlertDialogTitle>
+                    <AlertDialogDescription className="support-form-help">
+                        Are you sure you want to cancel this subscription? This cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel className="ghost support-form-btn-secondary h-[41px] rounded-none px-4 text-[10px] font-bold tracking-[1.4px]">
+                        KEEP
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => {
+                            mutate(id)
+                            setIsOpen(false)
+                        }}
+                        className="ghost support-form-btn-primary h-[41px] rounded-none px-4 text-[10px] font-bold tracking-[1.4px]"
+                        style={{ color: theme.buttonDestructiveText, borderColor: "rgba(232, 160, 163, 0.45)" }}
+                    >
+                        CONFIRM CANCEL
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
 }
 
-function createSubscriptionColumns(theme: ProfileSubscriptionsTheme): ColumnDef<Subscription>[] {
-  const sortHeader = (
-    column: { toggleSorting: (desc: boolean) => void; getIsSorted: () => false | "asc" | "desc" },
-    label: string,
-  ) => (
-    <Button
-      variant="ghost"
-      className="profile-theme-table-sort h-9 -ml-2 px-2 transition-opacity"
-      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-    >
-      {label}
-      <ArrowUpDown className="ml-2 h-4 w-4" />
-    </Button>
-  )
+function SubscriptionCard({
+    subscription,
+    theme,
+}: {
+    subscription: Subscription
+    theme: ProfileSubscriptionsTheme
+}) {
+    const status = String(subscription.status ?? "")
+    const active = status.toLowerCase() === "active"
+    const intervalValue = subscription.interval_value ?? 0
+    const intervalScale = subscription.interval_scale ?? "day"
+    const plural = intervalValue > 1 ? "s" : ""
+    const period = `${intervalValue} ${intervalScale}${plural}`
 
-  return [
-    {
-      accessorKey: "id",
-      header: "Subscription ID",
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-2">
-          <span>{row.getValue("id")}</span>
-          <CopyButton text={String(row.getValue("id"))} theme={theme} />
-        </div>
-      ),
-    },
-    {
-      accessorKey: "product_name",
-      header: "Product",
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-3">
-          <Image
-            src={row.original.product_image_url ?? "/images/placeholder.png"}
-            alt={String(row.getValue("product_name"))}
-            width={40}
-            height={40}
-            className="rounded-md object-cover"
-          />
-          <span>{row.getValue("product_name")}</span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "total_amount_str",
-      header: ({ column }) => sortHeader(column, "Price"),
-      cell: ({ row }) => <div className="px-4">{row.getValue("total_amount_str")}</div>,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={row.getValue("status") === "active" ? "active" : "destructive"} className="capitalize">
-          {row.getValue("status")}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "billingPeriod",
-      header: "Billing Period",
-      cell: ({ row }) => {
-        const intervalValue = row.original.interval_value ?? 0
-        const intervalScale = row.original.interval_scale
-        const plural = intervalValue > 1 ? "s" : ""
-        return <div>{`${intervalValue} ${intervalScale}${plural}`}</div>
-      },
-    },
-    {
-      accessorKey: "created_at",
-      header: ({ column }) => sortHeader(column, "Subscribed On"),
-      cell: ({ row }) => <div className="px-4">{new Date(row.getValue("created_at")).toDateString()}</div>,
-    },
-    {
-      id: "cancel",
-      cell: ({ row }) => (
-        <CancelButton id={row.original.id} status={String(row.getValue("status"))} theme={theme} />
-      ),
-    },
-  ]
+    return (
+        <ProfilePanel>
+            <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex min-w-0 items-center gap-4">
+                    <Image
+                        src={subscription.product_image_url ?? "/images/placeholder.png"}
+                        alt={String(subscription.product_name ?? "Product")}
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 shrink-0 object-cover"
+                    />
+                    <div className="min-w-0">
+                        <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">SUBSCRIPTION</p>
+                        <h3 className="support-form-title truncate pt-1 text-[18px] font-extrabold leading-6">
+                            {(subscription.product_name || "Plan").toUpperCase()}
+                        </h3>
+                        <div className="flex items-center gap-1 pt-1">
+                            <p className="truncate font-mono text-[12px] support-form-help">
+                                {subscription.id}
+                            </p>
+                            <CopyButton text={String(subscription.id)} />
+                        </div>
+                        <p className="support-form-help pt-1 text-[12px]">
+                            {subscription.total_amount_str ?? ""} · every {period}
+                            {subscription.created_at ? ` · since ${new Date(String(subscription.created_at)).toDateString()}` : ""}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <span className={cn("ticket-chip", active ? "ticket-chip-yes" : "ticket-chip-no")}>
+                        {active ? "ACTIVE" : status.toUpperCase() || "INACTIVE"}
+                    </span>
+                    <CancelButton id={subscription.id} status={status} theme={theme} />
+                </div>
+            </div>
+        </ProfilePanel>
+    )
 }
 
 interface SubscriptionsProps {
-  serverTheme?: any
+    serverTheme?: Record<string, unknown>
 }
 
 export default function Subscriptions({ serverTheme }: SubscriptionsProps) {
-  const { data: clientTheme } = useProfileTheme()
+    const { data: clientTheme } = useProfileTheme()
+    const theme = React.useMemo(
+        () => withUserDefaults(clientTheme || serverTheme),
+        [clientTheme, serverTheme],
+    )
+    const [search, setSearch] = React.useState("")
+    const [statusFilter, setStatusFilter] = React.useState("all")
+    const [page, setPage] = React.useState(1)
+    const { data: subscriptions, isLoading, isSuccess } = useSubscriptions()
 
-  const theme = React.useMemo(
-    () => withUserDefaults(clientTheme || serverTheme),
-    [clientTheme, serverTheme],
-  )
-  const columns = React.useMemo(() => createSubscriptionColumns(theme), [theme])
+    const filtered = React.useMemo(() => {
+        const q = search.trim().toLowerCase()
+        const rows = isSuccess ? subscriptions : []
+        return rows.filter((row) => {
+            const status = String(row.status ?? "").toLowerCase()
+            if (statusFilter !== "all" && status !== statusFilter) return false
+            if (!q) return true
+            return `${row.id} ${row.product_name ?? ""} ${status}`.toLowerCase().includes(q)
+        })
+    }, [isSuccess, subscriptions, search, statusFilter])
 
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const { data: subscriptions, isLoading, isSuccess } = useSubscriptions()
+    React.useEffect(() => {
+        setPage(1)
+    }, [search, statusFilter])
 
-  const table = useReactTable({
-    data: isSuccess ? subscriptions : [],
-    columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-    },
-  })
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PROFILE_PAGE_SIZE))
+    const paged = filtered.slice((page - 1) * PROFILE_PAGE_SIZE, page * PROFILE_PAGE_SIZE)
 
-  const filterToolbarStyle = {
-    ["--profile-filter-bg" as string]: theme.profileFilterBackground,
-    ["--profile-filter-border" as string]: theme.profileFilterBorder,
-    ["--profile-filter-text" as string]: theme.profileFilterTextColor,
-    ["--profile-filter-placeholder" as string]: theme.profileFilterPlaceholderColor,
-    ["--profile-filter-ring" as string]: theme.linkColor,
-    gap: theme.spacing,
-  } as React.CSSProperties
+    return (
+        <div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <ProfileSearch value={search} onChange={setSearch} placeholder="Search subscriptions…" className="md:max-w-sm" />
+                <ProfileStatusTabs
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={[
+                        { value: "all", label: "ALL" },
+                        { value: "active", label: "ACTIVE" },
+                        { value: "canceled", label: "CANCELED" },
+                    ]}
+                />
+            </div>
 
-  const dropdownSurfaceStyle = {
-    ["--profile-dropdown-bg" as string]: theme.profileDropdownBackground,
-    ["--profile-dropdown-border" as string]: theme.profileDropdownBorder,
-    ["--profile-dropdown-text" as string]: theme.profileDropdownTextColor,
-    ["--profile-dropdown-item-hover" as string]: theme.profileDropdownItemHoverBackground,
-    borderRadius: theme.cardBorderRadius,
-  } as React.CSSProperties
+            <div className="space-y-3 pt-5">
+                {isLoading ? (
+                    Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                            key={index}
+                            className="h-[120px] animate-pulse border"
+                            style={{ borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(8,12,17,0.6)" }}
+                        />
+                    ))
+                ) : paged.length === 0 ? (
+                    <ProfileEmpty
+                        kicker="STORE"
+                        title={subscriptions && subscriptions.length > 0 ? "NO MATCHING SUBSCRIPTIONS" : "NO SUBSCRIPTIONS"}
+                        body={subscriptions && subscriptions.length > 0
+                            ? "Try a different search or status filter."
+                            : "Recurring store purchases will show up here."}
+                        action={
+                            <Link
+                                href="/store"
+                                className="ghost support-form-btn-primary inline-flex h-[41px] items-center px-5 text-[10px] font-bold tracking-[1.4px]"
+                            >
+                                OPEN STORE
+                            </Link>
+                        }
+                    />
+                ) : (
+                    paged.map((subscription) => (
+                        <SubscriptionCard key={subscription.id} subscription={subscription} theme={theme} />
+                    ))
+                )}
+            </div>
 
-  const profileTableChromeStyle = {
-    ["--profile-table-sort-text" as string]: theme.contentCardTitleColor,
-    ["--profile-table-sort-hover-bg" as string]: theme.roleBadgeBackground,
-    ["--profile-pagination-bg" as string]: theme.buttonSecondaryBackground,
-    ["--profile-pagination-hover-bg" as string]: theme.profileDropdownItemHoverBackground,
-    ["--profile-pagination-text" as string]: theme.buttonSecondaryText,
-    ["--profile-pagination-border" as string]: theme.buttonSecondaryBorder,
-    ["--profile-pagination-radius" as string]: theme.buttonBorderRadius,
-    ["--profile-table-row-hover" as string]: theme.roleBadgeBackground,
-  } as React.CSSProperties
-
-  return (
-    <Card
-      className={cn(
-        "mt-4 group relative backdrop-blur overflow-hidden hover:brightness-110 transition-all duration-300",
-        "profile-theme-data-table",
-      )}
-      style={{
-        backgroundColor: theme.contentCardBackground,
-        border: `1px solid ${theme.contentCardBorder}`,
-        borderRadius: theme.cardBorderRadius,
-        boxShadow: theme.cardShadow,
-        ...profileTableChromeStyle,
-      }}
-    >
-      <CardContent style={{ padding: theme.cardPadding }}>
-        <div
-          className="profile-theme-filter-toolbar py-4 flex flex-col md:flex-row items-center justify-between"
-          style={filterToolbarStyle}
-        >
-          <Input
-            placeholder="Filter Subscriptions..."
-            value={(table.getColumn("id")?.getFilterValue() as string) ?? ""}
-            onChange={(event) => table.getColumn("id")?.setFilterValue(event.target.value)}
-            className={cn(
-              "profile-theme-filter-control md:max-w-sm h-10 px-3 py-2 text-sm shadow-none ring-0 border-0 focus-visible:ring-0 focus-visible:ring-offset-0",
-            )}
-            style={{ borderRadius: theme.inputBorderRadius }}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="profile-theme-filter-trigger inline-flex items-center justify-center gap-0 whitespace-nowrap font-medium transition-opacity w-full md:w-auto h-10 px-3 py-2 text-sm shadow-none ring-0 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:ring-0 disabled:pointer-events-none disabled:opacity-50"
-                style={{ borderRadius: theme.inputBorderRadius }}
-              >
-                Filter Status <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="profile-theme-dropdown-content backdrop-blur z-[100]"
-              style={dropdownSurfaceStyle}
-            >
-              <DropdownMenuCheckboxItem
-                checked={table.getColumn("status")?.getFilterValue() === "active"}
-                onCheckedChange={() => table.getColumn("status")?.setFilterValue("active")}
-              >
-                Active
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={table.getColumn("status")?.getFilterValue() === "canceled"}
-                onCheckedChange={() => table.getColumn("status")?.setFilterValue("canceled")}
-              >
-                Canceled
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            {!isLoading && filtered.length > 0 ? (
+                <ProfilePager
+                    page={page}
+                    pageCount={pageCount}
+                    onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                    onNext={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    summary={`${filtered.length} subscription${filtered.length === 1 ? "" : "s"}`}
+                />
+            ) : null}
         </div>
-        <div
-          className="rounded-md overflow-hidden border"
-          style={{ borderColor: theme.contentCardBorder }}
-        >
-          <Table style={{ color: theme.contentCardTitleColor }}>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow
-                  key={headerGroup.id}
-                  className="hover:bg-transparent"
-                  style={{
-                    backgroundColor: theme.roleBadgeBackground,
-                    borderColor: theme.contentCardBorder,
-                  }}
-                >
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} style={{ color: theme.contentCardTitleColor }}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <TableRow key={index} style={{ borderColor: theme.contentCardBorder }}>
-                    {columns.map((column, cellIndex) => (
-                      <TableCell key={cellIndex}>
-                        <Skeleton className="h-6 w-full opacity-40" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    style={{ borderColor: theme.contentCardBorder }}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                    style={{ color: theme.contentCardDescriptionColor }}
-                  >
-                    No results.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <div className="flex-1 text-sm" style={{ color: theme.contentCardDescriptionColor }}>
-            {isLoading
-              ? "Loading subscriptions..."
-              : `${table.getFilteredRowModel().rows.length} subscription(s) total.`}
-          </div>
-          <div className="space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="profile-theme-table-page transition-opacity"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="profile-theme-table-page transition-opacity"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+    )
 }

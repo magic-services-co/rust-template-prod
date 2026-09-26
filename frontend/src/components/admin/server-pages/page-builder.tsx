@@ -28,6 +28,19 @@ interface PageBuilderProps {
     onSuccess?: () => void;
 }
 
+const DEFAULT_PAGE_MARKDOWN = `Welcome to this page.
+
+Use it for rules, commands, kits, or anything your community needs to know.
+
+## Quick start
+- Keep headings short
+- Use **bold** for important callouts
+- Make a command copyable with [copy:/kit starter]
+
+## Example
+\`/kit starter\` — starter gear on wipe day.
+`;
+
 export function PageBuilder({ page, onSuccess }: PageBuilderProps) {
     const [selectedServerId, setSelectedServerId] = useState<string | null>(page?.server_id || null);
     const queryClient = useQueryClient();
@@ -37,14 +50,18 @@ export function PageBuilder({ page, onSuccess }: PageBuilderProps) {
             if (typeof page.content === 'string') return page.content;
             return JSON.stringify(page.content);
         }
-        return "";
+        return DEFAULT_PAGE_MARKDOWN;
     });
 
     const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm({
         defaultValues: {
             title: page?.title || "",
             slug: page?.slug || "",
-            content: typeof page?.content === 'string' ? page.content : JSON.stringify(page?.content || {}),
+            content: page?.content
+                ? typeof page.content === "string"
+                    ? page.content
+                    : JSON.stringify(page.content)
+                : DEFAULT_PAGE_MARKDOWN,
             enabled: page?.enabled ?? true
         }
     });
@@ -289,26 +306,7 @@ export function PageBuilder({ page, onSuccess }: PageBuilderProps) {
                             setContent(e.target.value);
                             setValue('content', e.target.value);
                         }}
-                        placeholder="# Enter your content in Markdown
-
-## Headers
-Use ## for headers
-
-## Lists
-- Bullet point 1
-- Bullet point 2
-
-## Links
-[Link text](https://example.com)
-
-## Code
-Use backticks for \`code\`
-
-## Bold and Italic
-**bold** and *italic* text
-
-## Copyable Text
-Use [copy:/raidme] to make text copyable on click!"
+                        placeholder={DEFAULT_PAGE_MARKDOWN}
                         rows={20}
                         className="font-mono text-sm border-0 resize-none"
                     />

@@ -31,3 +31,24 @@ export function wipeScheduleLabel(value: string | null | undefined): string {
   const o = WIPE_SCHEDULE_OPTIONS.find((x) => x.value === value);
   return o?.label ?? value;
 }
+
+export function wipeScheduleShortLabel(value: string | null | undefined): string {
+  switch (value) {
+    case "daily":
+      return "Daily Wipe";
+    case "every_2_days":
+      return "Every 2 Days";
+    case "every_3_days":
+      return "Every 3 Days";
+    case "weekly":
+      return "Weekly Wipe";
+    case "twice_weekly":
+      return "Twice Weekly";
+    case "twice_monthly":
+      return "Biweekly Wipe";
+    case "monthly_first_thursday":
+      return "Monthly Wipe";
+    default:
+      return "Scheduled Wipe";
+  }
+}

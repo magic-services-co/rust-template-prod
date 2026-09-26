@@ -84,20 +84,21 @@ export default function PlayerGrid({ value, onChange, min, max }: PlayerGridProp
     }
 
     return (
-        <div className="">
-            <div className="max-w-sm ml-auto mb-4">
+        <div>
+            <div className="mb-4 ml-auto max-w-sm">
                 <Input
                     placeholder="Search players"
                     defaultValue={filterQuery}
                     onChange={(e) => debouncedSetFilterQuery(e.target.value)}
+                    className="support-form-input h-[41px] rounded-none"
                 />
             </div>
             {isLoading ? (
                 <SkeletonPlayerGrid />
             ) : isError ? (
-                <p className="text-sm text-muted-foreground">Failed to load players. Please try again.</p>
+                <p className="support-form-help text-sm">Failed to load players. Please try again.</p>
             ) : !Array.isArray(players) || players.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No players found. Try a different search.</p>
+                <p className="support-form-help text-sm">No players found. Try a different search.</p>
             ) : (
                 <AnimatePresence mode="wait">
                     <motion.div
@@ -150,7 +151,7 @@ function PlayerGridItem({
 }) {
     return (
         <motion.div
-            className="relative group block p-2 h-full w-full"
+            className="relative block h-full w-full cursor-pointer"
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onClick={onClick}
@@ -160,41 +161,23 @@ function PlayerGridItem({
             animate="visible"
             exit="exit"
         >
-            <AnimatePresence>
-                {isHovered && (
-                    <motion.span
-                        className="absolute inset-0 h-full w-full bg-secondary/[0.8] block rounded-lg"
-                        layoutId="hoverBackground"
-                        initial={{ opacity: 0 }}
-                        animate={{
-                            opacity: 1,
-                            transition: { duration: 0.15 },
-                        }}
-                        exit={{
-                            opacity: 0,
-                            transition: { duration: 0.15, delay: 0.2 },
-                        }}
-                    />
-                )}
-            </AnimatePresence>
             <div className={cn(
-                "rounded-md h-full w-full overflow-hidden bg-card/15 border border-transparent",
-                "dark:border-secondary/20 group-hover:border-secondary relative",
-                { "bg-secondary/50": isSelected }
+                "support-grid-card relative h-full w-full overflow-hidden",
+                isSelected && "support-grid-card-selected"
             )}>
-                <div className="relative flex gap-4 flex-row items-center p-2">
+                <div className="relative flex flex-row items-center gap-4 p-3">
                     <Image
                         src={player.avatar ?? `https://avatar.iran.liara.run/username?username=${encodeURIComponent(player.steam_id)}`}
                         alt={player.username}
-                        width={60}
-                        height={60}
-                        className="hidden md:block w-full h-full md:h-[60px] md:w-[60px] rounded-full"
+                        width={48}
+                        height={48}
+                        className="hidden h-12 w-12 rounded-none md:block"
                     />
-                    <div className="">
-                        <h4 className="m-0 font-bold tracking-wide">
+                    <div>
+                        <h4 className="m-0 text-[14px] font-bold tracking-wide" style={{ color: "#eef4fb" }}>
                             {player.username}
                         </h4>
-                        <span className="text-sm mt-0 text-muted-foreground">{player.steam_id}</span>
+                        <span className="support-form-meta mt-0 text-[11px]">{player.steam_id}</span>
                     </div>
                 </div>
             </div>
@@ -214,10 +197,10 @@ function SkeletonPlayerGrid() {
 
 function SkeletonPlayerGridItem() {
     return (
-        <div className="relative block p-2 h-full w-full">
-            <div className="rounded-md h-full w-full overflow-hidden bg-card/15 border border-transparent dark:border-secondary/20 p-2">
-                <div className="flex gap-4 flex-row items-center">
-                    <Skeleton className="h-[60px] w-[60px] rounded-full" />
+        <div className="relative block h-full w-full">
+            <div className="support-grid-card h-full w-full overflow-hidden p-3">
+                <div className="flex flex-row items-center gap-4">
+                    <Skeleton className="h-12 w-12 rounded-none" />
                     <Skeleton className="h-6 w-24" />
                 </div>
             </div>

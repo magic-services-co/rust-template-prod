@@ -53,27 +53,27 @@ function MarkdownRenderer({ content }: { content: string }) {
         let html = text;
         
         html = html.replace(/```([\s\S]*?)```/gim, (match, code) => {
-            return `<pre class="bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto my-4"><code>${code.trim()}</code></pre>`;
+            return `<pre class="cms-pre"><code>${code.trim()}</code></pre>`;
         });
         
-        html = html.replace(/^### (.*$)/gim, '<h3 class="text-2xl font-bold mb-2">$1</h3>');
-        html = html.replace(/^## (.*$)/gim, '<h2 class="text-3xl font-bold mb-3">$1</h2>');
-        html = html.replace(/^# (.*$)/gim, '<h1 class="text-4xl font-bold mb-4">$1</h1>');
+        html = html.replace(/^### (.*$)/gim, '<h3 class="cms-h3">$1</h3>');
+        html = html.replace(/^## (.*$)/gim, '<h2 class="cms-h2">$1</h2>');
+        html = html.replace(/^# (.*$)/gim, '<h1 class="cms-h1">$1</h1>');
         
-        html = html.replace(/^[\*\-] (.+)$/gim, '<li class="list-disc ml-6">$1</li>');
-        html = html.replace(/(<li class="list-disc ml-6">.*<\/li>\n?)+/gim, '<ul class="space-y-2 my-4">$&</ul>');
+        html = html.replace(/^[\*\-] (.+)$/gim, '<li class="cms-li">$1</li>');
+        html = html.replace(/(<li class="cms-li">.*<\/li>\n?)+/gim, '<ul class="cms-ul">$&</ul>');
         
-        html = html.replace(/^\d+\. (.+)$/gim, '<li class="list-decimal ml-6">$1</li>');
-        html = html.replace(/(<li class="list-decimal ml-6">.*<\/li>\n?)+/gim, '<ol class="space-y-2 my-4">$&</ol>');
+        html = html.replace(/^\d+\. (.+)$/gim, '<li class="cms-oli">$1</li>');
+        html = html.replace(/(<li class="cms-oli">.*<\/li>\n?)+/gim, '<ol class="cms-ol">$&</ol>');
         
         html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
         html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
         
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" class="cms-a" target="_blank" rel="noopener noreferrer">$1</a>');
         
-        html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="w-full h-auto rounded-lg my-4" />');
+        html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="cms-img" />');
         
-        html = html.replace(/`([^`]+)`/gim, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+        html = html.replace(/`([^`]+)`/gim, '<code class="cms-code">$1</code>');
         
         const lines = html.split('\n');
         let result: string[] = [];
@@ -89,7 +89,7 @@ function MarkdownRenderer({ content }: { content: string }) {
                     inList = true;
                 }
             } else if (!inList && line.trim() !== '') {
-                result.push(`<p class="mb-4 leading-relaxed">${line}</p>`);
+                result.push(`<p class="cms-p">${line}</p>`);
             }
         });
         
@@ -119,7 +119,7 @@ function MarkdownWithCopyable({ html, copyableTexts }: { html: string; copyableT
                 parts.push(<span key={`before-${index}`} dangerouslySetInnerHTML={{ __html: beforeHtml }} />);
             }
             
-            parts.push(<CopyableText key={`copy-${index}`} text={text} />);
+            parts.push(<CopyableText key={`copy-${index}`} text={text} className="cms-copy" />);
             
             currentHtml = currentHtml.substring(splitIndex + placeholder.length);
         }
@@ -136,7 +136,7 @@ function BlockRenderer({ block }: { block: Block }) {
     switch (block.type) {
         case 'paragraph':
             return (
-                <p className="text-lg leading-relaxed">{block.data?.text || ''}</p>
+                <p className="cms-p">{block.data?.text || ''}</p>
             );
 
         case 'header':
@@ -155,16 +155,16 @@ function BlockRenderer({ block }: { block: Block }) {
 
         case 'list':
             return (
-                <ul className="list-disc list-inside space-y-2">
+                <ul className="cms-ul">
                     {block.data?.items?.map((item: string, index: number) => (
-                        <li key={index} className="text-lg">{item}</li>
+                        <li key={index} className="cms-li">{item}</li>
                     ))}
                 </ul>
             );
 
         case 'code':
             return (
-                <pre className="bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto">
+                <pre className="cms-pre">
                     <code>{block.data?.code || ''}</code>
                 </pre>
             );
@@ -174,14 +174,14 @@ function BlockRenderer({ block }: { block: Block }) {
             
             return (
                 <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-slate-300 dark:border-slate-700">
+                    <table className="cms-table">
                         <tbody>
                             {block.data.content.map((row: string[], rowIndex: number) => (
                                 <tr key={rowIndex}>
                                     {row.map((cell: string, cellIndex: number) => (
                                         <td 
                                             key={cellIndex} 
-                                            className="border border-slate-300 dark:border-slate-700 px-4 py-2"
+                                            className="cms-td"
                                         >
                                             {cell}
                                         </td>
@@ -202,7 +202,7 @@ function BlockRenderer({ block }: { block: Block }) {
                         alt={block.data?.caption || 'Image'}
                         width={1200}
                         height={800}
-                        className="w-full h-auto rounded-lg"
+                        className="cms-img"
                         unoptimized
                     />
                 </div>
@@ -218,12 +218,12 @@ function BlockRenderer({ block }: { block: Block }) {
 
 function getHeaderClass(level: number): string {
     switch (level) {
-        case 1: return 'text-4xl mb-4';
-        case 2: return 'text-3xl mb-3';
-        case 3: return 'text-2xl mb-2';
-        case 4: return 'text-xl mb-2';
-        case 5: return 'text-lg mb-1';
-        case 6: return 'text-base mb-1';
-        default: return 'text-xl mb-2';
+        case 1: return 'cms-h1';
+        case 2: return 'cms-h2';
+        case 3: return 'cms-h3';
+        case 4: return 'cms-h4';
+        case 5: return 'cms-h4';
+        case 6: return 'cms-h4';
+        default: return 'cms-h2';
     }
 }

@@ -16,6 +16,7 @@ export interface ServerData {
   order: number;
   image_path?: string | null;
   server_address?: string | null;
+  wipe_schedule?: string | null;
   mapVotes?: { id: string };
   attributes: {
     name?: string;
@@ -54,6 +55,7 @@ type ServersDataItem = {
   categoryOrder: number;
   order: number;
   mapVotes?: { id: string };
+  wipe_schedule?: string | null;
   attributes: Record<string, unknown> & {
     name?: string;
     players?: number;
@@ -130,6 +132,7 @@ async function fetchServers(): Promise<EnhancedServerData[]> {
       image_path: item.image_path ?? null,
       server_address: item.server_address ?? null,
       mapVotes: item.mapVotes,
+      wipe_schedule: typeof item.wipe_schedule === "string" ? item.wipe_schedule : null,
       categoryId: item.categoryId,
       categoryName: item.categoryName,
       categoryOrder: item.categoryOrder,

@@ -52,6 +52,13 @@ import {
 } from '@/components/theme/theme-editor-dom';
 import { applyThemeMediaToDocument, buildThemeOverrideCss } from '@/components/theme/theme-override-css';
 import { ThemeEditorPagePicker } from '@/components/admin/theme/theme-editor-page-picker';
+import { LAYOUT_THEME_DEFAULTS } from '@/lib/layout-theme-defaults';
+import {
+  THEME_EDITOR_CORE_PAGES,
+  mapCustomServerPages,
+  mergeThemeEditorPages,
+  withThemeEditorQuery,
+} from '@/lib/theme-editor-pages';
 
 /** Iframe documents can briefly have no <head> while parsing; avoid crashing on appendChild. */
 function appendStyleToIframeDocument(doc: Document, style: HTMLStyleElement): boolean {
@@ -61,21 +68,7 @@ function appendStyleToIframeDocument(doc: Document, style: HTMLStyleElement): bo
   return true;
 }
 
-const AVAILABLE_PAGES = [
-  { slug: 'home', label: 'Home', path: '/' },
-  { slug: 'leaderboard', label: 'Leaderboard', path: '/leaderboard' },
-  { slug: 'servers', label: 'Servers', path: '/servers' },
-  { slug: 'maps', label: 'Maps', path: '/maps' },
-  { slug: 'bans', label: 'Bans', path: '/bans' },
-  { slug: 'store', label: 'Store', path: '/store' },
-  { slug: 'support', label: 'Support', path: '/support' },
-  { slug: 'profile', label: 'Profile', path: '/profile' },
-  { slug: 'link', label: 'Link', path: '/link' },
-  { slug: '404', label: '404', path: '/404' },
-  { slug: '403', label: '403', path: '/403' },
-  { slug: 'privacy-policy', label: 'Privacy Policy', path: '/privacy-policy' },
-  { slug: 'terms-of-service', label: 'Terms of Service', path: '/terms-of-service' },
-];
+const AVAILABLE_PAGES = THEME_EDITOR_CORE_PAGES;
 
 interface ThemeSettings {
   enabled?: boolean;
@@ -171,49 +164,7 @@ const THEME_PROPERTIES = [
 ];
 
 const DEFAULT_SETTINGS: ThemeSettings = {
-  background: '223.64 16.27% 2.75%',
-  foreground: '210 40% 98%',
-  card: '230 20% 6%',
-  cardForeground: '210 40% 98%',
-  popover: '223.64 16.27% 2.75%',
-  popoverForeground: '210 40% 98%',
-  primary: '210 40% 98%',
-  primaryForeground: '222.2 47.4% 11.2%',
-  secondary: '217.2 32.6% 17.5%',
-  secondaryForeground: '210 40% 98%',
-  muted: '217.2 32.6% 17.5%',
-  mutedForeground: '215 20.2% 65.1%',
-  accent: '217.2 32.6% 17.5%',
-  accentForeground: '210 40% 98%',
-  destructive: '0 62.8% 30.6%',
-  destructiveForeground: '210 40% 98%',
-  border: '217.2 32.6% 17.5%',
-  input: '217.2 32.6% 17.5%',
-  ring: '212.7 26.8% 83.9%',
-  radius: '0.5rem',
-  primaryTitleColor: '#f8fafc',
-  secondaryTextColor: '#8e9db1',
-  linkAccentColor: '#4893fe',
-  navLinkColor: '#a0abbe',
-  navLinkHoverColor: '#f2f4f6',
-  navLinkActiveColor: '#f2f4f6',
-  primaryButtonBg: '#1e293b',
-  primaryButtonHover: '#1e293b',
-  primaryButtonText: '#ffffff',
-  secondaryButtonBg: '#64748b',
-  secondaryButtonHover: '#64748b',
-  secondaryButtonText: '#ffffff',
-  cardBgDefault: '#ffffff',
-  cardBgHover: '#f3f4f6',
-  inputBorderColor: '#e5e7eb',
-  mutedTextColor: '#6b7280',
-  fontFamily: 'Inter',
-  borderRadius: '0.5rem',
-  spacing: '1rem',
-  backgroundOpacity: 10,
-  backgroundImage: '/images/background.jpg',
-  logoImage: '/images/logo.png',
-  faviconImage: '/favicon.ico',
+  ...LAYOUT_THEME_DEFAULTS,
 };
 
 interface SelectedElement {
@@ -268,15 +219,8 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
         const response = await fetch(backendApi('admin/server-pages'), { credentials: 'include', headers: h });
         if (response.ok) {
           const pages = await response.json();
-          const customPages = pages
-            .filter((page: any) => page.enabled && !page.server_id)
-            .map((page: any) => ({
-              slug: page.slug,
-              label: page.title,
-              path: `/${page.slug}`,
-            }));
-          
-          setAllPages([...AVAILABLE_PAGES, ...customPages]);
+          const customPages = mapCustomServerPages(pages);
+          setAllPages(mergeThemeEditorPages(customPages));
         }
       } catch (error) {
         console.error('Error fetching custom pages:', error);
@@ -1444,7 +1388,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
               size="sm"
               onClick={() => {
                 const base = typeof window !== 'undefined' ? window.location.origin : '';
-                window.open(`${base}/?theme-editor=true`, '_blank', 'noopener,noreferrer');
+                window.open(`${base}${withThemeEditorQuery(selectedPage.path)}`, '_blank', 'noopener,noreferrer');
               }}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -1495,7 +1439,7 @@ export function VisualEditor({ hideControls = false }: { hideControls?: boolean 
               size="sm"
               onClick={() => {
                 const base = typeof window !== 'undefined' ? window.location.origin : '';
-                window.open(`${base}/?theme-editor=true`, '_blank', 'noopener,noreferrer');
+                window.open(`${base}${withThemeEditorQuery(selectedPage.path)}`, '_blank', 'noopener,noreferrer');
               }}
             >
               <ExternalLink className="w-4 h-4 mr-2" />

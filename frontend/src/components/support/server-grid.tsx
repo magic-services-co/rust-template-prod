@@ -55,9 +55,9 @@ export default function ServerGrid({ value, onChange }: ServerGridProps) {
 
     if (isLoading) {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="rounded-md h-full min-h-[200px] bg-muted/30 animate-pulse" />
+                    <div key={i} className="support-grid-card h-full min-h-[200px] animate-pulse" />
                 ))}
             </div>
         );
@@ -65,17 +65,18 @@ export default function ServerGrid({ value, onChange }: ServerGridProps) {
 
     if (isError) {
         return (
-            <p className="text-sm text-muted-foreground">Failed to load servers. Please try again.</p>
+            <p className="support-form-help text-sm">Failed to load servers. Please try again.</p>
         );
     }
 
     return (
-        <div className="">
-            <div className="max-w-sm ml-auto mb-4">
+        <div>
+            <div className="mb-4 ml-auto max-w-sm">
                 <Input
                     placeholder="Search servers"
                     value={filterQuery}
                     onChange={(e) => setFilterQuery(e.target.value)}
+                    className="support-form-input h-[41px] rounded-none"
                 />
             </div>
             <AnimatePresence mode="wait">
@@ -114,7 +115,7 @@ export default function ServerGrid({ value, onChange }: ServerGridProps) {
                 </motion.div>
             </AnimatePresence>
             {serverGrid.length === 0 && (
-                <p className="text-sm text-muted-foreground">No servers match your search.</p>
+                <p className="support-form-help text-sm">No servers match your search.</p>
             )}
         </div>
     )
@@ -137,7 +138,7 @@ function ServerGridItem({
 }) {
     return (
         <motion.div
-            className="relative group block p-2 h-full w-full"
+            className="relative block h-full w-full cursor-pointer"
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onClick={onClick}
@@ -147,43 +148,22 @@ function ServerGridItem({
             animate="visible"
             exit="exit"
         >
-            <AnimatePresence>
-                {isHovered && (
-                    <motion.span
-                        className="absolute inset-0 h-full w-full bg-secondary/[0.8] block rounded-lg"
-                        layoutId="hoverBackground"
-                        initial={{ opacity: 0 }}
-                        animate={{
-                            opacity: 1,
-                            transition: { duration: 0.15 },
-                        }}
-                        exit={{
-                            opacity: 0,
-                            transition: { duration: 0.15, delay: 0.2 },
-                        }}
-                    />
-                )}
-            </AnimatePresence>
             <div className={cn(
-                "rounded-md h-full w-full overflow-hidden bg-card/15 border border-transparent",
-                "dark:border-secondary/20 group-hover:border-secondary relative z-20",
-                { "bg-secondary/50": isSelected }
+                "support-grid-card relative z-20 h-full w-full overflow-hidden",
+                isSelected && "support-grid-card-selected"
             )}>
-                <div className="relative z-50">
+                <div className="relative">
                     <Image
                         src={server.image_path ?? server.attributes?.details?.rust_headerimage ?? ''}
                         alt={server.name ?? ''}
                         width={430}
                         height={240}
-                        className="w-full h-full md:h-[240px] md:w-[430px] object-cover"
+                        className="h-full w-full object-cover md:h-[180px] md:w-full"
                     />
-                    <div className="p-4 pt-0">
-                        <h4 className="text-gray-900 dark:text-gray-100 font-bold tracking-wide mt-4">
+                    <div className="p-4">
+                        <h4 className="text-[14px] font-bold tracking-wide" style={{ color: "#eef4fb" }}>
                             {server.name}
                         </h4>
-                        {/*  <p className="mt-8 text-gray-600 dark:text-gray-400 tracking-wide leading-relaxed text-sm">
-                            {server.server_address || server.attributes.address || (server.attributes.ip + server.attributes.port)}
-                        </p> */}
                     </div>
                 </div>
             </div>

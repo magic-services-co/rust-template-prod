@@ -9,37 +9,50 @@ import { useLeaderboardTheme } from "@/hooks/use-leaderboard-theme";
 import { LeaderboardSkeleton } from "./leaderboard-skeleton";
 import { withLeaderboardDefaults } from "@/lib/leaderboard-theme-defaults";
 import { LeaderboardTabIcon } from "./leaderboard-tab-icon";
-import { LeaderboardEventMapSection } from "./leaderboard-event-map-section";
+import { LeaderboardTitles } from "@/components/leaderboard-titles";
 import useServerData from "@/hooks/use-server-data";
 import { useWipes } from "@/hooks/use-wipes";
 import { useLeaderboardSettings } from "@/hooks/use-leaderboard-settings";
 import { ServerCombobox } from "@/components/server-combobox";
 import { WipeCombobox } from "@/components/wipe-combobox";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import {
-  Crown,
-  ExternalLink,
-  Flame,
-  Lock,
-  Search,
-  Sparkles,
-} from "lucide-react";
-import { formatDistanceStrict } from "date-fns";
+import { Lock, Search } from "lucide-react";
+import { parseISO, isValid, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
 
 interface StatsTableContainerProps {
-  leaderboardTheme?: any;
+  leaderboardTheme?: Record<string, unknown>;
 }
 
-const ACCENT = "#ef4444";
+const TAB_COPY: Record<string, { kicker: string; title: string }> = {
+  pvp_stats: { kicker: "PVP RANKINGS", title: "Combat Dominance" },
+  resources_stats: { kicker: "RESOURCES RANKINGS", title: "Harvest & Extraction" },
+  explosives_stats: { kicker: "EXPLOSIVES RANKINGS", title: "Demolition" },
+  farming_stats: { kicker: "FARMING RANKINGS", title: "Agriculture" },
+  misc_stats: { kicker: "MISC RANKINGS", title: "Everything Else" },
+  events_stats: { kicker: "EVENTS RANKINGS", title: "Server Events" },
+  pve_stats: { kicker: "PVE RANKINGS", title: "Vs Environment" },
+  gambling_stats: { kicker: "GAMBLING RANKINGS", title: "High Stakes" },
+};
+
+function formatWipeCountdown(iso?: string | null): string | undefined {
+  if (!iso) return undefined;
+  const date = parseISO(iso);
+  if (!isValid(date)) return undefined;
+  const ms = date.getTime() - Date.now();
+  if (ms <= 0) return "WIPING";
+  const d = Math.floor(ms / 86_400_000);
+  const h = Math.floor((ms % 86_400_000) / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  return `${d}D ${String(h).padStart(2, "0")}H ${String(m).padStart(2, "0")}M`;
+}
 
 export function StatsTableContainer({ leaderboardTheme: serverTheme }: StatsTableContainerProps) {
   const { data: tabs, isLoading, error } = useLeaderboardTabs();
   const { data: clientTheme } = useLeaderboardTheme();
   const { data: leaderboardSettings } = useLeaderboardSettings();
-  const { serverList, isLoading: serversLoading } = useServerData();
+  const { serverList } = useServerData();
 
   const [activeTab, setActiveTab] = useQueryState("tab");
   const [selectedServer, setSelectedServer] = useQueryState("server");
@@ -74,302 +87,179 @@ export function StatsTableContainer({ leaderboardTheme: serverTheme }: StatsTabl
     return null;
   }, [selectedServer, serverList]);
 
-  const wipeSummary = useMemo(() => {
-    if (lifetime) return "Lifetime";
-    const w = wipes.find((x) => x.id === selectedWipeId);
-    if (!w?.started_at) return "Current wipe";
-    try {
-      return formatDistanceStrict(new Date(w.started_at), new Date(), { addSuffix: true });
-    } catch {
-      return "Current wipe";
-    }
-  }, [wipes, selectedWipeId, lifetime]);
-
-  const playersLabel = currentServerMeta
-    ? `${currentServerMeta.attributes.players} / ${currentServerMeta.attributes.maxPlayers || "—"}`
-    : "—";
+  const selectedWipe = wipes.find((w) => w.id === selectedWipeId);
+  const wipeNumber = useMemo(() => {
+    if (lifetime || !selectedWipe) return null;
+    const ordered = [...wipes].sort(
+      (a, b) => new Date(a.started_at ?? 0).getTime() - new Date(b.started_at ?? 0).getTime(),
+    );
+    const index = ordered.findIndex((w) => w.id === selectedWipe.id);
+    return index >= 0 ? index + 1 : selectedWipe.id;
+  }, [wipes, selectedWipe, lifetime]);
 
   const serverTitle =
-    currentServerMeta?.attributes.name ?? currentServerMeta?.name ?? "Select server";
+    currentServerMeta?.attributes.name ?? currentServerMeta?.name ?? "ALL SERVERS";
+  const kicker = lifetime
+    ? `${serverTitle.toUpperCase()} / LIFETIME`
+    : wipeNumber != null
+      ? `${serverTitle.toUpperCase()} / WIPE ${wipeNumber}`
+      : serverTitle.toUpperCase();
+
+  const nextWipeLabel =
+    formatWipeCountdown(currentServerMeta?.attributes.details?.rust_next_wipe) || "TBD";
+  const lastUpdated = selectedWipe?.started_at
+    ? `Wipe started ${formatDistanceToNow(new Date(selectedWipe.started_at), { addSuffix: true })}`
+    : "Last updated: just now";
+
+  const currentTab =
+    tabs?.find((tab) => tab.tabKey === activeTab) ?? tabs?.[0];
+  const tabCopy = currentTab
+    ? TAB_COPY[currentTab.tabKey] ?? {
+        kicker: `${currentTab.tabLabel.toUpperCase()} RANKINGS`,
+        title: currentTab.tabLabel,
+      }
+    : { kicker: "RANKINGS", title: "Leaderboard" };
 
   const inputStyle = {
-    backgroundColor: theme.inputBackground,
-    border: theme.inputBorder ? `1px solid ${theme.inputBorder}` : undefined,
-    color: theme.inputTextColor,
-    borderRadius: theme.inputBorderRadius,
+    backgroundColor: "rgba(7, 11, 16, 0.6)",
+    border: "1px solid rgba(134, 157, 180, 0.25)",
+    color: "#edf5ff",
+    borderRadius: "0px",
   } as React.CSSProperties;
 
   const comboboxTriggerClass =
-    "w-full justify-between h-9 px-3 py-2 text-sm border shadow-none ring-offset-background";
+    "h-9 w-[168px] max-w-[168px] shrink-0 justify-between px-2.5 py-1 text-[10px] font-medium shadow-none";
 
-  if (isLoading || error) return <LeaderboardSkeleton />;
+  if (isLoading || error) {
+    return (
+      <>
+        <LeaderboardTitles serverTheme={theme} />
+        <div className="pt-10">
+          <LeaderboardSkeleton />
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div className="space-y-0" style={{ color: theme.textPrimaryColor }}>
-      {/* Header strip — server, quick stats, wipe / lifetime */}
-      <header className="mb-4 rounded-lg border border-border p-4 md:p-5 bg-transparent">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2
-              className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold tracking-tight text-white md:text-2xl"
-              style={{ color: theme.titleTextColor }}
-            >
-              <span className="min-w-0 truncate">{serverTitle}</span>
-              <span className="shrink-0 font-semibold opacity-80">· Leaderboard</span>
-            </h2>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium",
-                  String(currentServerMeta?.attributes.status).toLowerCase() === "online"
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : "bg-zinc-500/20 text-zinc-400",
-                )}
-              >
-                {serversLoading
-                  ? "…"
-                  : String(currentServerMeta?.attributes.status).toLowerCase() === "online"
-                    ? "Server online"
-                    : "Status unknown"}
-              </span>
-              {currentServerMeta?.server_address ? (
-                <a
-                  href={`steam://connect/${currentServerMeta.server_address}`}
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-300 hover:bg-sky-500/25"
-                >
-                  Connect <ExternalLink className="h-3 w-3 opacity-80" />
-                </a>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 sm:max-w-md lg:max-w-lg">
-            <div className="rounded-md border border-border px-3 py-2 text-center bg-transparent">
-              <div className="flex items-center justify-center gap-1 text-[10px] font-medium uppercase tracking-wide text-violet-300/90">
-                <Sparkles className="h-3 w-3" />
-                Gather
-              </div>
-              <div className="mt-1 text-sm font-semibold text-white">—</div>
-            </div>
-            <div className="rounded-md border border-border px-3 py-2 text-center bg-transparent">
-              <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                Wiped
-              </div>
-              <div className="mt-1 text-sm font-semibold text-white">{wipeSummary}</div>
-            </div>
-            <div className="rounded-md border border-border px-3 py-2 text-center bg-transparent">
-              <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
-                Players
-              </div>
-              <div className="mt-1 text-sm font-semibold text-white">{playersLabel}</div>
-            </div>
-          </div>
-        </div>
-
-        {showWipeSelection ? (
-          <div className="mt-4 flex border-t border-border pt-4">
-            <div className="flex w-full gap-1 rounded-md border border-border/60 bg-transparent p-1 sm:w-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  const w = wipes.find((x) => x.is_active) ?? wipes[0];
-                  setSelectedWipeId(w?.id ?? null);
-                }}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-medium transition-colors sm:flex-none",
-                  !lifetime
-                    ? "text-white"
-                    : "text-zinc-500 hover:text-zinc-300",
-                )}
-                style={
-                  !lifetime
-                    ? {
-                        boxShadow: `inset 0 -2px 0 0 ${ACCENT}`,
-                        background: "rgba(239,68,68,0.08)",
-                      }
-                    : undefined
-                }
-              >
-                <Flame className="h-4 w-4 text-red-400" />
-                Current wipe
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedWipeId(-1)}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-medium transition-colors sm:flex-none",
-                  lifetime ? "text-white" : "text-zinc-500 hover:text-zinc-300",
-                )}
-                style={
-                  lifetime
-                    ? {
-                        boxShadow: `inset 0 -2px 0 0 ${ACCENT}`,
-                        background: "rgba(234,179,8,0.1)",
-                      }
-                    : undefined
-                }
-              >
-                <Crown className="h-4 w-4 text-amber-400" />
-                Lifetime
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <ServerCombobox
-            allowGlobal={false}
-            value={selectedServer}
-            triggerClassName={comboboxTriggerClass}
-            triggerStyle={inputStyle}
-            onChange={(v) => setSelectedServer(v)}
-          />
-          {showWipeSelection && selectedServer ? (
-            <WipeCombobox
-              value={selectedWipeId}
-              onChange={(id) => setSelectedWipeId(id)}
-              serverId={selectedServer}
-              showLifetime={true}
-              triggerClassName={comboboxTriggerClass}
-              triggerStyle={inputStyle}
-            />
-          ) : (
-            <div
-              className="flex h-9 items-center rounded-md border px-3 text-sm text-zinc-500"
-              style={{
-                borderColor: theme.inputBorder,
-                borderRadius: theme.inputBorderRadius,
-              }}
-            >
-              {selectedServer ? "" : "Select a server for wipes"}
-            </div>
-          )}
-        </div>
-      </header>
-
-      <LeaderboardEventMapSection
-        activeTab={activeTab ?? tabs?.[0]?.tabKey ?? "pvp_stats"}
-        selectedServer={selectedServer}
-        selectedWipeId={selectedWipeId}
-        lifetime={lifetime}
+    <div style={{ color: theme.textPrimaryColor }}>
+      <LeaderboardTitles
+        serverTheme={theme}
+        kicker={kicker}
+        nextWipeLabel={nextWipeLabel}
+        lastUpdated={lastUpdated}
       />
 
-      {/* pt-*: space-y-0 on parent zeros sibling margin-top; padding gives a real gap below Event map */}
-      <div className="flex flex-col gap-4 pt-6 lg:flex-row lg:items-start lg:gap-8 lg:pt-10">
-        {/* Mobile / horizontal tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {tabs?.map((tab) => {
-            const selected =
-              activeTab === tab.tabKey || (!activeTab && tab.tabKey === tabs?.[0]?.tabKey);
-            return (
-              <button
-                key={tab.tabKey}
-                type="button"
-                onClick={() => setActiveTab(tab.tabKey)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium whitespace-nowrap",
-                  selected ? "border-red-500/50 bg-red-500/10 text-white" : "border-white/10 text-zinc-400",
-                )}
-              >
-                <LeaderboardTabIcon tabKey={tab.tabKey} icon={tab.icon} className="h-4 w-4" />
-                {tab.tabLabel}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Desktop category rail */}
-        <aside className="hidden w-full overflow-hidden rounded-lg border border-border bg-transparent lg:flex lg:w-[220px] lg:max-w-[220px] lg:shrink-0 lg:flex-col lg:gap-1">
-          <div className="border-b border-border px-3 py-2.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            Categories
-          </div>
-          <nav className="flex flex-col gap-0.5 p-2">
-            {tabs?.map((tab) => {
-              const selected =
-                activeTab === tab.tabKey || (!activeTab && tab.tabKey === tabs?.[0]?.tabKey);
-              return (
-                <button
-                  key={tab.tabKey}
-                  type="button"
-                  onClick={() => setActiveTab(tab.tabKey)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors",
-                    selected
-                      ? "bg-red-500/15 text-red-100"
-                      : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
-                  )}
-                >
-                  <LeaderboardTabIcon
-                    tabKey={tab.tabKey}
-                    icon={tab.icon}
-                    className={cn("h-4 w-4 shrink-0", selected ? "text-red-400" : "text-zinc-500")}
-                  />
-                  <span className="truncate">{tab.tabLabel}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto border-t border-border p-3 text-[11px] leading-relaxed text-zinc-500">
-            Use{" "}
-            <span className="font-medium text-zinc-400">Lifetime</span> to rank across all wipes for
-            this server.
-          </div>
-        </aside>
-
-        <div className="min-w-0 flex-1 space-y-3 lg:min-w-0">
-          {/* Search + lock — directly above table headers */}
-          <div className="flex flex-col gap-3 rounded-lg border border-border bg-transparent px-3 py-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-              <Input
-                type="search"
-                value={searchLocal}
-                placeholder="Search player by Name or Steam ID"
-                className="h-11 pl-10 placeholder:text-muted-foreground"
-                style={inputStyle}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSearchLocal(v);
-                  debouncedSetSearch(v);
-                }}
+      <div className="leaderboard-tab-scroller mt-9 grid grid-cols-2 border border-[rgba(134,157,180,0.18)] bg-[rgba(134,157,180,0.16)] p-px sm:grid-cols-4 xl:grid-cols-8">
+        {tabs?.map((tab) => {
+          const selected =
+            activeTab === tab.tabKey || (!activeTab && tab.tabKey === tabs?.[0]?.tabKey);
+          return (
+            <button
+              key={tab.tabKey}
+              type="button"
+              onClick={() => setActiveTab(tab.tabKey)}
+              className={cn(
+                "ghost leaderboard-tab flex h-[62px] items-center justify-center gap-1.5 px-3 text-[12px] font-medium",
+                selected ? "leaderboard-tab-active" : "leaderboard-tab-idle",
+              )}
+            >
+              <LeaderboardTabIcon
+                tabKey={tab.tabKey}
+                icon={tab.icon}
+                className={cn("h-4 w-4 shrink-0", selected ? "text-[#f3d487]" : "text-[#ba9142]")}
               />
+              {tab.tabLabel}
+            </button>
+          );
+        })}
+      </div>
+
+      <article className="leaderboard-card relative mt-4 overflow-visible border">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "linear-gradient(180deg, rgba(16,22,29,0.9) 0%, rgba(8,11,16,0.94) 100%)",
+          }}
+        />
+        <div className="relative">
+          <div className="flex items-end justify-between border-b border-[rgba(154,179,205,0.16)] px-[26px] pb-[19px] pt-[25px]">
+            <div>
+              <p className="font-mono text-[10px] font-medium tracking-[1.45px] text-[#ba9142]">
+                {tabCopy.kicker}
+              </p>
+              <h2 className="pt-1 text-[21px] font-medium capitalize tracking-[-0.5px] text-[#edf5ff]">
+                {tabCopy.title}
+              </h2>
             </div>
-            <div className="flex items-center justify-end gap-3 sm:shrink-0">
-              <Lock
-                className={cn("h-4 w-4", lockSort ? "text-red-400" : "text-zinc-600")}
-                aria-hidden
-              />
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
-                <span>Lock sorting</span>
+          </div>
+
+            <div className="flex flex-col gap-3 border-b border-[rgba(154,179,205,0.16)] bg-[rgba(3,5,8,0.18)] px-4 py-[13px] sm:px-[26px] lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <div className="w-[168px] shrink-0">
+                <ServerCombobox
+                  allowGlobal={false}
+                  value={selectedServer}
+                  triggerClassName={comboboxTriggerClass}
+                  triggerStyle={inputStyle}
+                  onChange={(v) => setSelectedServer(v)}
+                />
+              </div>
+              {showWipeSelection && selectedServer ? (
+                <div className="w-[168px] shrink-0">
+                  <WipeCombobox
+                    value={selectedWipeId}
+                    onChange={(id) => setSelectedWipeId(id)}
+                    serverId={selectedServer}
+                    showLifetime={true}
+                    triggerClassName={comboboxTriggerClass}
+                    triggerStyle={inputStyle}
+                  />
+                </div>
+              ) : null}
+              <label className="relative min-w-[180px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#ba9142]" />
+                <input
+                  type="search"
+                  value={searchLocal}
+                  placeholder="Search player"
+                  className="support-form-input h-9 w-full border border-[rgba(134,157,180,0.18)] bg-[rgba(8,12,17,0.84)] pl-9 pr-3 text-[11px] outline-none"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSearchLocal(v);
+                    debouncedSetSearch(v);
+                  }}
+                />
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-[10px] tracking-[0.4px] text-[#93a4b8]">
+                <Lock className={cn("h-3.5 w-3.5", lockSort ? "text-[#ba9142]" : "text-[#5c6b7c]")} />
+                <span>Lock</span>
                 <Switch
                   checked={lockSort === true}
                   onCheckedChange={(v) => setLockSort(v)}
-                  className="data-[state=checked]:border-red-500/50 data-[state=checked]:bg-red-600"
+                  className="data-[state=checked]:border-[#ba9142] data-[state=checked]:bg-[#ba9142]"
                 />
               </label>
             </div>
+            <p className="shrink-0 text-[9px] tracking-[0.55px] text-[rgba(159,184,207,0.52)]">
+              LIVE RANKINGS
+            </p>
           </div>
 
-          {tabs?.map((tab) => {
-            const isActive =
-              activeTab === tab.tabKey ||
-              (!activeTab && tab.tabKey === tabs?.[0]?.tabKey);
-            return (
-              <div key={tab.tabKey} className={cn(!isActive && "hidden")}>
-                <StatsTable
-                  tab={tab.tabKey}
-                  columnData={tab.columns}
-                  leaderboardTheme={theme as any}
-                  isActive={isActive}
-                  hideFilterCard
-                  lockSort={lockSort === true}
-                />
-              </div>
-            );
-          })}
+          {currentTab ? (
+            <StatsTable
+              tab={currentTab.tabKey}
+              columnData={currentTab.columns}
+              leaderboardTheme={theme}
+              isActive
+              hideFilterCard
+              lockSort={lockSort === true}
+            />
+          ) : null}
         </div>
-      </div>
+        <HomeCardCorners color="#ba9142" show />
+      </article>
     </div>
   );
 }

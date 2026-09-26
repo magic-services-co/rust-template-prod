@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addUserToRole, removeUserFromRole } from "@/app/actions/roles";
 import { ShieldPlus, X } from "lucide-react";
@@ -60,7 +59,7 @@ export function UserTab({ role }: UserTabProps) {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
             {role.canManage === false && (
                 <div className="rounded-md bg-muted/50 border border-border p-3 text-sm text-muted-foreground">
                     You cannot add or remove users for this role. You can only manage roles below your highest role.
@@ -83,7 +82,7 @@ export function UserTab({ role }: UserTabProps) {
                     Assign Role
                 </Button>
             </div>
-            <ScrollArea className="h-[calc(100vh-20rem)]">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-3">
                 <div className="space-y-2">
                     {filteredUsers?.map((user: any) => (
                         <div key={user.id} className="px-4 py-2 hover:bg-secondary/15 rounded-md flex items-center justify-between">
@@ -120,7 +119,7 @@ export function UserTab({ role }: UserTabProps) {
                         </div>
                     ))}
                 </div>
-            </ScrollArea>
+            </div>
         </div>
     );
 }

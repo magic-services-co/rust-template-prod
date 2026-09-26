@@ -22,6 +22,7 @@ interface PageSettings {
     serverRules?: { rules?: Rule[] };
     team?: { members?: TeamMember[] };
   };
+  home?: Record<string, unknown>;
 }
 
 interface UserWithRoles {
@@ -46,7 +47,7 @@ export default async function Home() {
     const data = res.ok ? await res.json() : {};
     const rawTheme = data.themeSettings;
     const theme = isPlainObject(rawTheme) ? rawTheme : USER_THEME_DEFAULTS;
-    const siteSettings = data.siteSettings as { name?: string } | undefined;
+    const siteSettings = data.siteSettings as { name?: string; discordInvite?: string | null } | undefined;
     const pageTheme = data.pageTheme;
 
     let settings: PageSettings | undefined;

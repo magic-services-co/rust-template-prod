@@ -2,49 +2,63 @@
 
 import { UserNav } from "@/components/nav/user-nav";
 import { MainNav } from "@/components/nav/main-nav";
-import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import MobileNav from "./mobile-nav";
-import { useQuery } from "@tanstack/react-query";
 import { NavigationItem } from "@/types/navigation";
+import { BrandMark } from "@/components/brand-mark";
+import {
+  LAYOUT_THEME_DEFAULTS,
+  withLayoutDefaults,
+  type LayoutTheme,
+} from "@/lib/layout-theme-defaults";
 
-export default function Navigation({ navigationItems, theme }: { navigationItems: NavigationItem[], theme?: { navLinkColor?: string; navLinkHoverColor?: string; navLinkActiveColor?: string; logoImage?: string; } }) {
-    const [isScrolled, setIsScrolled] = useState(false);
+export default function Navigation({
+  navigationItems,
+  theme,
+}: {
+  navigationItems: NavigationItem[];
+  theme?: LayoutTheme;
+}) {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const t = withLayoutDefaults(theme);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            setIsScrolled(window.scrollY > 50);
-        };
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
 
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-    return (
-        <header className={cn(
-            "fixed z-10 w-full py-2.5",
-            { "bg-gradient-to-b from-background backdrop-blur": isScrolled }
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-        )}>
-            <div className="container hidden md:flex py-2 items-center justify-between">
-                <Link href={"/"} className="hover:scale-110 duration-300">
-                    <Image
-                        src={theme?.logoImage || "/images/logo.png"}
-                        alt="Server Logo"
-                        width={60}
-                        height={60}
-                        className="w-[60px] h-[60px]"
-                    />
-                </Link>
-                <MainNav items={navigationItems} theme={theme} />
-                <div className="flex items-center gap-4">
-                    <UserNav />
-                </div>
-            </div>
-            <div className="container md:hidden py-2 flex justify-between">
-                <MobileNav items={navigationItems} logoImage={theme?.logoImage} />
-            </div>
-        </header>
-    )
+  return (
+    <header
+      className={cn(
+        "site-header fixed inset-x-0 top-0 z-[100] w-full transform-gpu transition-colors duration-300",
+        isScrolled && "is-scrolled",
+      )}
+      data-theme-field="navScrolledBackground"
+      data-theme-label="Navigation"
+    >
+      <div className="mx-auto hidden h-[94px] max-w-[1200px] items-center justify-between px-4 md:flex">
+        <span data-theme-field="navWordmarkColor" data-theme-label="Nav wordmark">
+          <BrandMark logoImage={t.logoImage} wordmarkColor={t.primaryTitleColor} size="header" />
+        </span>
+        <MainNav items={navigationItems} theme={t} />
+        <UserNav theme={t} />
+      </div>
+      <div className="mx-auto flex h-[94px] max-w-[1200px] items-center justify-between px-4 md:hidden">
+        <MobileNav
+          items={navigationItems}
+          logoImage={t.logoImage}
+          wordmarkColor={t.primaryTitleColor}
+          theme={t}
+        />
+      </div>
+    </header>
+  );
 }
+
+export { LAYOUT_THEME_DEFAULTS };

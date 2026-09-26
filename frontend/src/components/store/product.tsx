@@ -1,298 +1,186 @@
 "use client";
 
-import { useStoreData, useCheckoutMutation } from "@/hooks/store/use-storefront";
 import { Product } from "@/types/store";
-import { Button } from "@/components/ui/button";
-import { Check, InfoIcon, Loader2, ShoppingCart, ShoppingBag } from "lucide-react";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import { ProductDialog } from "./product-dialog";
-import { signIn, useSession } from "@/lib/laravel-auth-react";
-import { getAuthToken } from "@/lib/laravel-auth";
 import { useCartContext } from "../context/store-context";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useStoreSettings } from "@/hooks/use-store-settings";
-import Image from "next/image";
-import { openPayNowPopup } from "@/lib/paynow-popup";
+import { STORE_CARD_PALETTES, splitBrandName, withStoreDefaults } from "@/lib/layout-theme-defaults";
+import { useSiteSettings } from "@/hooks/use-site-settings";
+import { cn } from "@/lib/utils";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
 
-export default function DisplayProduct({ product, theme, hidePurchaseTypeSelector = false }: { product: Product; theme?: any; hidePurchaseTypeSelector?: boolean }) {
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const { data: store } = useStoreData();
-    const { status, data: session } = useSession();
-    const router = useRouter();
-    const { cart, isCartOpen, setIsCartOpen, setCartItem } = useCartContext();
-    const { data: checkoutData, mutate: mutateCheckout, isSuccess: isCheckoutSuccess } = useCheckoutMutation();
-    const { data: storeSettings } = useStoreSettings();
-    const [justAdded, setJustAdded] = useState(false);
-    const [purchaseType, setPurchaseType] = useState<"subscription" | "one-time">("one-time");
-    const isInCart = cart?.lines.some((item: { product_id: string }) => item.product_id === product.id);
-    const [countdown, setCountdown] = useState<string | null>(null);
-    const [showTooltip, setShowTooltip] = useState(false);
-    const supportsBoth = product.allow_one_time_purchase && product.allow_subscription;
+function featureBullets(html?: unknown): string[] {
+    if (typeof html !== "string" || !html.trim()) return [];
+    const withBreaks = html
+        .replace(/<\/(li|p|div|h\d|tr)>/gi, "\n")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<li[^>]*>/gi, "\n");
+    const text = withBreaks
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    return text
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-•*]\s*/, "").replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .slice(0, 3);
+}
 
-    useEffect(() => {
-        if (isCheckoutSuccess && checkoutData?.url) {
-            openPayNowPopup(checkoutData.url, [product.id]);
-        }
-    }, [isCheckoutSuccess, checkoutData?.url, product.id]);
+export default function DisplayProduct({
+    product,
+    theme,
+    hidePurchaseTypeSelector: _hidePurchaseTypeSelector = false,
+    index = 0,
+    categoryLabel,
+}: {
+    product: Product;
+    theme?: any;
+    hidePurchaseTypeSelector?: boolean;
+    index?: number;
+    categoryLabel?: string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const { selectedPackage, setSelectedPackage } = useCartContext();
+    const { data: siteSettings } = useSiteSettings();
+    const t = withStoreDefaults(theme);
+    const accent = STORE_CARD_PALETTES[index % STORE_CARD_PALETTES.length];
+    const [brandLeft, brandRight] = splitBrandName(siteSettings?.name);
+    const brand = [brandLeft, brandRight].filter(Boolean).join(" ");
+    const bullets = useMemo(() => featureBullets(product.description), [product.description]);
+    const priceCents =
+        ((product.pricing as { price_final?: number } | undefined)?.price_final ??
+            (product.price as number | undefined) ??
+            0);
+    const price = (priceCents / 100).toFixed(2);
+    const selected = selectedPackage?.id === product.id;
+    const productImage =
+        typeof product.image_url === "string" && product.image_url.trim()
+            ? product.image_url
+            : "/images/logo.svg";
 
-    useEffect(() => {
-        if (!product.enabled_until || typeof product.enabled_until !== 'string') {
-            setCountdown(null);
+    const handleSelect = useCallback(() => {
+        if (selected) {
+            setSelectedPackage(null);
             return;
         }
-        const interval = setInterval(() => {
-            const now = new Date();
-            const end = new Date(product.enabled_until as string);
-            const diff = end.getTime() - now.getTime();
-            if (diff <= 0) {
-                setCountdown("Product disabled");
-                clearInterval(interval);
-                return;
-            }
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const minutes = Math.floor((diff / (1000 * 60)) % 60);
-            const seconds = Math.floor((diff / 1000) % 60);
-            setCountdown(
-                `${days > 0 ? days + 'd ' : ''}${hours}h ${minutes}m ${seconds}s`
-            );
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [product.enabled_until]);
+        setSelectedPackage({
+            id: product.id,
+            name: product.name ?? "Package",
+            price: priceCents,
+            allow_one_time_purchase: !!product.allow_one_time_purchase,
+            allow_subscription: !!product.allow_subscription,
+            single_game_server_only: !!product.single_game_server_only,
+            gameservers: product.gameservers ?? [],
+        });
+    }, [product, priceCents, selected, setSelectedPackage]);
 
-    const handlePurchase = useCallback(() => {
-        if (status === "loading") return;
-        if (status === "unauthenticated") return signIn("steam");
-        if (!getAuthToken()) {
-            toast.error("Sign in to add to cart.");
-            signIn("steam");
-            return;
-        }
-        if (storeSettings?.requireLinkedToPurchase) {
-            const hasLinked = !!(session?.user && ((session.user as Record<string, unknown>).discordId ?? (session.user as Record<string, unknown>).steamId));
-            if (!hasLinked) {
-                toast.error("Please link your Discord or Steam account in your profile to add to cart.");
-                return;
-            }
-        }
-
-        if (product.single_game_server_only && product.gameservers && product.gameservers.length > 0) {
-            setIsOpen(true);
-            return;
-        }
-
-        const isSubscription = supportsBoth ? purchaseType === "subscription" : product.allow_subscription;
-        setCartItem(product.id, 1, undefined, isSubscription);
-        setJustAdded(true);
-        setTimeout(() => setJustAdded(false), 2000);
-        if (!isCartOpen) {
-            setIsCartOpen(true);
-        }
-    }, [status, product, setCartItem, isCartOpen, setIsCartOpen, storeSettings, session?.user, supportsBoth, purchaseType]);
+    const openDetails = useCallback((event: MouseEvent) => {
+        event.stopPropagation();
+        setIsOpen(true);
+    }, []);
 
     return (
-        <div 
-            key={product.id} 
-            className="group flex flex-col justify-end backdrop-blur p-4 rounded-md transition-all duration-300 relative"
+        <article
+            className="store-pack group relative flex min-h-[350px] flex-col overflow-visible border shadow-[0px_18px_35px_0px_rgba(0,0,0,0.2)]"
             style={{
-                backgroundColor: theme?.productCardBackground || "rgba(255, 255, 255, 0.05)",
-                border: `1px solid ${theme?.productCardBorder || "rgba(255, 255, 255, 0.1)"}`,
-                borderRadius: theme?.cardBorderRadius || "0.375rem",
-                padding: theme?.cardPadding || "1rem"
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme?.productCardHoverBackground || "rgba(255, 255, 255, 0.1)";
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = theme?.productCardBackground || "rgba(255, 255, 255, 0.05)";
+                backgroundColor: t.productCardBackground,
+                borderColor: selected ? accent : t.productCardBorder,
+                ["--store-pack-accent" as string]: accent,
+                ["--store-pack-meta" as string]: t.productCardMetaColor,
+                ["--store-pack-brand" as string]: t.productCardBrandColor,
+                ["--store-pack-name" as string]: t.productCardTitleColor,
+                ["--store-pack-feature" as string]: t.productCardDescriptionColor,
+                ["--store-pack-price" as string]: t.productCardPriceColor,
+                ["--store-pack-currency" as string]: t.productCardOriginalPriceColor,
             }}
         >
-            {(() => {
-                const p = product.pricing as { price_original?: number; price_final?: number } | undefined;
-                const showDiscount = p?.price_original && p?.price_final && p.price_original > p.price_final && Math.round((1 - p.price_final / p.price_original) * 100) > 0;
-                return showDiscount ? (
-                <div 
-                    className="absolute top-2 left-2 text-xs px-2 py-1 rounded font-semibold z-10"
-                    style={{
-                        backgroundColor: theme?.productCardDiscountBadgeBackground || '#ef4444',
-                        color: theme?.productCardDiscountBadgeText || '#ffffff',
-                        borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                    }}
-                >
-                    -{Math.round((1 - ((p.price_final ?? 0) / (p.price_original ?? 1))) * 100)}%
+            <button
+                type="button"
+                className="ghost absolute inset-0 z-[1] cursor-pointer"
+                onClick={handleSelect}
+                aria-label={selected ? `Deselect ${product.name || "package"}` : `Select ${product.name || "package"}`}
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-40"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0) 1px), linear-gradient(90deg, rgba(255,255,255,0.06), rgba(0,0,0,0) 1px)",
+                }}
+            />
+            <div className="pointer-events-none relative z-[2] flex min-h-[350px] flex-1 flex-col">
+                <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.1)] px-5 py-3">
+                    <p className="store-pack-index text-[9px] font-bold tracking-[1.8px]">#{index + 1}</p>
+                    <p className="store-pack-meta text-[9px] tracking-[1.44px]">{categoryLabel || "PACKAGE ACCESS"}</p>
                 </div>
-            ) : null;
-            })()}
-            
-            {countdown && (
-                <div 
-                    className="absolute top-2 right-2 text-xs px-2 py-1 rounded bg-yellow-400/90 text-black font-semibold z-10 cursor-pointer"
-                    onMouseEnter={() => setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                >
-                    {countdown === "Product disabled" ? (
-                        <span>Disabled</span>
-                    ) : (
-                        <span>{countdown}</span>
-                    )}
-                    {showTooltip && countdown !== "Product disabled" && (
-                        <div className="absolute right-0 mt-2 w-56 bg-black text-white text-xs rounded shadow-lg p-2 z-20" style={{top: '100%'}}>
-                            This product will expire and become unavailable when the timer reaches zero.
-                        </div>
-                    )}
-                </div>
-            )}
-            <div className="w-full" onClick={() => setIsOpen(true)}>
-                <Image
-                    src={typeof product.image_url === 'string' ? product.image_url : '/placeholder.png'}
-                    alt={product.name ?? ''}
-                    width={100}
-                    height={100}
-                    className="cursor-pointer mx-auto rounded-md group-hover:scale-90 duration-300"
-                />
-            </div>
-            <div className="">
-                <div className="py-7 my-auto w-full">
-                    <span 
-                        className="block text-xl font-bold tracking-wider uppercase text-center"
-                        style={{
-                            color: theme?.productCardTitleColor || "#ffffff"
-                        }}
-                    >
-                        {product.name}
-                    </span>
-                    <div className="flex justify-center uppercase items-start mt-3">
-                        <span 
-                            className="text-lg font-medium"
-                            style={{
-                                color: theme?.productCardPriceColor || "#22c55e"
-                            }}
-                        >
-                            {((( (product.pricing as { price_final?: number } | undefined)?.price_final ?? (product.price as number | undefined) ) ?? 0) / 100).toFixed(2)} {store?.currency}
-                        </span>
-                        {(() => {
-                            const p = product.pricing as { price_original?: number; price_final?: number } | undefined;
-                            return p?.price_original && p?.price_final && p.price_original > p.price_final ? (
-                            <span 
-                                className="text-base italic opacity-50 ml-3 line-through font-normal"
-                                style={{
-                                    color: theme?.productCardOriginalPriceColor || "#9ca3af"
-                                }}
-                            >
-                                {((p.price_original ?? 0) / 100).toFixed(2)} {store?.currency}
-                            </span>
-                        ) : null;
-                        })()}
-                    </div>
-                </div>
-                {supportsBoth && !hidePurchaseTypeSelector && (
-                    <div className="mb-3">
-                        <div className="text-xs font-medium mb-1.5" style={{ color: theme?.productCardDescriptionColor || '#b0b0b0' }}>
-                            Purchase Type:
-                        </div>
-                        <div className="flex gap-1.5">
-                            <Button
-                                size="sm"
-                                variant={purchaseType === "one-time" ? "default" : "outline"}
-                                onClick={() => setPurchaseType("one-time")}
-                                className="flex-1 text-xs"
-                                style={{
-                                    backgroundColor: purchaseType === "one-time" 
-                                        ? (theme?.buttonPrimaryBackground || '#52525b')
-                                        : 'transparent',
-                                    color: purchaseType === "one-time"
-                                        ? (theme?.buttonPrimaryText || '#ffffff')
-                                        : (theme?.productCardDescriptionColor || '#b0b0b0'),
-                                    border: `1px solid ${purchaseType === "one-time" 
-                                        ? (theme?.buttonPrimaryBackground || '#52525b')
-                                        : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
-                                    borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                }}
-                            >
-                                One-Time
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={purchaseType === "subscription" ? "default" : "outline"}
-                                onClick={() => setPurchaseType("subscription")}
-                                className="flex-1 text-xs"
-                                style={{
-                                    backgroundColor: purchaseType === "subscription" 
-                                        ? (theme?.buttonPrimaryBackground || '#52525b')
-                                        : 'transparent',
-                                    color: purchaseType === "subscription"
-                                        ? (theme?.buttonPrimaryText || '#ffffff')
-                                        : (theme?.productCardDescriptionColor || '#b0b0b0'),
-                                    border: `1px solid ${purchaseType === "subscription" 
-                                        ? (theme?.buttonPrimaryBackground || '#52525b')
-                                        : (theme?.productCardBorder || 'rgba(255, 255, 255, 0.1)')}`,
-                                    borderRadius: theme?.buttonBorderRadius || '0.375rem'
-                                }}
-                            >
-                                Subscription
-                            </Button>
-                        </div>
-                    </div>
-                )}
-                <div 
-                    className="flex gap-2"
-                    style={{ gap: theme?.spacing || '0.5rem' }}
-                >
-                    <ProductDialog
-                        product={product}
-                        isOpen={isOpen}
-                        setIsOpen={setIsOpen}
-                        theme={theme}
-                        trigger={<Button
-                            size="lg"
-                            variant="secondary"
-                            className="font-semibold px-4"
-                            onClick={() => setIsOpen(true)}
-                            style={{
-                                backgroundColor: theme?.buttonSecondaryBackground || "transparent",
-                                color: theme?.buttonSecondaryText || "#9ca3af",
-                                border: `1px solid ${theme?.buttonSecondaryBorder || "#374151"}`,
-                                borderRadius: theme?.buttonBorderRadius || "0.375rem"
-                            }}
-                        >
-                            <InfoIcon size={18} />
-                        </Button>}
+                <div className="relative flex flex-1 flex-col overflow-hidden px-5 pb-5 pt-7">
+                    <img
+                        src={productImage}
+                        alt=""
+                        className="pointer-events-none absolute right-0 top-0 h-[210px] w-44 origin-top object-contain object-top opacity-[0.18] transition-transform duration-500 ease-out group-hover:scale-110"
                     />
-                    <Button
-                        size="lg"
-                        variant="secondary"
-                        className="w-full flex-grow font-semibold"
-                        onClick={handlePurchase}
-                        disabled={!supportsBoth && !product.allow_subscription && isInCart}
-                        style={{
-                            backgroundColor: theme?.buttonPrimaryBackground || "#52525b",
-                            color: theme?.buttonPrimaryText || "#ffffff",
-                            border: `1px solid ${theme?.buttonSecondaryBorder || "#374151"}`,
-                            borderRadius: theme?.buttonBorderRadius || "0.375rem"
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryHoverBackground || "#71717a";
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.backgroundColor = theme?.buttonPrimaryBackground || "#52525b";
-                            }
-                        }}
+                    <div className="pointer-events-none">
+                        <p className="store-pack-brand text-[10px] tracking-[1.8px]">{brand}</p>
+                        <h2 className="store-pack-name line-clamp-2 pt-1 text-[24px] font-extrabold leading-7 tracking-[-1.6px] sm:text-[28px] sm:tracking-[-2.24px]">
+                            {(product.name || "Package").toUpperCase()}
+                        </h2>
+                    </div>
+                    <div className="pointer-events-none mt-5 h-px w-12" style={{ backgroundColor: accent }} />
+                    <button
+                        type="button"
+                        className="ghost relative z-[2] flex min-h-[85px] flex-col pt-5 text-left pointer-events-auto"
+                        onClick={openDetails}
                     >
-                        {(supportsBoth && purchaseType === "subscription") || (!supportsBoth && product.allow_subscription) ? (
-                            <ShoppingBag className="mr-2" size={18} />
-                        ) : justAdded ? (
-                            <Check className="mr-2" size={18} />
+                        <ul>
+                        {bullets.length > 0 ? (
+                            bullets.map((bullet, bulletIndex) => (
+                                <li
+                                    key={`${product.id}-feat-${bulletIndex}`}
+                                    className={cn("flex items-center gap-2", bulletIndex > 0 && "pt-2")}
+                                >
+                                    <span className="size-1.5 shrink-0" style={{ backgroundColor: accent }} />
+                                    <span className="store-pack-feature text-[11px] leading-[16.5px]">{bullet}</span>
+                                </li>
+                            ))
                         ) : (
-                            <ShoppingCart className="mr-2" size={18} />
+                            <li className="store-pack-feature text-[11px] leading-[16.5px]">View details for included perks.</li>
                         )}
-                        {justAdded ? "Added To Cart" : (isInCart ? "Already In Cart" : "Add To Cart")}
-                    </Button>
+                        </ul>
+                    </button>
+                    <div className="mt-auto flex w-full items-end justify-between pt-6">
+                        <div className="pointer-events-none text-left">
+                            <p className="store-pack-meta text-[9px] tracking-[1.44px]">STARTING AT</p>
+                            <p className="pt-1">
+                                <span className="store-pack-price text-[18px] font-extrabold leading-7">${price}</span>
+                                <span className="store-pack-currency ml-1.5 text-[10px] font-medium">USD</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="ghost relative z-[2] store-help-cta pointer-events-auto px-2 py-2 text-[9px] font-bold tracking-[1.08px]"
+                                onClick={openDetails}
+                            >
+                                DETAILS
+                            </button>
+                            <span className="pointer-events-none store-pack-select inline-flex items-center justify-center border px-3 py-2 text-[9px] font-bold tracking-[1.08px]">
+                                {selected ? "SELECTED" : "SELECT"}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    )
+            <ProductDialog
+                product={product}
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                theme={t}
+            />
+            <HomeCardCorners color="var(--store-pack-accent, #ba9142)" show />
+        </article>
+    );
 }

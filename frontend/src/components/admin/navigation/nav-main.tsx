@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ChevronRight, type LucideIcon } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 import {
   Collapsible,
@@ -30,12 +32,98 @@ export type AdminNavMainItem = {
   }[]
 }
 
+function toAdminHref(url: string) {
+  if (!url || url === "#") return null
+  const path = url.startsWith("/") ? url : `/${url}`
+  return `/admin${path}`.replace(/\/{2,}/g, "/")
+}
+
+function pathMatches(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+function collectHrefs(items: AdminNavMainItem[]) {
+  const hrefs: string[] = []
+  for (const item of items) {
+    if (!item.items) {
+      const href = toAdminHref(item.url)
+      if (href) hrefs.push(href)
+    }
+    for (const sub of item.items ?? []) {
+      const href = toAdminHref(sub.url)
+      if (href) hrefs.push(href)
+    }
+  }
+  return hrefs
+}
+
+function resolveActiveHref(pathname: string, items: AdminNavMainItem[]) {
+  const matches = collectHrefs(items).filter((href) => pathMatches(pathname, href))
+  matches.sort((a, b) => b.length - a.length)
+  return matches[0] ?? null
+}
+
+function NavCollapsibleItem({
+  item,
+  activeHref,
+}: {
+  item: AdminNavMainItem
+  activeHref: string | null
+}) {
+  const sectionActive = (item.items ?? []).some(
+    (subItem) => toAdminHref(subItem.url) === activeHref
+  )
+  const [open, setOpen] = useState(sectionActive || !!item.isActive)
+
+  useEffect(() => {
+    if (sectionActive) setOpen(true)
+  }, [sectionActive])
+
+  return (
+    <Collapsible
+      asChild
+      open={open}
+      onOpenChange={setOpen}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={item.title} isActive={sectionActive}>
+            {item.icon && <item.icon />}
+            <span>{item.title}</span>
+            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.items?.map((subItem) => {
+              const href = toAdminHref(subItem.url)
+              const active = href === activeHref
+              return (
+                <SidebarMenuSubItem key={subItem.title}>
+                  <SidebarMenuSubButton asChild isActive={active}>
+                    <Link href={href ?? "#"}>
+                      <span>{subItem.title}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              )
+            })}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  )
+}
+
 function NavMenuBlock({
   label,
   items,
+  activeHref,
 }: {
   label: string
   items: AdminNavMainItem[]
+  activeHref: string | null
 }) {
   const collapsibleItems = items.filter((item) => !!item.items)
   const nonCollapsibleItems = items.filter((item) => !item.items)
@@ -44,47 +132,23 @@ function NavMenuBlock({
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
-        {nonCollapsibleItems.map((item) => (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton asChild tooltip={item.title}>
-              <Link href={`/admin/${item.url}`}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-
-        {collapsibleItems.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={item.title}>
+        {nonCollapsibleItems.map((item) => {
+          const href = toAdminHref(item.url)
+          const active = href === activeHref
+          return (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title} isActive={active}>
+                <Link href={href ?? "#"}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
-                        <Link href={`/admin/${subItem.url}`}>
-                          <span>{subItem.title}</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
-          </Collapsible>
+          )
+        })}
+
+        {collapsibleItems.map((item) => (
+          <NavCollapsibleItem key={item.title} item={item} activeHref={activeHref} />
         ))}
       </SidebarMenu>
     </SidebarGroup>
@@ -98,11 +162,14 @@ export function NavMain({
   items: AdminNavMainItem[]
   addonItems?: AdminNavMainItem[]
 }) {
+  const pathname = usePathname()
+  const activeHref = resolveActiveHref(pathname, [...items, ...addonItems])
+
   return (
     <>
-      <NavMenuBlock label="Platform" items={items} />
+      <NavMenuBlock label="Platform" items={items} activeHref={activeHref} />
       {addonItems.length > 0 ? (
-        <NavMenuBlock label="Addons" items={addonItems} />
+        <NavMenuBlock label="Addons" items={addonItems} activeHref={activeHref} />
       ) : null}
     </>
   )

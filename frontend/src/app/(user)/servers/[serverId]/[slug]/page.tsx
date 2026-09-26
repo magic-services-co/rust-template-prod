@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { backendApi } from "@/lib/api";
 import { notFound } from "next/navigation";
-import { ClientServerPageContentDynamic } from "@/components/server-page-content-dynamic";
+import { CustomPageView } from "@/components/cms/custom-page-view";
 
 export async function generateMetadata({
     params,
@@ -29,15 +29,17 @@ export default async function ServerPage({
     const page = data.serverPage;
     if (!page || !page.enabled) notFound();
 
+    const serverName =
+        page.server && typeof page.server === "object" && "server_name" in page.server
+            ? String((page.server as { server_name?: string }).server_name || "")
+            : "";
+
     return (
-        <div className="container pt-40 pb-20">
-            <div className="max-w-4xl mx-auto">
-                <h1 className="text-4xl font-bold mb-4 text-center text-foreground">{page.title}</h1>
-                <p className="text-muted-foreground mb-8 text-center">
-                    Server
-                </p>
-                <ClientServerPageContentDynamic content={page.content} />
-            </div>
-        </div>
+        <CustomPageView
+            title={page.title}
+            kicker={serverName || "SERVER"}
+            subtitle={serverName ? `Commands, rules, and notes for ${serverName}.` : undefined}
+            content={page.content}
+        />
     );
 }

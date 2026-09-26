@@ -59,9 +59,11 @@ export function RoleList({ roles, selectedRole, onSelectRole, onReorderRoles }: 
     }, [roles]);
 
     return (
-        <div className="space-y-4">
-            <AddRoleForm />
-            <ScrollArea className="h-[calc(100vh-12rem)]">
+        <div className="flex h-full min-h-0 flex-col gap-4">
+            <div className="shrink-0">
+                <AddRoleForm />
+            </div>
+            <ScrollArea className="h-0 min-h-0 flex-1">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -71,7 +73,7 @@ export function RoleList({ roles, selectedRole, onSelectRole, onReorderRoles }: 
                         items={localRoles.map(role => role.id)}
                         strategy={verticalListSortingStrategy}
                     >
-                        <div className="space-y-2">
+                        <div className="space-y-2 pr-3">
                             {localRoles.map((role) => (
                                 <SortableRoleItem
                                     key={role.id}

@@ -1,12 +1,8 @@
 'use client'
 
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DiscordIcon, SteamIcon } from '@/components/icons'
-import { cn } from '@/lib/utils'
 import { CheckIcon, Loader2, RefreshCcwIcon, UnlinkIcon } from 'lucide-react'
 import Link from "next/link"
-import { User } from "@/types/user"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getAuthToken } from "@/lib/laravel-auth"
@@ -21,7 +17,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import { refreshSteamGroup, SteamGroupResponse } from "@/app/actions/steam"
 import { useRouter } from "next/navigation"
 import { useSiteSettings } from "@/hooks/use-site-settings"
@@ -29,43 +25,78 @@ import type { SiteSettings } from "@/hooks/use-site-settings"
 import { UserSession } from "@/types/next-auth"
 import { useProfileTheme } from "@/hooks/use-profile-theme"
 import { withUserDefaults } from "@/lib/user-theme-defaults"
+import { ProfilePanel } from "@/components/profile/profile-ui"
+import { cn } from "@/lib/utils"
 
 interface ConnectedAccountsProps {
     user?: UserSession | null;
-    serverTheme?: any;
+    serverTheme?: Record<string, unknown>;
 }
 
 export default function ConnectedAccounts({ user, serverTheme }: ConnectedAccountsProps) {
     const { data: clientTheme } = useProfileTheme();
-    
     const theme = withUserDefaults(clientTheme || serverTheme);
-    
     const { data: settings } = useSiteSettings()
 
     return (
-        <div 
-            className="grid grid-cols-1 gap-4 mt-4"
-            style={{ gap: theme.spacing }}
-        >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ gap: theme.spacing }}>
             <RenderSteam user={user} settings={settings} serverTheme={theme} />
             <RenderDiscord user={user} serverTheme={theme} />
         </div>
     )
 }
 
-function RenderSteam({ user, settings, serverTheme }: { user?: UserSession | null, settings?: SiteSettings, serverTheme?: any }) {
+function AccountCard({
+    icon,
+    kicker,
+    title,
+    stage,
+    children,
+}: {
+    icon: ReactNode
+    kicker: string
+    title: string
+    stage: string
+    children: ReactNode
+}) {
+    return (
+        <ProfilePanel hover className="min-h-[168px]">
+            <div className="relative flex h-full flex-col justify-between gap-6 p-5 sm:p-6">
+                <div className="flex items-start gap-4">
+                    <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center border"
+                        style={{ borderColor: "rgba(255,255,255,0.1)", color: "#eef4fb" }}
+                    >
+                        {icon}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">{kicker}</p>
+                        <h3 className="support-form-title truncate pt-1 text-[18px] font-extrabold leading-6">
+                            {title}
+                        </h3>
+                        <p className="support-form-help pt-1 text-[12px]">{stage}</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    {children}
+                </div>
+            </div>
+        </ProfilePanel>
+    )
+}
+
+function RenderSteam({ user, settings, serverTheme }: { user?: UserSession | null, settings?: SiteSettings, serverTheme?: Record<string, unknown> }) {
     const { data: clientTheme } = useProfileTheme();
-    
     const theme = withUserDefaults(clientTheme || serverTheme);
     const router = useRouter()
     const isGroupEnabled = useMemo(() => {
         return !!settings?.steamGroupId && !!settings?.steamGroupUrl
     }, [settings?.steamGroupId, settings?.steamGroupUrl])
 
-    const renderStage = useMemo(() => {
-        if (!isGroupEnabled) return "1/1 - Connect your Steam Account"
-        if (user?.joinedSteamGroup) return "2/2 - Joined Steam Group"
-        return "1/2 - Join the Steam Group"
+    const stage = useMemo(() => {
+        if (!isGroupEnabled) return "Steam account connected"
+        if (user?.joinedSteamGroup) return "Joined the Steam group"
+        return "Join the Steam group to finish linking"
     }, [isGroupEnabled, user?.joinedSteamGroup])
 
     const mutation = useMutation({
@@ -84,106 +115,62 @@ function RenderSteam({ user, settings, serverTheme }: { user?: UserSession | nul
             toast.error(error instanceof Error ? error.message : "Failed to refresh steam group membership");
         }
     });
+
     return (
-        <Card 
-            className="group relative backdrop-blur overflow-hidden hover:brightness-110 transition-all duration-300"
-            style={{
-                backgroundColor: theme.contentCardBackground,
-                border: `1px solid ${theme.contentCardBorder}`,
-                borderRadius: theme.cardBorderRadius,
-                boxShadow: theme.cardShadow
-            }}
+        <AccountCard
+            icon={<SteamIcon className="h-6 w-6" />}
+            kicker="STEAM"
+            title="Steam"
+            stage={stage}
         >
-            <CardContent style={{ padding: theme.cardPadding }}>
-                <SteamIcon
-                    className="absolute -top-12 -left-12 rotate-45 h-48 w-48 -z-10 opacity-5 group-hover:scale-110 group-hover:rotate-[30deg] duration-300"
-                    style={{ color: theme.connectedAccountIconColor }}
-                />
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <SteamIcon 
-                            className="h-12 w-12" 
-                            style={{ color: theme?.connectedAccountIconColor || "#ffffff" }}
-                        />
-                        <div>
-                            <h3 
-                                className="text-lg font-semibold"
-                                style={{ color: theme.contentCardTitleColor }}
-                            >
-                                Steam
-                            </h3>
-                            <p 
-                                className="text-sm"
-                                style={{ color: theme.connectedAccountStageColor }}
-                            >
-                                {renderStage}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        {!isGroupEnabled || user?.joinedSteamGroup ? (
-                            <Button
-                                onClick={() => { }}
-                                size={'icon'}
-                                disabled={true}
-                                style={{
-                                    backgroundColor: theme.buttonSuccessBackground,
-                                    color: theme.buttonSuccessText,
-                                    borderRadius: theme.buttonBorderRadius
-                                }}
-                            >
-                                <CheckIcon />
-                            </Button>
-                        ) : (
-                            <Link
-                                href={!user ? "#" : settings?.steamGroupUrl ?? ""}
-                                target="_blank"
-                                className={cn(
-                                    buttonVariants({
-                                        size: "default",
-                                    }),
-                                    { "pointer-events-none opacity-50": !user },
-                                    "hover:opacity-90 transition-opacity"
-                                )}
-                                style={{
-                                    backgroundColor: theme.buttonPrimaryBackground,
-                                    color: theme.buttonPrimaryText,
-                                    borderRadius: theme.buttonBorderRadius
-                                }}
-                            >Join Group</Link>
-                        )}
-                        {isGroupEnabled && (
-                            <Button
-                                onClick={() => mutation.mutate()}
-                                variant="outline"
-                                disabled={!user || mutation.isPending}
-                                className="hover:opacity-90 transition-opacity"
-                                style={{
-                                    backgroundColor: theme.buttonSecondaryBackground,
-                                    color: theme.buttonSecondaryText,
-                                    border: `1px solid ${theme.buttonSecondaryBorder}`,
-                                    borderRadius: theme.buttonBorderRadius
-                                }}
-                            >
-                                {!mutation.isPending ? (
-                                    <RefreshCcwIcon className="h-4 w-4" />
-                                ) : (
-                                    <Loader2 className="animate-spin h-4 w-4" />
-                                )}
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+            {!isGroupEnabled || user?.joinedSteamGroup ? (
+                <span className="ticket-chip ticket-chip-yes">
+                    <CheckIcon className="mr-1.5 h-3.5 w-3.5" />
+                    CONNECTED
+                </span>
+            ) : (
+                <Link
+                    href={!user ? "#" : settings?.steamGroupUrl ?? ""}
+                    target="_blank"
+                    className={cn(
+                        "ghost support-form-btn-primary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px]",
+                        { "pointer-events-none opacity-50": !user },
+                    )}
+                >
+                    JOIN GROUP
+                </Link>
+            )}
+            {isGroupEnabled ? (
+                <button
+                    type="button"
+                    onClick={() => mutation.mutate()}
+                    disabled={!user || mutation.isPending}
+                    className="ghost support-form-btn-secondary flex h-[41px] w-[41px] items-center justify-center disabled:opacity-40"
+                    aria-label="Refresh Steam group"
+                    style={{ color: theme.buttonSecondaryText }}
+                >
+                    {mutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <RefreshCcwIcon className="h-4 w-4" />
+                    )}
+                </button>
+            ) : null}
+        </AccountCard>
     )
 }
 
-
-function RenderDiscord({ user, serverTheme }: { user?: UserSession | null, serverTheme?: any }) {
+function RenderDiscord({ user, serverTheme }: { user?: UserSession | null, serverTheme?: Record<string, unknown> }) {
     const { data: clientTheme } = useProfileTheme();
-    
     const theme = withUserDefaults(clientTheme || serverTheme);
+    const linked = !!user?.discordId
+    const boosting = !!user?.isBoosting
+    const stage = !linked
+        ? "Connect your Discord account"
+        : boosting
+            ? "Linked and boosting the server"
+            : "Linked — boosting is optional"
+
     const unlinkMutation = useMutation({
         mutationFn: async () => {
             const token = getAuthToken();
@@ -212,145 +199,71 @@ function RenderDiscord({ user, serverTheme }: { user?: UserSession | null, serve
             toast.error(error instanceof Error ? error.message : "Failed to unlink Discord account");
         },
     });
+
     return (
-        <Card 
-            className="group relative backdrop-blur overflow-hidden hover:brightness-110 transition-all duration-300"
-            style={{
-                backgroundColor: theme.contentCardBackground,
-                border: `1px solid ${theme.contentCardBorder}`,
-                borderRadius: theme.cardBorderRadius,
-                boxShadow: theme.cardShadow
-            }}
+        <AccountCard
+            icon={<DiscordIcon className="h-6 w-6" />}
+            kicker="DISCORD"
+            title="Discord"
+            stage={stage}
         >
-            <CardContent style={{ padding: theme.cardPadding }}>
-                <DiscordIcon
-                    className="absolute -top-12 -left-12 rotate-45 h-48 w-48 -z-10 opacity-5 group-hover:scale-110 group-hover:rotate-[30deg] duration-300"
-                    style={{ color: theme.connectedAccountIconColor }}
-                />
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <DiscordIcon 
-                            className="h-12 w-12" 
-                            style={{ color: theme?.connectedAccountIconColor || "#ffffff" }}
-                        />
-                        <div>
-                            <h3 
-                                className="text-lg font-semibold"
-                                style={{ color: theme.contentCardTitleColor }}
-                            >
-                                Discord
-                            </h3>
-                            {!user?.discordId ? (
-                                <p 
-                                    className="text-sm"
-                                    style={{ color: theme.connectedAccountStageColor }}
-                                >
-                                    0/2 - Connect your Discord account
-                                </p>
-                            ) : null}
-                            {!!user?.discordId ? (
-                                <p 
-                                    className="text-sm"
-                                    style={{ color: theme.connectedAccountStageColor }}
-                                >
-                                    1/2 - Boost the discord server <span className="text-xs">(optional)</span>
-                                </p>
-                            ) : null}
-                            {user?.isBoosting ? (
-                                <p 
-                                    className="text-sm"
-                                    style={{ color: theme.connectedAccountStageColor }}
-                                >
-                                    2/2 - Boost the discord server
-                                </p>
-                            ) : null}
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Button
-                            onClick={() => {
-                                window.location.href = '/api/link/discord/start';
-                            }}
-                            size={!!user?.discordId ? "icon" : 'default'}
-                            disabled={!user || !!user?.discordId}
-                            className="hover:opacity-90 transition-opacity"
-                            style={{
-                                backgroundColor: !!user?.discordId 
-                                    ? theme.buttonSuccessBackground
-                                    : theme.buttonPrimaryBackground,
-                                color: !!user?.discordId 
-                                    ? theme.buttonSuccessText
-                                    : theme.buttonPrimaryText,
-                                borderRadius: theme.buttonBorderRadius
-                            }}
+            {linked ? (
+                <span className={cn("ticket-chip", boosting ? "ticket-chip-yes" : "")}>
+                    <CheckIcon className="mr-1.5 h-3.5 w-3.5" />
+                    {boosting ? "BOOSTING" : "LINKED"}
+                </span>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => { window.location.href = '/api/link/discord/start' }}
+                    disabled={!user}
+                    className="ghost support-form-btn-primary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px] disabled:opacity-40"
+                >
+                    LINK DISCORD
+                </button>
+            )}
+            {linked ? (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <button
+                            type="button"
+                            disabled={unlinkMutation.isPending}
+                            className="ghost support-form-btn-secondary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px] disabled:opacity-40"
+                            style={{ color: theme.buttonDestructiveText, borderColor: "rgba(232, 160, 163, 0.35)" }}
                         >
-                            {!!user?.discordId ? (
-                                <CheckIcon />
-                            ) : "Link Discord"}
-                        </Button>
-                        {!!user?.discordId && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="destructive"
-                                        disabled={unlinkMutation.isPending || !user?.discordId}
-                                        className="hover:opacity-90 transition-opacity"
-                                        style={{
-                                            backgroundColor: theme.buttonDestructiveBackground,
-                                            color: theme.buttonDestructiveText,
-                                            borderRadius: theme.buttonBorderRadius
-                                        }}
-                                    >
-                                        {unlinkMutation.isPending ? (
-                                            <Loader2 className="animate-spin" />
-                                        ) : (
-                                            <UnlinkIcon className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent
-                                    style={{
-                                        backgroundColor: theme.contentCardBackground,
-                                        border: `1px solid ${theme.contentCardBorder}`,
-                                        borderRadius: theme.cardBorderRadius
-                                    }}
-                                >
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle style={{ color: theme.contentCardTitleColor }}>
-                                            Unlink Discord Account
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription style={{ color: theme.contentCardDescriptionColor }}>
-                                            Are you sure you want to unlink your Discord account?
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel
-                                            style={{
-                                                backgroundColor: theme.buttonSecondaryBackground,
-                                                color: theme.buttonSecondaryText,
-                                                border: `1px solid ${theme.buttonSecondaryBorder}`,
-                                                borderRadius: theme.buttonBorderRadius
-                                            }}
-                                        >
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() => unlinkMutation.mutate()}
-                                            style={{
-                                                backgroundColor: theme.buttonDestructiveBackground,
-                                                color: theme.buttonDestructiveText,
-                                                borderRadius: theme.buttonBorderRadius
-                                            }}
-                                        >
-                                            Unlink
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+                            {unlinkMutation.isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <UnlinkIcon className="mr-2 h-4 w-4" />
+                            )}
+                            UNLINK
+                        </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="z-[200] rounded-none border" style={{
+                        backgroundColor: theme.contentCardBackground,
+                        borderColor: theme.contentCardBorder,
+                    }}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="support-form-title">Unlink Discord</AlertDialogTitle>
+                            <AlertDialogDescription className="support-form-help">
+                                Are you sure you want to unlink your Discord account?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel className="ghost support-form-btn-secondary h-[41px] rounded-none px-4 text-[10px] font-bold tracking-[1.4px]">
+                                CANCEL
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => unlinkMutation.mutate()}
+                                className="ghost support-form-btn-primary h-[41px] rounded-none px-4 text-[10px] font-bold tracking-[1.4px]"
+                                style={{ color: theme.buttonDestructiveText, borderColor: "rgba(232, 160, 163, 0.45)" }}
+                            >
+                                UNLINK
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            ) : null}
+        </AccountCard>
     )
 }

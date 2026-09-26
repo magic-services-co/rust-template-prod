@@ -1,79 +1,93 @@
 "use client";
 
-import {
-    Alert,
-    AlertDescription,
-    AlertTitle,
-} from "@/components/ui/alert";
 import { backendApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircleIcon, ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
+
+function pad(value: number) {
+    return String(Math.max(0, value)).padStart(2, "0");
+}
+
+function parseEndDate(description?: string): Date | null {
+    if (!description) return null;
+    const iso = description.match(/\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?/);
+    if (iso) {
+        const date = new Date(iso[0]);
+        if (!Number.isNaN(date.getTime())) return date;
+    }
+    const numeric = Date.parse(description);
+    if (!Number.isNaN(numeric)) return new Date(numeric);
+    return null;
+}
+
+function formatCountdown(end: Date) {
+    const diff = end.getTime() - Date.now();
+    if (diff <= 0) return "ENDED";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    return `ENDS IN ${pad(days)}D ${pad(hours)}H ${pad(minutes)}M`;
+}
 
 export default function StoreAlert({ theme }: { theme?: any }) {
-
-    const { data: data, isLoading, isError, error } = useQuery({
-        queryKey: ['storeSale'],
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ["storeSale"],
         queryFn: async () => {
-            const response = await fetch(backendApi("admin/store-sale"), { credentials: "include" })
+            const response = await fetch(backendApi("admin/store-sale"), { credentials: "include" });
             if (!response.ok) {
-                throw new Error("Failed to fetch store sale data")
+                throw new Error("Failed to fetch store sale data");
             }
-            return response.json()
+            return response.json();
         },
-    })
+    });
 
     if (isLoading || isError || !data || !data.enabled) {
-        return null
+        return null;
     }
 
-    return (
-        data.url ? (
-            <Link href={data.url}>
-                <StoreAlertContent data={data} theme={theme} />
-            </Link>
-        ) : (
-            <StoreAlertContent data={data} theme={theme} />
-        )
-    )
+    const content = <StoreAlertContent data={data} theme={theme} />;
+    return data.url ? <Link href={data.url}>{content}</Link> : content;
 }
 
 function StoreAlertContent({ data, theme }: { data: any; theme?: any }) {
+    const endDate = useMemo(() => parseEndDate(data?.description), [data?.description]);
+    const [countdown, setCountdown] = useState<string | null>(
+        endDate ? formatCountdown(endDate) : null
+    );
+
+    useEffect(() => {
+        if (!endDate) return;
+        const tick = () => setCountdown(formatCountdown(endDate));
+        tick();
+        const interval = setInterval(tick, 1000);
+        return () => clearInterval(interval);
+    }, [endDate]);
+
+    const meta = countdown || (typeof data?.description === "string" ? data.description : "");
+
     return (
-        <Alert 
-            className="relative cursor-pointer overflow-hidden backdrop-blur group"
+        <div
+            className="relative w-full shrink-0 overflow-visible border px-5 py-4 lg:w-[270px]"
             style={{
-                backgroundColor: theme?.sidebarBackground || 'rgba(255, 255, 255, 0.05)',
-                border: `2px solid ${theme?.sidebarBorder || 'rgba(255, 255, 255, 0.1)'}`,
-                borderRadius: theme?.cardBorderRadius || '0.375rem'
+                backgroundColor: theme?.saleBackground || "rgba(11,16,24,0.85)",
+                borderColor: theme?.saleBorder || "rgba(186,145,66,0.4)",
+                ["--store-sale-title" as string]: theme?.saleTitleColor || "#f0c970",
+                ["--store-sale-meta" as string]: theme?.saleMetaColor || "#ba9142",
             }}
         >
-            <div className="-z-10 opacity-5 absolute -left-6 -top-6 group-hover:scale-95 duration-700">
-                <AlertCircleIcon 
-                    className="h-36 w-36" 
-                    style={{ color: theme?.subtitleColor || '#ffffff' }}
-                />
+            <div className="flex items-center justify-between gap-3">
+                <p className="store-sale-title text-[14px] font-bold tracking-[0.35px]">
+                    {data?.title}
+                </p>
+                <span className="size-2 shrink-0 rounded-full bg-[#8add71] opacity-50" />
             </div>
-            <AlertTitle 
-                className="text-lg ml-2.5"
-                style={{ color: theme?.sidebarTitleColor || '#ffffff' }}
-            >
-                {data?.title}
-            </AlertTitle>
-            <AlertDescription className="ml-2.5">
-                <span 
-                    style={{ color: theme?.sidebarTextColor || '#b0b0b0' }}
-                >
-                    {data?.description}
-                </span>
-            </AlertDescription>
-            <div className="hidden md:block absolute right-10 group-hover:right-6 duration-500 top-1/2 -translate-y-1/2">
-                <ArrowRightIcon
-                    className="h-8 w-8"
-                    style={{ color: theme?.sidebarTextColor || '#b0b0b0' }}
-                />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-l from-white/5 h-full w-full"></div>
-        </Alert>
-    )
+            <div className="mt-2 h-px w-full bg-[rgba(186,145,66,0.25)]" />
+            {meta ? (
+                <p className="store-sale-meta pt-2 text-[9px] tracking-[1.44px]">{meta}</p>
+            ) : null}
+            <HomeCardCorners color="#ba9142" show />
+        </div>
+    );
 }

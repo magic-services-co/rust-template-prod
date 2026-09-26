@@ -5,6 +5,9 @@ import { getServerSession } from "@/lib/get-server-session"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import type { User } from "next-auth"
+import { SupportThemeProvider } from "@/components/support-theme-provider"
+import { SupportPageShell } from "@/components/support/support-page-shell"
+import { parsePageTheme } from "@/lib/parse-page-theme"
 
 export async function generateMetadata() {
   return await getMetadata('ticket');
@@ -25,23 +28,35 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
     if (!allowed) {
         return redirect('/support')
     }
+
+    const themeRes = await fetch(backendApi("data?include=themeSettings,pageTheme:support"), {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 60 },
+    });
+    const themeData = themeRes.ok ? await themeRes.json() : {};
+    const pageTheme = themeData.pageTheme;
+    const rawSettings = pageTheme && "settings" in pageTheme ? pageTheme.settings : null;
+    const settings =
+        typeof rawSettings === "string"
+            ? (() => {
+                try {
+                    return JSON.parse(rawSettings);
+                } catch {
+                    return {};
+                }
+            })()
+            : rawSettings;
+    const theme = parsePageTheme(settings, "support");
+
     return (
-        <div className="container pt-40">
-            {/* <div className="flex flex-col items-center pb-8 text-center">
-                <h2 className="mt-2 text-center text-4xl font-bold">User Ticket</h2>
-                <p className="max-w-[80ch] bg-transparent px-8 text-center leading-8 text-black/60 lg:px-0 dark:text-white/50">
-                    View your ticket.
-                </p>
-            </div> */}
-            {/* <div className="pb-5">
-                <Suspense>
-                <DynamicBreadcrumbs />
-            </Suspense>
-            </div> */}
-            <TicketView
-                ticketId={parseInt(id)}
-                currentUser={session.user as unknown as User}
-            />
-        </div>
+        <SupportThemeProvider serverTheme={theme}>
+            <SupportPageShell theme={theme}>
+                <TicketView
+                    ticketId={parseInt(id)}
+                    currentUser={session.user as unknown as User}
+                    serverTheme={theme}
+                />
+            </SupportPageShell>
+        </SupportThemeProvider>
     )
 }

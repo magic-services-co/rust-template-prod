@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { DEFAULT_PAGE_THEMES, getDefaultFormValues } from '@/lib/theme-defaults';
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { HomeAppearanceFields } from "@/components/admin/theme/home-appearance-fields";
 import {
   Select,
   SelectContent,
@@ -166,13 +167,23 @@ const pageThemeSchema = z.object({
     store: z.object({
       layoutPreset: z.enum(["default", "tabs-left", "all-packs"]).default("default"),
       backgroundColor: z.string(),
+      kickerColor: z.string().optional(),
+      kickerLabel: z.string().optional(),
       titleColor: z.string(),
+      titleAccentColor: z.string().optional(),
+      pageTitle: z.string().optional(),
+      pageTitleAccent: z.string().optional(),
+      pageSubtitle: z.string().optional(),
       subtitleColor: z.string(),
       categoryCardBackground: z.string(),
       categoryCardBorder: z.string(),
       categoryCardHoverBackground: z.string(),
       categoryCardTitleColor: z.string(),
       categoryCardHoverTitleColor: z.string(),
+      tabActiveBackground: z.string().optional(),
+      tabActiveText: z.string().optional(),
+      tabInactiveText: z.string().optional(),
+      packageCountColor: z.string().optional(),
       productCardBackground: z.string(),
       productCardBorder: z.string(),
       productCardHoverBackground: z.string(),
@@ -182,10 +193,18 @@ const pageThemeSchema = z.object({
       productCardOriginalPriceColor: z.string(),
       productCardDiscountBadgeBackground: z.string(),
       productCardDiscountBadgeText: z.string(),
+      productCardMetaColor: z.string().optional(),
+      productCardBrandColor: z.string().optional(),
       sidebarBackground: z.string(),
       sidebarBorder: z.string(),
       sidebarTitleColor: z.string(),
       sidebarTextColor: z.string(),
+      sidebarPriceColor: z.string().optional(),
+      sidebarSelectedNameColor: z.string().optional(),
+      saleBackground: z.string().optional(),
+      saleBorder: z.string().optional(),
+      saleTitleColor: z.string().optional(),
+      saleMetaColor: z.string().optional(),
       buttonPrimaryBackground: z.string(),
       buttonPrimaryText: z.string(),
       buttonPrimaryHoverBackground: z.string(),
@@ -206,17 +225,30 @@ const pageThemeSchema = z.object({
       cardPadding: z.string(),
       spacing: z.string(),
       cardHoverEffect: z.string(),
+      helpTitle: z.string().optional(),
+      helpBody: z.string().optional(),
+      helpCta: z.string().optional(),
+      helpTitleColor: z.string().optional(),
+      helpBodyColor: z.string().optional(),
+      perksNote: z.string().optional(),
     }).optional(),
     support: z.object({
       backgroundColor: z.string(),
+      kickerColor: z.string().optional(),
+      kickerLabel: z.string().optional(),
       titleColor: z.string(),
       subtitleColor: z.string(),
+      pageTitle: z.string().optional(),
+      pageSubtitle: z.string().optional(),
       categoryCardBackground: z.string(),
       categoryCardBorder: z.string(),
       categoryCardHoverBackground: z.string(),
       categoryCardTitleColor: z.string(),
       categoryCardIconColor: z.string(),
       categoryCardLockColor: z.string(),
+      categoryCardBodyColor: z.string().optional(),
+      categoryCardMetaColor: z.string().optional(),
+      openTicketLabel: z.string().optional(),
       buttonPrimaryBackground: z.string(),
       buttonPrimaryText: z.string(),
       buttonPrimaryHoverBackground: z.string(),
@@ -394,6 +426,7 @@ const pageThemeSchema = z.object({
       cardPadding: z.string(),
       cardHoverEffect: z.string()
     }).optional(),
+    home: z.object({}).passthrough().optional(),
   }),
 });
 
@@ -1275,6 +1308,7 @@ export function PageThemeSettings() {
                     {form.watch("settings.features.showTeam") && (
                       <TeamSection form={form} />
                     )}
+                    <HomeAppearanceFields form={form} />
                   </div>
                 </div>
               )}
@@ -1824,6 +1858,138 @@ export function PageThemeSettings() {
                     />
                     <FormField
                       control={form.control}
+                      name="settings.store.kickerColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Kicker Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.titleAccentColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Title Accent Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.kickerLabel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kicker Label</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="OFFICIAL STORE / MAGIC RUST" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.pageTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Page Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="GEAR UP." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.pageTitleAccent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Page Title Accent</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="STAND OUT." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.pageSubtitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Page Subtitle</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Secure your edge with server ranks and exclusive cosmetics." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.helpTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Help Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Need help with a purchase?" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.helpBody"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Help Body</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Our support team is available around the clock for account and payment assistance." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.helpCta"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Help CTA</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="OPEN SUPPORT →" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.perksNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Perks Note</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Ranks activate automatically after a completed purchase." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.tabActiveBackground"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Active Tab Background" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.store.saleTitleColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Sale Title Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="settings.store.categoryCardBackground"
                       render={({ field }) => (
                         <FormItem>
@@ -2234,6 +2400,51 @@ export function PageThemeSettings() {
                     />
                     <FormField
                       control={form.control}
+                      name="settings.support.kickerColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Kicker Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.kickerLabel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kicker Label</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="FAST AND EASY" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.pageTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Page Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="SUPPORT TICKETS" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.pageSubtitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Page Subtitle</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Choose one of the following options below that best suits you." />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="settings.support.categoryCardBackground"
                       render={({ field }) => (
                         <FormItem>
@@ -2283,6 +2494,36 @@ export function PageThemeSettings() {
                       render={({ field }) => (
                         <FormItem>
                           <ColorInputRow label="Category Card Lock Icon Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.categoryCardBodyColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Category Card Body Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.categoryCardMetaColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <ColorInputRow label="Category Card Meta Color" value={field.value || ''} onChange={field.onChange} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="settings.support.openTicketLabel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Open Ticket Label</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Open ticket" />
+                          </FormControl>
                         </FormItem>
                       )}
                     />
@@ -2516,7 +2757,7 @@ export function PageThemeSettings() {
                               step="0.1"
                               {...field} 
                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                              value={field.value || 0.5}
+                              value={field.value ?? 0}
                             />
                           </FormControl>
                           <FormDescription>

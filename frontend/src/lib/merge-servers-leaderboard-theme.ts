@@ -1,5 +1,6 @@
 import { withLeaderboardDefaults } from "@/lib/leaderboard-theme-defaults";
 import { parsePageTheme } from "@/lib/parse-page-theme";
+import { withServersDefaults } from "@/lib/servers-theme-defaults";
 
 function settingsFromPageThemePayload(pageTheme: unknown): unknown {
   if (!pageTheme || typeof pageTheme !== "object" || !("settings" in pageTheme)) {
@@ -26,7 +27,8 @@ export function mergeServersPageThemeWithLeaderboard(
   leaderboardParsed: Record<string, unknown>,
 ): ServersPageMergedTheme {
   const lb = withLeaderboardDefaults(leaderboardParsed);
-  return { ...lb, ...serversParsed };
+  const servers = withServersDefaults(serversParsed);
+  return withServersDefaults({ ...lb, ...servers });
 }
 
 export function buildServersPageThemeFromApiPayloads(

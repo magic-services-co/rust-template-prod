@@ -25,6 +25,12 @@ import { toast } from 'sonner';
 import { Save, RotateCcw, Maximize2 } from 'lucide-react';
 import { persistTheme } from '@/lib/theme-storage';
 import { ColorPicker } from './color-picker';
+import { LAYOUT_THEME_DEFAULTS } from '@/lib/layout-theme-defaults';
+import {
+  THEME_EDITOR_CORE_PAGES,
+  mapCustomServerPages,
+  mergeThemeEditorPages,
+} from '@/lib/theme-editor-pages';
 import {
   Dialog,
   DialogContent,
@@ -33,46 +39,32 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-const AVAILABLE_PAGES = [
-  { slug: 'home', label: 'Home', path: '/' },
-  { slug: 'leaderboard', label: 'Leaderboard', path: '/leaderboard' },
-  { slug: 'servers', label: 'Servers', path: '/servers' },
-  { slug: 'maps', label: 'Maps', path: '/maps' },
-  { slug: 'bans', label: 'Bans', path: '/bans' },
-  { slug: 'store', label: 'Store', path: '/store' },
-  { slug: 'support', label: 'Support', path: '/support' },
-  { slug: 'profile', label: 'Profile', path: '/profile' },
-  { slug: 'link', label: 'Link', path: '/link' },
-  { slug: '404', label: '404', path: '/404' },
-  { slug: '403', label: '403', path: '/403' },
-  { slug: 'privacy-policy', label: 'Privacy Policy', path: '/privacy-policy' },
-  { slug: 'terms-of-service', label: 'Terms of Service', path: '/terms-of-service' },
-];
+const AVAILABLE_PAGES = THEME_EDITOR_CORE_PAGES;
 
 const DEFAULT_SETTINGS = {
-  primaryTitleColor: '#f8fafc',
-  secondaryTextColor: '#8e9db1',
-  linkAccentColor: '#4893fe',
-  navLinkColor: '#a0abbe',
-  navLinkHoverColor: '#f2f4f6',
-  navLinkActiveColor: '#f2f4f6',
-  primaryButtonBg: '#1e293b',
-  primaryButtonHover: '#1e293b',
-  primaryButtonText: '#ffffff',
-  secondaryButtonBg: '#64748b',
-  secondaryButtonHover: '#64748b',
-  secondaryButtonText: '#ffffff',
-  cardBgDefault: '#ffffff',
-  cardBgHover: '#f3f4f6',
-  inputBorderColor: '#e5e7eb',
-  mutedTextColor: '#6b7280',
-  fontFamily: 'Inter',
-  borderRadius: '0.5rem',
-  spacing: '1rem',
-  backgroundOpacity: 10,
-  backgroundImage: '/images/background.jpg',
-  logoImage: '/images/logo.png',
-  faviconImage: '/favicon.ico',
+  primaryTitleColor: LAYOUT_THEME_DEFAULTS.primaryTitleColor,
+  secondaryTextColor: LAYOUT_THEME_DEFAULTS.secondaryTextColor,
+  linkAccentColor: LAYOUT_THEME_DEFAULTS.linkAccentColor,
+  navLinkColor: LAYOUT_THEME_DEFAULTS.navLinkColor,
+  navLinkHoverColor: LAYOUT_THEME_DEFAULTS.navLinkHoverColor,
+  navLinkActiveColor: LAYOUT_THEME_DEFAULTS.navLinkActiveColor,
+  primaryButtonBg: LAYOUT_THEME_DEFAULTS.primaryButtonBg,
+  primaryButtonHover: LAYOUT_THEME_DEFAULTS.primaryButtonHover,
+  primaryButtonText: LAYOUT_THEME_DEFAULTS.primaryButtonText,
+  secondaryButtonBg: LAYOUT_THEME_DEFAULTS.secondaryButtonBg,
+  secondaryButtonHover: LAYOUT_THEME_DEFAULTS.secondaryButtonHover,
+  secondaryButtonText: LAYOUT_THEME_DEFAULTS.secondaryButtonText,
+  cardBgDefault: LAYOUT_THEME_DEFAULTS.cardBgDefault,
+  cardBgHover: LAYOUT_THEME_DEFAULTS.cardBgHover,
+  inputBorderColor: LAYOUT_THEME_DEFAULTS.inputBorderColor,
+  mutedTextColor: LAYOUT_THEME_DEFAULTS.mutedTextColor,
+  fontFamily: LAYOUT_THEME_DEFAULTS.fontFamily,
+  borderRadius: LAYOUT_THEME_DEFAULTS.borderRadius,
+  spacing: LAYOUT_THEME_DEFAULTS.spacing,
+  backgroundOpacity: LAYOUT_THEME_DEFAULTS.backgroundOpacity,
+  backgroundImage: LAYOUT_THEME_DEFAULTS.backgroundImage,
+  logoImage: LAYOUT_THEME_DEFAULTS.logoImage,
+  faviconImage: LAYOUT_THEME_DEFAULTS.faviconImage,
 };
 
 interface ThemeSettings {
@@ -157,13 +149,13 @@ export function GlobalThemeSettings({ hideControls = false }: { hideControls?: b
         color: ${settings.navLinkActiveColor} !important;
       }
 
-      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]),
+      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):not(.layout-sign-in):not(.layout-toc-item),
       .bg-primary {
         background-color: ${settings.primaryButtonBg} !important;
         color: ${settings.primaryButtonText} !important;
       }
 
-      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):hover,
+      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):not(.layout-sign-in):not(.layout-toc-item):hover,
       .bg-primary:hover {
         background-color: ${settings.primaryButtonHover} !important;
       }
@@ -206,15 +198,8 @@ export function GlobalThemeSettings({ hideControls = false }: { hideControls?: b
         const response = await fetch(backendApi('admin/server-pages'), { credentials: 'include', headers });
         if (response.ok) {
           const pages = await response.json();
-          const customPages = pages
-            .filter((page: any) => page.enabled && !page.server_id)
-            .map((page: any) => ({
-              slug: page.slug,
-              label: page.title,
-              path: `/${page.slug}`,
-            }));
-          
-          setAllPages([...AVAILABLE_PAGES, ...customPages]);
+          const customPages = mapCustomServerPages(pages);
+          setAllPages(mergeThemeEditorPages(customPages));
         }
       } catch (error) {
         console.error('Error fetching custom pages:', error);

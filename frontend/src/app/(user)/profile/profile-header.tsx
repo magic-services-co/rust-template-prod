@@ -2,15 +2,11 @@
 
 import { signOut } from "@/lib/laravel-auth-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { LogOutIcon, ShieldAlertIcon, Copy, Check, ChevronDown } from 'lucide-react'
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import { UserSession } from "@/types/next-auth"
 import { useState } from "react"
 import { DiscordIcon } from "@/components/icons"
-import { Badge } from "@/components/ui/badge"
 import { useProfileTheme } from "@/hooks/use-profile-theme"
 import { withUserDefaults } from "@/lib/user-theme-defaults"
 import {
@@ -19,6 +15,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { HomeCardCorners } from "@/components/home/home-card-corners"
 
 async function copyToClipboard(value: string): Promise<boolean> {
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
@@ -26,7 +23,7 @@ async function copyToClipboard(value: string): Promise<boolean> {
             await navigator.clipboard.writeText(value)
             return true
         } catch {
-            /* fall through to legacy */
+            /* fall through */
         }
     }
     try {
@@ -45,232 +42,199 @@ async function copyToClipboard(value: string): Promise<boolean> {
     }
 }
 
-function CopyButton({ text, serverTheme }: { text: string, serverTheme?: any }) {
-    const { data: clientTheme } = useProfileTheme();
-    const theme = withUserDefaults(clientTheme || serverTheme);
-    
+function CopyButton({ text }: { text: string }) {
     const [copied, setCopied] = useState(false)
+    return (
+        <button
+            type="button"
+            className="ghost support-form-meta h-7 w-7 p-0"
+            onClick={() => {
+                void copyToClipboard(text).then((ok) => {
+                    if (!ok) return
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                })
+            }}
+            aria-label="Copy"
+        >
+            {copied ? <Check className="h-3.5 w-3.5 ticket-status-open" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+    )
+}
 
-    const handleCopy = () => {
-        void copyToClipboard(text).then((ok) => {
-            if (!ok) return
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-        })
-    }
+function RolePills({ user, theme }: { user: UserSession; theme: ReturnType<typeof withUserDefaults> }) {
+    if (!user?.roles || user.roles.length === 0) return null
+    const sortedRoles = [...user.roles].sort((a, b) => {
+        const orderA = a.role?.order ?? Infinity
+        const orderB = b.role?.order ?? Infinity
+        return orderA - orderB
+    })
+    const visibleRoles = sortedRoles.slice(0, 4)
+    const remainingRoles = sortedRoles.slice(4)
 
     return (
-        <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleCopy}
-            className="w-8 h-8 p-0 hover:opacity-80 transition-opacity"
-            style={{
-                backgroundColor: theme.copyButtonBackground,
-                color: theme.copyButtonText,
-                borderRadius: theme.buttonBorderRadius
-            }}
-        >
-            {copied ? (
-                <Check className="h-4 w-4 text-green-600 dark:text-green-500" />
-            ) : (
-                <Copy className="h-4 w-4" />
+        <div className="flex flex-wrap gap-2">
+            {visibleRoles.map((userRole, index) => (
+                <span
+                    key={userRole.roleId ?? index}
+                    className="ticket-chip"
+                    style={userRole.role?.color ? {
+                        borderColor: userRole.role.color,
+                        color: userRole.role.color,
+                    } : {
+                        borderColor: theme.roleBadgeBorder,
+                        color: theme.roleBadgeText,
+                    }}
+                >
+                    {userRole.role?.name}
+                </span>
+            ))}
+            {remainingRoles.length > 0 && (
+                <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            className="ticket-chip ghost"
+                            style={{ borderColor: theme.roleBadgeBorder, color: theme.roleBadgeText }}
+                        >
+                            +{remainingRoles.length} MORE
+                            <ChevronDown className="ml-1 h-3 w-3" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="site-user-menu z-[200] max-h-96 w-56 overflow-y-auto rounded-none">
+                        {remainingRoles.map((userRole, index) => (
+                            <DropdownMenuItem
+                                key={userRole.roleId ?? index}
+                                className="site-user-menu-item cursor-default rounded-none p-2"
+                                onSelect={(e) => e.preventDefault()}
+                            >
+                                <span className="ticket-chip w-full" style={userRole.role?.color ? {
+                                    borderColor: userRole.role.color,
+                                    color: userRole.role.color,
+                                } : undefined}>
+                                    {userRole.role?.name}
+                                </span>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             )}
-        </Button>
+        </div>
     )
 }
 
 interface ProfileHeaderProps {
     user: UserSession;
-    serverTheme?: any;
+    serverTheme?: Record<string, unknown>;
 }
 
 export default function ProfileHeader({ user, serverTheme }: ProfileHeaderProps) {
     const { data: clientTheme } = useProfileTheme();
     const theme = withUserDefaults(clientTheme || serverTheme);
-    const handleLogout = () => {
-        signOut({ callbackUrl: "/" })
-    }
 
     return (
-        <Card 
-            className="mb-8 backdrop-blur hover:brightness-110 transition-all duration-300"
+        <article
+            className="profile-identity relative mt-10 overflow-visible border"
             style={{
+                borderColor: theme.headerCardBorder,
                 backgroundColor: theme.headerCardBackground,
-                border: `1px solid ${theme.headerCardBorder}`,
-                borderRadius: theme.cardBorderRadius,
-                boxShadow: theme.cardShadow
             }}
         >
-            <CardContent style={{ padding: theme.cardPadding }}>
-                <div className="flex flex-col md:flex-row justify-between items-center">
-                    <div className="flex items-center space-x-4">
-                        <Avatar 
-                            className="w-24 h-24"
-                            style={{
-                                border: `2px solid ${theme.avatarBorderColor}`
-                            }}
-                        >
-                            <AvatarImage src={user?.image || ''} alt={user?.name || ''} />
-                            <AvatarFallback>{user?.name?.[0] || '?'}</AvatarFallback>
-                        </Avatar>
-                        <div className="hidden md:block">
-                            <div className="flex flex-wrap gap-2 mb-2">
-                                {(() => {
-                                    if (!user?.roles || user.roles.length === 0) return null;
-                                    
-                                    const sortedRoles = [...user.roles].sort((a, b) => {
-                                        const orderA = a.role?.order ?? Infinity;
-                                        const orderB = b.role?.order ?? Infinity;
-                                        return orderA - orderB;
-                                    });
-                                    
-                                    const visibleRoles = sortedRoles.slice(0, 4);
-                                    const remainingRoles = sortedRoles.slice(4);
-                                    
-                                    return (
-                                        <>
-                                            {visibleRoles.map((userRole, index) => (
-                                                <Badge
-                                                    key={userRole.roleId ?? index}
-                                                    variant="outline"
-                                                    className="capitalize"
-                                                    style={userRole.role?.color ? {
-                                                        backgroundColor: `${userRole.role.color}20`,
-                                                        borderColor: userRole.role.color,
-                                                        color: userRole.role.color,
-                                                        borderRadius: theme.buttonBorderRadius
-                                                    } : {
-                                                        backgroundColor: theme.roleBadgeBackground,
-                                                        borderColor: theme.roleBadgeBorder,
-                                                        color: theme.roleBadgeText,
-                                                        borderRadius: theme.buttonBorderRadius
-                                                    }}
-                                                >
-                                                    {userRole.role?.name}
-                                                </Badge>
-                                            ))}
-                                            {remainingRoles.length > 0 && (
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-6 px-2 text-xs capitalize"
-                                                            style={{
-                                                                backgroundColor: theme.roleBadgeBackground,
-                                                                borderColor: theme.roleBadgeBorder,
-                                                                color: theme.roleBadgeText,
-                                                                borderRadius: theme.buttonBorderRadius
-                                                            }}
-                                                        >
-                                                            +{remainingRoles.length} more
-                                                            <ChevronDown className="ml-1 h-3 w-3" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="start" className="max-h-96 overflow-y-auto w-56">
-                                                        {remainingRoles.map((userRole, index) => (
-                                                            <DropdownMenuItem 
-                                                                key={userRole.roleId ?? index} 
-                                                                className="p-2 cursor-default" 
-                                                                onSelect={(e) => e.preventDefault()}
-                                                            >
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="capitalize w-full"
-                                                                    style={userRole.role?.color ? {
-                                                                        backgroundColor: `${userRole.role.color}20`,
-                                                                        borderColor: userRole.role.color,
-                                                                        color: userRole.role.color,
-                                                                        borderRadius: theme.buttonBorderRadius
-                                                                    } : {
-                                                                        backgroundColor: theme.roleBadgeBackground,
-                                                                        borderColor: theme.roleBadgeBorder,
-                                                                        color: theme.roleBadgeText,
-                                                                        borderRadius: theme.buttonBorderRadius
-                                                                    }}
-                                                                >
-                                                                    {userRole.role?.name}
-                                                                </Badge>
-                                                            </DropdownMenuItem>
-                                                        ))}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                            <h1 
-                                className="text-2xl font-bold"
-                                style={{ color: theme.userNameColor }}
-                            >
-                                {user?.name}
-                            </h1>
-                            <div className="flex items-center space-x-2">
-                                <p 
-                                    className="text-sm"
-                                    style={{ color: theme.userIdColor }}
-                                >
-                                    Steam ID: {user?.steamId || 'N/A'}
-                                </p>
-                                {user?.steamId ? <CopyButton text={user.steamId} serverTheme={theme} /> : null}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <span 
-                                    className="flex items-center gap-2 text-sm"
-                                    style={{ color: theme.userIdColor }}
-                                >
-                                    Discord ID: {user?.discordId ? user.discordId : (
-                                        <span
-                                            className="flex font-normal items-center gap-2 cursor-pointer opacity-65 hover:opacity-100 duration-200"
-                                            style={{ color: theme.linkColor }}
-                                            onClick={() => {
-                                                window.location.href = '/api/link/discord/start';
-                                            }}
-                                        >
-                                            <DiscordIcon className="w-4 h-4" /> Link Discord
-                                        </span>
-                                    )}
-                                </span>
-                                {user?.discordId ? <CopyButton text={user.discordId} serverTheme={theme} /> : null}
-                            </div>
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(127.57deg, rgba(30, 26, 17, 0.96) 8.5%, rgba(8, 12, 17, 0.94) 91.5%)",
+                }}
+            />
+
+            <div className="relative flex flex-col gap-6 p-5 sm:p-7 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4 sm:gap-5">
+                    <Avatar className="h-20 w-20 rounded-none sm:h-24 sm:w-24" style={{ border: `1px solid ${theme.avatarBorderColor}` }}>
+                        <AvatarImage src={user?.image || ''} alt={user?.name || ''} />
+                        <AvatarFallback className="rounded-none">{user?.name?.[0] || '?'}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                        <p className="support-form-kicker text-[9px] font-bold tracking-[1.62px]">PLAYER</p>
+                        <h2 className="support-form-title truncate pt-1 text-[22px] font-extrabold leading-7">
+                            {(user?.name || "Unknown").toUpperCase()}
+                        </h2>
+                        <div className="pt-3">
+                            <RolePills user={user} theme={theme} />
                         </div>
                     </div>
-                    <div className="flex flex-row-reverse md:flex-col gap-2">
-                        <Button
-                            onClick={handleLogout}
-                            variant="destructive"
-                            className="mt-5 md:mt-0 w-full md:w-auto hover:opacity-90 transition-opacity"
-                            style={{
-                                backgroundColor: theme.buttonDestructiveBackground,
-                                color: theme.buttonDestructiveText,
-                                borderRadius: theme.buttonBorderRadius
-                            }}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    {user?.steamId ? (
+                        <a
+                            href={`https://steamcommunity.com/profiles/${user.steamId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ghost support-form-btn-secondary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px]"
                         >
-                            <LogOutIcon size={18} className="mr-2.5" />
-                            Logout
-                        </Button>
-                        {user.isAdmin ? (
-                            <Link
-                                href="/admin"
-                                className={cn(
-                                    buttonVariants({ variant: "default" }),
-                                    "mt-5 md:mt-0 w-full md:w-auto hover:opacity-90 transition-opacity"
-                                )}
-                                style={{
-                                    backgroundColor: theme.buttonSuccessBackground,
-                                    color: theme.buttonSuccessText,
-                                    borderRadius: theme.buttonBorderRadius
-                                }}
-                            >
-                                <ShieldAlertIcon size={18} className="mr-2.5" />
-                                Admin
-                            </Link>
-                        ) : null}
+                            STEAM PROFILE
+                        </a>
+                    ) : null}
+                    {user.isAdmin ? (
+                        <Link
+                            href="/admin"
+                            className="ghost support-form-btn-primary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px]"
+                        >
+                            <ShieldAlertIcon size={16} className="mr-2" />
+                            ADMIN
+                        </Link>
+                    ) : null}
+                    <button
+                        type="button"
+                        className="ghost support-form-btn-secondary flex h-[41px] items-center px-4 text-[10px] font-bold tracking-[1.4px]"
+                        onClick={() => signOut({ callbackUrl: "/" })}
+                    >
+                        <LogOutIcon size={16} className="mr-2" />
+                        LOG OUT
+                    </button>
+                </div>
+            </div>
+
+            <div
+                className="relative grid gap-5 border-t px-5 py-5 sm:grid-cols-2 sm:px-7"
+                style={{ borderColor: "rgba(255,255,255,0.1)" }}
+            >
+                <div>
+                    <p className="support-form-label">Steam ID</p>
+                    <div className="mt-2 flex items-center gap-1">
+                        <p className="truncate font-mono text-[13px]" style={{ color: theme.userNameColor }}>
+                            {user?.steamId || "Not linked"}
+                        </p>
+                        {user?.steamId ? <CopyButton text={user.steamId} /> : null}
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+                <div>
+                    <p className="support-form-label">Discord ID</p>
+                    <div className="mt-2 flex items-center gap-1">
+                        {user?.discordId ? (
+                            <>
+                                <p className="truncate font-mono text-[13px]" style={{ color: theme.userNameColor }}>
+                                    {user.discordId}
+                                </p>
+                                <CopyButton text={user.discordId} />
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                className="ghost flex items-center gap-2 text-[13px]"
+                                style={{ color: theme.linkColor }}
+                                onClick={() => { window.location.href = '/api/link/discord/start' }}
+                            >
+                                <DiscordIcon className="h-4 w-4" />
+                                Link Discord
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <HomeCardCorners color="#ba9142" show />
+        </article>
     )
 }

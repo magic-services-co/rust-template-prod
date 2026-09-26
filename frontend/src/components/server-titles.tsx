@@ -1,5 +1,7 @@
 "use client";
 
+import { SERVERS_THEME_DEFAULTS, withServersDefaults } from "@/lib/servers-theme-defaults";
+import { useServerThemeContext } from "./server-theme-provider";
 import { useServerTheme } from "@/hooks/use-server-theme";
 
 interface ServerTitlesProps {
@@ -7,30 +9,30 @@ interface ServerTitlesProps {
 }
 
 export function ServerTitles({ serverTheme }: ServerTitlesProps) {
+  const contextTheme = useServerThemeContext();
   const { data: clientTheme } = useServerTheme();
-  const theme = (clientTheme ?? serverTheme) as Record<string, unknown> | undefined;
-
-  const titleColor = (theme?.titleTextColor ?? theme?.titleColor ?? "#f8fafc") as string;
-  const subtitleColor = (theme?.subtitleColor ?? "#8e9db1") as string;
+  const theme = withServersDefaults(contextTheme || clientTheme || serverTheme);
 
   return (
-    <header
-      className="mb-2 rounded-lg border border-border bg-transparent p-4 md:p-5"
-      style={{ color: (theme?.textPrimaryColor as string) ?? undefined }}
-    >
-      <h2
-        className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold tracking-tight text-white md:text-2xl"
-        style={{ color: titleColor }}
+    <div className="mx-auto flex max-w-[760px] flex-col items-center text-center">
+      <div className="flex items-center justify-center gap-3">
+        <span className="h-px w-7" style={{ backgroundColor: "rgba(186,145,66,0.78)" }} />
+        <p
+          data-theme-field="kickerLabel"
+          data-theme-label="Hero kicker"
+          className="support-hero-kicker font-mono text-[11px] font-medium leading-[11px] tracking-[2.6px]"
+        >
+          {theme.kickerLabel || SERVERS_THEME_DEFAULTS.kickerLabel}
+        </p>
+        <span className="h-px w-7" style={{ backgroundColor: "rgba(186,145,66,0.78)" }} />
+      </div>
+      <h1
+        data-theme-field="pageTitle"
+        data-theme-label="Hero title"
+        className="support-hero-title pt-3.5 text-[40px] font-extrabold leading-[50px] tracking-[-2.4px] sm:text-[56px]"
       >
-        <span>Servers</span>
-        <span className="shrink-0 font-semibold opacity-80">· Server list</span>
-      </h2>
-      <p
-        className="mt-2 max-w-[80ch] text-sm leading-relaxed md:text-[15px]"
-        style={{ color: subtitleColor }}
-      >
-        Join the action with one click — connect to any server below.
-      </p>
-    </header>
+        {theme.pageTitle || SERVERS_THEME_DEFAULTS.pageTitle}
+      </h1>
+    </div>
   );
 }

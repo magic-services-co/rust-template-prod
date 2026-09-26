@@ -21,6 +21,21 @@ const defaultConsent: CookieConsent = {
   preferences: false,
 };
 
+type Snapshot = { isLoaded: boolean; status: Status; consent: CookieConsent };
+
+let snapshot: Snapshot = {
+  isLoaded: false,
+  status: 'pending',
+  consent: defaultConsent,
+};
+
+const listeners = new Set<() => void>();
+
+function emit(next: Partial<Snapshot>) {
+  snapshot = { ...snapshot, ...next };
+  listeners.forEach((listener) => listener());
+}
+
 function getStoredConsent(): { status: Status; consent: CookieConsent } | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -45,10 +60,7 @@ function getStoredConsent(): { status: Status; consent: CookieConsent } | null {
 function setStoredConsent(status: Status, consent: CookieConsent): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(
-      COOKIE_CONSENT_STORAGE_KEY,
-      JSON.stringify({ status, consent })
-    );
+    localStorage.setItem(COOKIE_CONSENT_STORAGE_KEY, JSON.stringify({ status, consent }));
   } catch {
     // ignore
   }
@@ -91,46 +103,50 @@ async function saveConsent(status: Status, consent: CookieConsent): Promise<bool
   }
 }
 
+let loadStarted = false;
+
+function ensureLoaded() {
+  if (loadStarted) return;
+  loadStarted = true;
+  fetchConsent().then((data) => {
+    if (data && data.status !== 'pending') {
+      emit({ isLoaded: true, status: data.status, consent: data.consent });
+      return;
+    }
+    const stored = getStoredConsent();
+    if (stored) {
+      emit({ isLoaded: true, status: stored.status, consent: stored.consent });
+      return;
+    }
+    emit({
+      isLoaded: true,
+      status: data?.status ?? 'pending',
+      consent: data?.consent ?? defaultConsent,
+    });
+  });
+}
+
 export function useCookieConsent() {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [status, setStatus] = useState<Status>('pending');
-  const [consent, setConsent] = useState<CookieConsent>(defaultConsent);
+  const [state, setState] = useState<Snapshot>(snapshot);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchConsent().then((data) => {
-      if (cancelled) return;
-      if (data && data.status !== 'pending') {
-        setStatus(data.status);
-        setConsent(data.consent);
-      } else {
-        const stored = getStoredConsent();
-        if (stored) {
-          setStatus(stored.status);
-          setConsent(stored.consent);
-        } else if (data) {
-          setStatus(data.status);
-          setConsent(data.consent);
-        }
-      }
-      setIsLoaded(true);
-    });
-    return () => { cancelled = true; };
+    const listener = () => setState(snapshot);
+    listeners.add(listener);
+    ensureLoaded();
+    setState(snapshot);
+    return () => {
+      listeners.delete(listener);
+    };
   }, []);
 
-  const hasConsent = useCallback(
-    (category: 'necessary' | 'analytics' | 'marketing' | 'preferences') => {
-      if (category === 'necessary') return true;
-      return consent[category] ?? false;
-    },
-    [consent]
-  );
+  const hasConsent = useCallback((category: 'necessary' | 'analytics' | 'marketing' | 'preferences') => {
+    if (category === 'necessary') return true;
+    return snapshot.consent[category] ?? false;
+  }, [state.consent]);
 
-  const getStatus = useCallback((): Status => status, [status]);
+  const getStatus = useCallback((): Status => snapshot.status, [state.status]);
 
-  const getConsent = useCallback((): CookieConsent => ({ ...consent }), [consent]);
-
-  const needsConsent = status === 'pending';
+  const getConsent = useCallback((): CookieConsent => ({ ...snapshot.consent }), [state.consent]);
 
   const acceptAll = useCallback(async () => {
     const all: CookieConsent = {
@@ -140,18 +156,12 @@ export function useCookieConsent() {
       preferences: true,
     };
     const ok = await saveConsent('accepted', all);
-    if (ok) {
-      setConsent(all);
-      setStatus('accepted');
-    }
+    if (ok) emit({ consent: all, status: 'accepted' });
   }, []);
 
   const denyAll = useCallback(async () => {
     const ok = await saveConsent('denied', defaultConsent);
-    if (ok) {
-      setConsent(defaultConsent);
-      setStatus('denied');
-    }
+    if (ok) emit({ consent: defaultConsent, status: 'denied' });
   }, []);
 
   const acceptCustom = useCallback(async (custom: CookieConsent) => {
@@ -162,15 +172,12 @@ export function useCookieConsent() {
       preferences: custom.preferences ?? false,
     };
     const ok = await saveConsent('custom', next);
-    if (ok) {
-      setConsent(next);
-      setStatus('custom');
-    }
+    if (ok) emit({ consent: next, status: 'custom' });
   }, []);
 
   return {
-    isLoaded,
-    needsConsent,
+    isLoaded: state.isLoaded,
+    needsConsent: state.status === 'pending',
     hasConsent,
     getStatus,
     getConsent,

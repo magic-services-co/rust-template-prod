@@ -34,15 +34,42 @@ const termsSectionSchema = z.object({
 type TermsSectionFormData = z.infer<typeof termsSectionSchema>;
 
 const defaultSections: TermsSection[] = [
-  { id: "introduction", title: "1. Introduction", content: "", order: 0 },
-  { id: "acceptance-of-terms", title: "2. Acceptance of Terms", content: "", order: 1 },
-  { id: "user-accounts", title: "3. User Accounts", content: "", order: 2 },
-  { id: "product-purchases", title: "4. Product Purchases", content: "", order: 3 },
-  { id: "payment-terms", title: "5. Payment Terms", content: "", order: 4 },
-  { id: "delivery", title: "6. Delivery", content: "", order: 5 },
-  { id: "returns-and-refunds", title: "7. Returns and Refunds", content: "", order: 6 },
-  { id: "limitation-of-liability", title: "8. Limitation of Liability", content: "", order: 7 },
-  { id: "indemnification", title: "9. Indemnification", content: "", order: 8 },
+  {
+    id: "intro",
+    title: "Introduction",
+    content: "These terms protect fair play, secure purchases, and a respectful environment for every player.",
+    order: 0,
+  },
+  {
+    id: "agreement-to-these-terms",
+    title: "Agreement to these terms",
+    content: "By accessing Magic Rust servers, our website, Discord community, or store, you agree to these Terms and our Privacy Policy. If you are not legally able to accept them, or do not agree with them, do not use the services.",
+    order: 1,
+  },
+  {
+    id: "accounts-access",
+    title: "Accounts & access",
+    content: "You are responsible for securing your linked Steam, Discord, and Magic Rust accounts. Do not share, sell, transfer, or permit access to account credentials. We may suspend access connected to compromised accounts, ban evasion, unauthorized software, or exploit activity.",
+    order: 2,
+  },
+  {
+    id: "store-purchases",
+    title: "Store purchases",
+    content: "Store products are digital benefits for use on Magic Rust services; they do not grant ownership of the server or its intellectual property. Benefits are normally delivered automatically after payment and are final except where required by law or approved by our support team.",
+    order: 3,
+  },
+  {
+    id: "server-conduct",
+    title: "Server conduct",
+    content: "Follow posted server rules and staff directions. Harassment, hate speech, cheating, exploiting, ban evasion, real-world trading, and deliberate service disruption are prohibited. Enforcement can include warnings, removal of benefits, suspensions, or permanent bans.",
+    order: 4,
+  },
+  {
+    id: "liability-changes",
+    title: "Liability & changes",
+    content: "Services are provided on an “as available” basis and may be modified, paused, or discontinued to protect community integrity. We may update these Terms at any time; continued use after a change takes effect accepts the revised Terms. Material changes will be announced through official channels where practicable.",
+    order: 5,
+  },
 ];
 
 export function TermsOfServiceSettings() {

@@ -1,36 +1,23 @@
 "use client";
 
+import { createContext, useContext, type ReactNode } from "react";
 import { useServerTheme } from "@/hooks/use-server-theme";
-import { withUserDefaults } from "@/lib/user-theme-defaults";
+import { withServersDefaults } from "@/lib/servers-theme-defaults";
 
-interface ServerThemeProviderProps {
-  children: React.ReactNode;
-  /** SSR merged theme (leaderboard + servers); client hook refines the same shape. */
+const ServerThemeContext = createContext<ReturnType<typeof withServersDefaults> | null>(null);
+
+export function ServerThemeProvider({
+  children,
+  serverTheme,
+}: {
+  children: ReactNode;
   serverTheme?: Record<string, unknown>;
+}) {
+  const { data: clientTheme } = useServerTheme();
+  const theme = withServersDefaults(clientTheme || serverTheme);
+  return <ServerThemeContext.Provider value={theme}>{children}</ServerThemeContext.Provider>;
 }
 
-export function ServerThemeProvider({ children, serverTheme }: ServerThemeProviderProps) {
-  const { data: clientTheme } = useServerTheme();
-
-  const base = withUserDefaults(undefined);
-  const raw = clientTheme ?? serverTheme;
-  const theme =
-    raw != null && typeof raw === "object" && !Array.isArray(raw)
-      ? { ...base, ...raw }
-      : base;
-
-  return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: (theme.backgroundColor as string | undefined) ?? "transparent",
-        backdropFilter: theme.blurIntensity
-          ? `blur(${Number(theme.blurIntensity) * 10}px)`
-          : undefined,
-        transition: "all 0.3s ease-in-out",
-      }}
-    >
-      {children}
-    </div>
-  );
+export function useServerThemeContext() {
+  return useContext(ServerThemeContext);
 }

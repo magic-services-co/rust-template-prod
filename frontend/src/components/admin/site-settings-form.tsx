@@ -24,7 +24,6 @@ import { backendApi } from "@/lib/api"
 import { PayNowApiKeySettings } from "@/components/admin/paynow-api-key-settings"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { Switch } from "../ui/switch"
-import Link from "next/link"
 
 const siteSettingsSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -195,32 +194,6 @@ export function SiteSettingsForm() {
                                             The URL of your Steam group (optional).
                                         </FormDescription>
                                         <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="rustalyzerEnabled"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                        <div className="space-y-0.5">
-                                            <FormLabel className="text-base">
-                                                Enable Rustalyzer
-                                            </FormLabel>
-                                            <FormDescription>
-                                                Enable <Link
-                                                href="https://rustalyzer.com"
-                                                target="_blank"
-                                                className="text-primary hover:underline"
-                                                >Rustalyzer</Link> to display detailed server stats on your site.
-                                            </FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
                                     </FormItem>
                                 )}
                             />

@@ -13,8 +13,9 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import type { ThemeEditorPageOption } from '@/lib/theme-editor-pages';
 
-export type ThemeEditorPageOption = { slug: string; label: string; path: string };
+export type { ThemeEditorPageOption };
 
 export function ThemeEditorPagePicker({
   pages,
@@ -30,6 +31,16 @@ export function ThemeEditorPagePicker({
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => pages.find((p) => p.slug === selectedSlug), [pages, selectedSlug]);
   const index = useMemo(() => pages.findIndex((p) => p.slug === selectedSlug), [pages, selectedSlug]);
+  const groups = useMemo(() => {
+    const map = new Map<string, ThemeEditorPageOption[]>();
+    pages.forEach((page) => {
+      const group = page.group || 'Pages';
+      const list = map.get(group) ?? [];
+      list.push(page);
+      map.set(group, list);
+    });
+    return Array.from(map.entries());
+  }, [pages]);
 
   const goPrev = () => {
     if (pages.length === 0) return;
@@ -71,32 +82,38 @@ export function ThemeEditorPagePicker({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[min(100vw-2rem,320px)] p-0" align="start">
-          <Command>
+        <PopoverContent
+          className="w-[min(100vw-2rem,320px)] p-0"
+          align="start"
+          data-live-site-editor-ui="true"
+        >
+          <Command data-live-site-editor-ui="true">
             <CommandInput placeholder="Search pages…" />
             <CommandList>
               <CommandEmpty>No page found.</CommandEmpty>
-              <CommandGroup heading="Pages">
-                {pages.map((page) => (
-                  <CommandItem
-                    key={page.slug}
-                    value={`${page.label} ${page.slug} ${page.path}`}
-                    onSelect={() => {
-                      onSelect(page);
-                      setOpen(false);
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Check
-                      className={cn('h-4 w-4 shrink-0', selectedSlug === page.slug ? 'opacity-100' : 'opacity-0')}
-                    />
-                    <span className="truncate flex-1 min-w-0">{page.label}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[5.5rem] sm:max-w-[7rem]">
-                      {page.path}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {groups.map(([heading, groupPages]) => (
+                <CommandGroup key={heading} heading={heading}>
+                  {groupPages.map((page) => (
+                    <CommandItem
+                      key={page.slug}
+                      value={`${page.label} ${page.slug} ${page.path}`}
+                      onSelect={() => {
+                        onSelect(page);
+                        setOpen(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Check
+                        className={cn('h-4 w-4 shrink-0', selectedSlug === page.slug ? 'opacity-100' : 'opacity-0')}
+                      />
+                      <span className="truncate flex-1 min-w-0">{page.label}</span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[5.5rem] sm:max-w-[7rem]">
+                        {page.path}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
             </CommandList>
           </Command>
         </PopoverContent>

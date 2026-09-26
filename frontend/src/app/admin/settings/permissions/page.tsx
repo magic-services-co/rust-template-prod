@@ -8,8 +8,7 @@ export const metadata: Metadata = {
 
 export default function RolesSettingsPage() {
     return (
-        <div className="space-y-6 py-6">
-            <h1 className="text-3xl font-bold mb-6">Roles</h1>
+        <div className="h-[calc(100svh-7rem)] min-h-0 overflow-hidden">
             <PermissionList />
         </div>
     )

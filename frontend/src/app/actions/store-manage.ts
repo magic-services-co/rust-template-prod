@@ -15,6 +15,10 @@ function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getAuthToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (typeof window !== "undefined") {
+    const customerToken = window.localStorage.getItem("paynow-customer-token");
+    if (customerToken) headers["X-PayNow-Customer-Token"] = customerToken;
+  }
   return headers;
 }
 
@@ -27,11 +31,14 @@ export async function checkGiftcard(cardNumber: string): Promise<CheckGiftcardRe
       cache: "no-store",
     }
   );
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data?.error ?? "Failed to check gift card");
   }
-  return {
-    data: Array.isArray(data?.data) ? data.data : [],
-  };
+  const rows = Array.isArray(data?.data)
+    ? data.data
+    : data?.balance != null || data?.starting_balance != null
+      ? [data]
+      : [];
+  return { data: rows };
 }

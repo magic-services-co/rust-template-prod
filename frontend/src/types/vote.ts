@@ -4,6 +4,8 @@ export interface MapVoteOption {
   mapVoteId?: string;
   map_vote_id?: string;
   order?: number;
+  size?: number | null;
+  seed?: number | null;
   url?: string;
   imageUrl?: string;
   imageIconUrl?: string;

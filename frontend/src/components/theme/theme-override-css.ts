@@ -94,13 +94,13 @@ export function buildThemeOverrideCss(settings: ThemeOverridePayload): string {
         color: ${settings.navLinkActiveColor} !important;
       }
 
-      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]),
+      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):not(.layout-sign-in):not(.layout-toc-item),
       .bg-primary {
         background-color: ${settings.primaryButtonBg} !important;
         color: ${settings.primaryButtonText} !important;
       }
 
-      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):hover,
+      button:not([class*="secondary"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]):not([class*="link"]):not(.layout-sign-in):not(.layout-toc-item):hover,
       .bg-primary:hover {
         background-color: ${settings.primaryButtonHover} !important;
       }
@@ -171,7 +171,7 @@ export function applyThemeMediaToDocument(doc: Document, win: Window | null, set
       (divElement.classList.toString().includes("bg-cover") && computedStyle?.position === "fixed");
 
     if (isBackgroundDiv) {
-      divElement.style.backgroundImage = `url('${settings.backgroundImage || "/images/background.jpg"}')`;
+      divElement.style.backgroundImage = `url('${settings.backgroundImage || "/images/legal-hero.png"}')`;
       divElement.style.backgroundPosition = "center";
       divElement.style.backgroundRepeat = "no-repeat";
       divElement.style.backgroundSize = "cover";

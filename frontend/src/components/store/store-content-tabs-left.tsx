@@ -218,11 +218,12 @@ export default function StoreContentTabsLeft({ params, initialProducts, theme }:
                         className="grid grid-cols-1 md:grid-cols-2 gap-4"
                         style={{ gap: theme?.spacing || '1rem' }}
                     >
-                        {products.map((product) => (
+                        {products.map((product, index) => (
                             <DisplayProduct
                                 key={product.id}
                                 product={product}
                                 theme={theme}
+                                index={index}
                                 hidePurchaseTypeSelector={true}
                             />
                         ))}

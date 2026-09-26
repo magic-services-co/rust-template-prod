@@ -1,47 +1,23 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useMapsTheme } from "@/hooks/use-maps-theme";
+import { withMapsDefaults } from "@/lib/maps-theme-defaults";
 
-interface MapsThemeProviderProps {
-    children: React.ReactNode;
-    serverTheme?: any;
-}
+const MapsThemeContext = createContext<ReturnType<typeof withMapsDefaults> | null>(null);
 
-const MapsThemeContext = createContext<any>(null);
-
-export function MapsThemeProvider({ children, serverTheme }: MapsThemeProviderProps) {
-    const { data: clientTheme } = useMapsTheme();
-    
-    const theme = clientTheme || serverTheme;
-
-    const backgroundStyle = theme?.backgroundColor ? {
-        backgroundColor: theme.backgroundColor,
-        backgroundImage: theme.backgroundColor.includes('gradient') ? theme.backgroundColor : undefined,
-    } : {};
-
-    const blurStyle = theme?.blurIntensity ? {
-        backdropFilter: `blur(${theme.blurIntensity * 10}px)`,
-        WebkitBackdropFilter: `blur(${theme.blurIntensity * 10}px)`,
-    } : {};
-
-    return (
-        <MapsThemeContext.Provider value={theme}>
-            <div 
-                className="min-h-screen transition-colors duration-300"
-                style={backgroundStyle}
-            >
-                <div 
-                    className="min-h-screen transition-all duration-300"
-                    style={blurStyle}
-                >
-                    {children}
-                </div>
-            </div>
-        </MapsThemeContext.Provider>
-    );
+export function MapsThemeProvider({
+  children,
+  serverTheme,
+}: {
+  children: ReactNode;
+  serverTheme?: Record<string, unknown>;
+}) {
+  const { data: clientTheme } = useMapsTheme();
+  const theme = withMapsDefaults(clientTheme || serverTheme);
+  return <MapsThemeContext.Provider value={theme}>{children}</MapsThemeContext.Provider>;
 }
 
 export function useMapsThemeContext() {
-    return useContext(MapsThemeContext);
+  return useContext(MapsThemeContext);
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { SteamIcon, DiscordIcon } from "@/components/icons";
-import { Button } from "@/components/ui/button";
 import { UserSession } from "@/types/next-auth";
 import { signIn } from "@/lib/laravel-auth-react";
 import { CheckIcon, Loader2, UnlinkIcon, StarIcon, RefreshCcwIcon } from "lucide-react";
@@ -20,23 +19,124 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 import { getAuthToken } from "@/lib/laravel-auth";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { refreshSteamGroup } from "@/app/actions/steam";
 import { useRouter } from "next/navigation";
-import { LINKED_USERS_COUNT_QUERY_KEY } from "@/components/linked-users-count";
+import { LINKED_USERS_COUNT_QUERY_KEY, LinkedUsersCount } from "@/components/linked-users-count";
+import { cn } from "@/lib/utils";
+import { HomeCardCorners } from "@/components/home/home-card-corners";
 
 interface LinkProps {
-    user?: UserSession | null
-    linkStatus?: 'success' | 'error' | null
+    user?: UserSession | null;
+    linkStatus?: "success" | "error" | null;
 }
+
+const KIT_ITEMS = [
+    { src: "/images/link/kit-01.png", qty: "x1,000" },
+    { src: "/images/link/kit-02.png", qty: "x150" },
+    { src: "/images/link/kit-03.png", qty: "x3,000" },
+    { src: "/images/link/kit-04.png", qty: "x300" },
+    { src: "/images/link/kit-05.png", qty: "x15,000" },
+    { src: "/images/link/kit-06.png", qty: "x10,000" },
+    { src: "/images/link/kit-07.png", qty: "x4,500" },
+    { src: "/images/link/kit-08.png", qty: "x350" },
+    { src: "/images/link/kit-09.png", qty: "x750" },
+    { src: "/images/link/kit-10.png", qty: "x1" },
+    { src: "/images/link/kit-11.png", qty: "x64" },
+    { src: "/images/link/kit-12.png", qty: "x4" },
+] as const;
 
 function getStepStatus(user?: UserSession | null) {
     const steamLinked = !!user?.steamId;
     const discordLinked = !!user?.discordId;
-    if (!steamLinked) return 0; 
-    if (!discordLinked) return 1; 
-    return 2; 
+    if (!steamLinked) return 0;
+    if (!discordLinked) return 1;
+    return 2;
+}
+
+function LinkCta({
+    children,
+    onClick,
+    href,
+    disabled,
+}: {
+    children: ReactNode;
+    onClick?: () => void;
+    href?: string;
+    disabled?: boolean;
+}) {
+    const className = cn(
+        "ghost link-cta inline-flex h-12 min-w-[216px] items-center justify-center gap-2 rounded-lg border px-3.5",
+        disabled && "pointer-events-none opacity-70",
+    );
+    const style = {
+        backgroundColor: "#0a0e13",
+        borderColor: "#ba9142",
+        color: "#ecf3fc",
+    } as const;
+
+    if (href) {
+        return (
+            <Link href={href} className={className} style={style}>
+                {children}
+            </Link>
+        );
+    }
+
+    return (
+        <button type="button" onClick={onClick} disabled={disabled} className={className} style={style}>
+            {children}
+        </button>
+    );
+}
+
+function StepNode({
+    label,
+    active,
+    complete,
+    icon,
+}: {
+    label: string;
+    active: boolean;
+    complete: boolean;
+    icon: ReactNode;
+}) {
+    return (
+        <div className="flex w-16 shrink-0 flex-col items-center gap-2">
+            <div
+                className="flex size-[58px] items-center justify-center rounded-full border"
+                style={{
+                    backgroundColor: "rgba(5,5,5,0.69)",
+                    borderColor: active ? "#f2f6fc" : complete ? "#ba9142" : "rgba(236,243,252,0.8)",
+                    boxShadow: active
+                        ? "0 0 24px rgba(89,147,238,0.24)"
+                        : "none",
+                }}
+            >
+                {icon}
+            </div>
+            <span
+                className="text-[12px] font-medium tracking-[0.4px]"
+                style={{ color: "rgba(236,243,252,0.8)" }}
+            >
+                {label}
+            </span>
+        </div>
+    );
+}
+
+function StepConnector({ filled }: { filled: boolean }) {
+    return (
+        <div
+            className="mt-[27.5px] h-[3px] min-w-0 flex-1 bg-gradient-to-r"
+            style={{
+                backgroundImage: filled
+                    ? "linear-gradient(90deg, rgba(186,145,66,0.88), rgba(186,145,66,0.42))"
+                    : "linear-gradient(90deg, rgba(236,243,252,0.88), rgba(236,243,252,0.42))",
+            }}
+        />
+    );
 }
 
 export default function AccountLinkStepper({ user, linkStatus }: LinkProps) {
@@ -45,19 +145,21 @@ export default function AccountLinkStepper({ user, linkStatus }: LinkProps) {
     const { data: settings } = useSiteSettings();
     const router = useRouter();
     const [isLinkingDiscord, setIsLinkingDiscord] = useState(false);
-    
+
     const isGroupEnabled = useMemo(() => {
         return !!settings?.steamGroupId && !!settings?.steamGroupUrl;
     }, [settings?.steamGroupId, settings?.steamGroupUrl]);
 
+    const statusLabel = step === 0 ? "READY TO LINK" : step === 1 ? "LINK DISCORD" : "ACCOUNTS LINKED";
+
     useEffect(() => {
-        if (linkStatus === 'success') {
-            toast.success('Successfully linked Discord and imported previous tickets');
-            document.cookie = 'discord_link_status=; Max-Age=0; path=/';
+        if (linkStatus === "success") {
+            toast.success("Successfully linked Discord and imported previous tickets");
+            document.cookie = "discord_link_status=; Max-Age=0; path=/";
             queryClient.invalidateQueries({ queryKey: LINKED_USERS_COUNT_QUERY_KEY });
-        } else if (linkStatus === 'error') {
-            toast.error('Discord linking failed. Please try again.');
-            document.cookie = 'discord_link_status=; Max-Age=0; path=/';
+        } else if (linkStatus === "error") {
+            toast.error("Discord linking failed. Please try again.");
+            document.cookie = "discord_link_status=; Max-Age=0; path=/";
         }
     }, [linkStatus, queryClient]);
 
@@ -99,133 +201,203 @@ export default function AccountLinkStepper({ user, linkStatus }: LinkProps) {
         },
         onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Failed to refresh steam group membership");
-        }
+        },
     });
 
     return (
-        <div className="flex flex-col items-center justify-center w-full -mt-6">
-            <div className="flex w-full max-w-2xl justify-between items-center mb-6 relative">
-                <div className="flex flex-col items-center flex-1">
-                    <div className={`rounded-full border-4 ${step >= 0 ? 'border-green-500 bg-[#23232a]' : 'border-gray-700 bg-[#18181c]'} ${step === 0 ? 'shadow-[0_0_20px_rgba(34,197,94,0.6),0_0_40px_rgba(34,197,94,0.4)]' : 'shadow-lg'} w-24 h-24 flex items-center justify-center mb-2 transition-all duration-300`}>
-                        <SteamIcon className="w-16 h-16 text-green-500" />
-                    </div>
-                    <span className={`text-lg font-semibold ${step >= 0 ? 'text-green-500' : 'text-gray-500'}`}>Steam</span>
-                </div>
-                <div className="flex-1 h-2 mx-2 bg-[#23232a] rounded-full relative">
-                    <div className={`absolute h-2 rounded-full transition-all duration-300 ${step >= 1 ? 'bg-green-500 w-full' : 'bg-green-500 w-1/2'}`}></div>
-                </div>
-                <div className="flex flex-col items-center flex-1">
-                    <div className={`rounded-full border-4 ${step >= 1 ? 'border-green-500 bg-[#23232a]' : 'border-gray-700 bg-[#18181c]'} ${step === 1 ? 'shadow-[0_0_20px_rgba(34,197,94,0.6),0_0_40px_rgba(34,197,94,0.4)]' : 'shadow-lg'} w-24 h-24 flex items-center justify-center mb-2 transition-all duration-300`}>
-                        <DiscordIcon className="w-16 h-16 text-green-500" />
-                    </div>
-                    <span className={`text-lg font-semibold ${step >= 1 ? 'text-green-500' : 'text-gray-500'}`}>Discord</span>
-                </div>
-                <div className="flex-1 h-2 mx-2 bg-[#23232a] rounded-full relative">
-                  {step === 2 && (
-                    <div className="absolute h-2 rounded-full bg-green-500 w-full transition-all duration-300"></div>
-                  )}
-                </div>
-                <div className="flex flex-col items-center flex-1">
-                    <div className={`rounded-full border-4 ${step === 2 ? 'border-green-500 bg-[#23232a]' : 'border-gray-700 bg-[#18181c]'} ${step === 2 ? 'shadow-[0_0_20px_rgba(34,197,94,0.6),0_0_40px_rgba(34,197,94,0.4)]' : 'shadow-lg'} w-24 h-24 flex items-center justify-center mb-2 transition-all duration-300`}>
-                        <CheckIcon className="w-16 h-16 text-green-500" />
-                    </div>
-                    <span className={`text-lg font-semibold ${step === 2 ? 'text-green-500' : 'text-gray-500'}`}>Done</span>
-                </div>
-                {step === 2 && user?.discordId && (
-                    <div style={{ left: '50%', transform: 'translateX(-50%)' }} className="absolute top-[110%] flex flex-col items-center w-1/4 min-w-[160px]">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    className="w-full"
-                                    disabled={unlinkMutation.isPending}
-                                >
-                                    {unlinkMutation.isPending ? (
-                                        <Loader2 className="animate-spin mr-2" />
-                                    ) : (
-                                        <UnlinkIcon className="h-5 w-5 mr-2" />
-                                    )}
-                                    Unlink Discord
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Unlink Discord Account</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to unlink your Discord account?
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() => unlinkMutation.mutate()}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                        Unlink
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                )}
-            </div>
-            <div className="w-full max-w-2xl flex flex-col items-center">
-                {step === 0 && (
-                    <Button
-                        onClick={() => signIn('steam')}
-                        variant="outline"
-                        size="lg"
-                        className="border-primary/30 text-primary hover:bg-primary/10 text-lg py-6 px-8"
-                    >
-                        Sign In with Steam
-                    </Button>
-                )}
-                {step === 1 && (
-                    <div className="flex flex-col items-center gap-4">
-                        <Button
-                            size="lg"
-                            className="py-6 text-lg group mb-4 w-full max-w-md bg-[#23232a] text-green-500 border-green-500 border-2 hover:bg-green-500 hover:text-white"
-                            onClick={async () => {
-                                setIsLinkingDiscord(true);
-                                try {
-                                    window.location.href = '/api/link/discord/start';
-                                } catch (error) {
-                                    console.error('Failed to start Discord linking:', error);
-                                    toast.error('Failed to start Discord linking. Please try again.');
-                                    setIsLinkingDiscord(false);
-                                }
+        <article
+            className="link-card support-ticket-card relative overflow-visible border"
+            style={{ borderColor: "rgba(72,97,125,0.6)" }}
+        >
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(139.28deg, rgba(17, 23, 30, 0.96) 8.5%, rgba(8, 12, 17, 0.94) 91.5%)",
+                }}
+            />
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(90deg, rgba(186, 145, 66, 0.06) 0%, rgba(186, 145, 66, 0) 25%), linear-gradient(180deg, rgba(255, 255, 255, 0.043) 0%, rgba(255, 255, 255, 0) 20%)",
+                }}
+            />
+
+            <div className="relative flex flex-col lg:min-h-[456px] lg:flex-row">
+                <aside
+                    className="flex w-full shrink-0 flex-col border-b px-[30px] py-[28px] lg:w-[260px] lg:border-b-0 lg:border-r"
+                    style={{
+                        borderColor: "rgba(106,130,157,0.22)",
+                        backgroundImage:
+                            "linear-gradient(180deg, rgba(7,10,14,0.24), rgba(6,9,12,0.48))",
+                    }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="flex size-[34px] shrink-0 items-center justify-center border"
+                            style={{
+                                backgroundColor: "rgba(65,34,5,0.36)",
+                                borderColor: "#ba9142",
                             }}
-                            disabled={isLinkingDiscord}
                         >
-                            {isLinkingDiscord ? (
-                                <>
-                                    <Loader2 className="w-6 h-6 mr-2.5 animate-spin" />
-                                    Redirecting to Discord...
-                                </>
-                            ) : (
-                                <>
-                                    <DiscordIcon className="w-6 h-6 mr-2.5 group-hover:animate-wiggle" />
-                                    Link Discord
-                                </>
-                            )}
-                        </Button>
-                        {user?.discordId && (
+                            <img src="/images/link/gift.svg" alt="" className="size-6" />
+                        </div>
+                        <div>
+                            <p className="font-mono text-[9px] leading-[9px] tracking-[1.25px]" style={{ color: "#ba9142" }}>
+                                FREE REWARDS
+                            </p>
+                            <p className="pt-1 text-[14px] font-semibold leading-[14px]" style={{ color: "#ecf3fc" }}>
+                                Linked Kit
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-[7px] pl-[46px] pt-[17px] font-mono text-[8px] tracking-[0.85px]" style={{ color: "rgba(186,145,66,0.7)" }}>
+                        <span>12 ITEMS</span>
+                        <span className="size-[2px] rounded-[1px] bg-[#ba9142]" />
+                        <span>ACCESS IN /KIT</span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3 pt-[13px]">
+                        {KIT_ITEMS.map((item) => (
+                            <div key={item.src} className="flex flex-col">
+                                <div
+                                    className="relative h-[46px] overflow-hidden rounded-[7px] border"
+                                    style={{
+                                        borderColor: "rgba(255,255,255,0.1)",
+                                        backgroundImage:
+                                            "linear-gradient(131.54deg, rgba(255,255,255,0.17) 0%, rgba(255,255,255,0.06) 100%)",
+                                    }}
+                                >
+                                    <img
+                                        src={item.src}
+                                        alt=""
+                                        className="absolute inset-0 size-full object-contain"
+                                    />
+                                </div>
+                                <p
+                                    className="pt-1 text-right text-[9px] font-semibold leading-[9px]"
+                                    style={{ color: "rgba(239,246,255,0.78)" }}
+                                >
+                                    {item.qty}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <p
+                        className="mt-auto pt-6 font-mono text-[8px] tracking-[0.8px] lg:pt-4"
+                        style={{ color: "rgba(142,156,175,0.52)" }}
+                    >
+                        <Link href="/terms-of-service" className="hover:text-[#ba9142]">
+                            TERMS OF SERVICE
+                        </Link>
+                        {" · "}
+                        <Link href="/privacy-policy" className="hover:text-[#ba9142]">
+                            PRIVACY POLICY
+                        </Link>
+                    </p>
+                </aside>
+
+                <div className="flex min-w-0 flex-1 flex-col px-6 py-8 sm:px-[54px] sm:pb-[28px] sm:pt-[31px]">
+                    <LinkedUsersCount />
+
+                    <div
+                        className="mt-[23px] flex items-start justify-between border-b pb-[9px]"
+                        style={{ borderColor: "rgba(148,171,195,0.13)" }}
+                    >
+                        <p className="font-mono text-[8px] tracking-[1.05px]" style={{ color: "rgba(159,172,192,0.58)" }}>
+                            ACCOUNT CONNECTION
+                        </p>
+                        <p className="font-mono text-[8px] tracking-[1.05px]" style={{ color: "#ba9142" }}>
+                            {statusLabel}
+                        </p>
+                    </div>
+
+                    <div className="flex w-full items-start pt-[22px]">
+                        <StepNode
+                            label="Steam"
+                            active={step === 0}
+                            complete={step > 0}
+                            icon={<img src="/images/social/steam.svg" alt="" className="size-[22px]" />}
+                        />
+                        <StepConnector filled={step >= 1} />
+                        <StepNode
+                            label="Discord"
+                            active={step === 1}
+                            complete={step > 1}
+                            icon={<DiscordIcon className="size-[22px] text-[#ecf3fc]" />}
+                        />
+                        <StepConnector filled={step >= 2} />
+                        <StepNode
+                            label="Done"
+                            active={step === 2}
+                            complete={step >= 2}
+                            icon={<CheckIcon className="size-[22px] text-[#ecf3fc]" strokeWidth={2.2} />}
+                        />
+                    </div>
+
+                    <div className="flex flex-col items-center gap-3 pt-8">
+                        {step === 0 && (
+                            <LinkCta onClick={() => signIn("steam")}>
+                                <img src="/images/social/steam.svg" alt="" className="size-5" />
+                                <span className="text-[12px] font-semibold leading-3">Sign in through Steam</span>
+                                <span className="link-cta-chevron">›</span>
+                            </LinkCta>
+                        )}
+
+                        {step === 1 && (
+                            <LinkCta
+                                disabled={isLinkingDiscord}
+                                onClick={() => {
+                                    setIsLinkingDiscord(true);
+                                    try {
+                                        window.location.href = "/api/link/discord/start";
+                                    } catch (error) {
+                                        console.error("Failed to start Discord linking:", error);
+                                        toast.error("Failed to start Discord linking. Please try again.");
+                                        setIsLinkingDiscord(false);
+                                    }
+                                }}
+                            >
+                                {isLinkingDiscord ? (
+                                    <Loader2 className="size-5 animate-spin text-[#ba9142]" />
+                                ) : (
+                                    <DiscordIcon className="size-5 text-[#ecf3fc]" />
+                                )}
+                                <span className="text-[12px] font-semibold leading-3">
+                                    {isLinkingDiscord ? "Redirecting to Discord…" : "Link Discord"}
+                                </span>
+                                <span className="link-cta-chevron">›</span>
+                            </LinkCta>
+                        )}
+
+                        {step === 2 && (
+                            <LinkCta href="/profile">
+                                <span className="text-[12px] font-semibold leading-3">Continue to profile</span>
+                                <span className="link-cta-chevron">›</span>
+                            </LinkCta>
+                        )}
+
+                        {user?.discordId ? (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="destructive"
-                                        size="lg"
-                                        className="w-full max-w-md"
+                                    <button
+                                        type="button"
+                                        className="ghost inline-flex items-center gap-1.5 pt-1 text-[11px] tracking-[0.4px]"
+                                        style={{ color: "rgba(232,160,163,0.86)" }}
                                         disabled={unlinkMutation.isPending}
                                     >
                                         {unlinkMutation.isPending ? (
-                                            <Loader2 className="animate-spin mr-2" />
+                                            <Loader2 className="size-3.5 animate-spin" />
                                         ) : (
-                                            <UnlinkIcon className="h-5 w-5 mr-2" />
+                                            <UnlinkIcon className="size-3.5" />
                                         )}
                                         Unlink Discord
-                                    </Button>
+                                    </button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -245,106 +417,94 @@ export default function AccountLinkStepper({ user, linkStatus }: LinkProps) {
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                        )}
+                        ) : null}
                     </div>
-                )}
-                {step === 2 && (
-                    <div className="flex flex-col items-center">
-                        <div className="mt-10 text-2xl text-green-500 font-bold mb-2">All accounts linked!</div>
-                        <div className="text-lg text-gray-400 mb-8">You&apos;re all set. Enjoy the full experience.</div>
-                        
-                        <div className="w-full max-w-md space-y-4">
-                            {isGroupEnabled && (
-                                <div className="bg-[#23232a] p-4 rounded-lg border border-green-500/20">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <SteamIcon className="w-5 h-5 text-green-500" />
-                                            <span className="font-semibold">Join Steam Group</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {user?.joinedSteamGroup ? (
-                                                <CheckIcon className="w-5 h-5 text-green-500" />
-                                            ) : (
-                                                <span className="text-sm text-gray-400">(Optional)</span>
-                                            )}
-                                            <Button
-                                                onClick={() => refreshMutation.mutate()}
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                                disabled={!user || refreshMutation.isPending}
-                                            >
-                                                {!refreshMutation.isPending ? (
-                                                    <RefreshCcwIcon className="h-4 w-4" />
-                                                ) : (
-                                                    <Loader2 className="animate-spin h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    {!user?.joinedSteamGroup ? (
-                                        <Button
-                                            asChild
-                                            size="lg"
-                                            className="bg-green-500 text-white hover:bg-green-600 w-full mt-3"
-                                        >
-                                            <a
-                                                href={settings?.steamGroupUrl ?? "#"}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Join Group
-                                            </a>
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            asChild
-                                            size="sm"
-                                            className="bg-green-500 text-white hover:bg-green-600"
-                                        >
-                                            <a
-                                                href={settings?.steamGroupUrl ?? "#"}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Join Group
-                                            </a>
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
 
-                            <div className="bg-[#23232a] rounded-xl border border-green-500/20 overflow-hidden">
-                                <div className="px-4 py-2">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-green-500/10 p-2 rounded-lg">
-                                                <StarIcon className="w-6 h-6 text-green-500" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-semibold text-lg">Boost Discord Server</h3>
-                                                <p className="text-sm text-gray-400">Support our community</p>
-                                            </div>
+                    {step === 2 ? (
+                        <div className="mt-6 grid w-full gap-3 sm:grid-cols-2">
+                            {isGroupEnabled ? (
+                                <div
+                                    className="border px-4 py-3"
+                                    style={{
+                                        borderColor: "rgba(255,255,255,0.1)",
+                                        backgroundColor: "rgba(7,10,14,0.4)",
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <SteamIcon className="h-4 w-7 text-[#ecf3fc]" />
+                                            <span className="text-[12px] font-semibold" style={{ color: "#ecf3fc" }}>
+                                                Steam group
+                                            </span>
                                         </div>
-                                        {user?.isBoosting ? (
-                                            <div className="flex items-center gap-2">
-                                                <CheckIcon className="w-5 h-5 text-green-500" />
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm text-gray-400">(Optional)</span>
-                                        )}
+                                        <div className="flex items-center gap-1.5">
+                                            {user?.joinedSteamGroup ? (
+                                                <CheckIcon className="size-4 text-[#81d875]" />
+                                            ) : (
+                                                <span className="font-mono text-[8px] tracking-[0.8px]" style={{ color: "rgba(159,172,192,0.58)" }}>
+                                                    OPTIONAL
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => refreshMutation.mutate()}
+                                                disabled={!user || refreshMutation.isPending}
+                                                className="ghost flex size-7 items-center justify-center border"
+                                                style={{ borderColor: "rgba(255,255,255,0.1)", color: "#c5d0de" }}
+                                            >
+                                                {refreshMutation.isPending ? (
+                                                    <Loader2 className="size-3.5 animate-spin" />
+                                                ) : (
+                                                    <RefreshCcwIcon className="size-3.5" />
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
-                                    {!user?.isBoosting && (
-                                        <p className="text-sm text-gray-400 mt-1">
-                                            Get exclusive perks and help our community grow
-                                        </p>
+                                    <a
+                                        href={settings?.steamGroupUrl ?? "#"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ghost mt-3 inline-flex h-8 items-center border px-3 text-[10px] font-bold tracking-[1.2px]"
+                                        style={{ borderColor: "rgba(186,145,66,0.6)", color: "#f0c970" }}
+                                    >
+                                        JOIN GROUP
+                                    </a>
+                                </div>
+                            ) : null}
+
+                            <div
+                                className="border px-4 py-3"
+                                style={{
+                                    borderColor: "rgba(255,255,255,0.1)",
+                                    backgroundColor: "rgba(7,10,14,0.4)",
+                                }}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <StarIcon className="size-4 text-[#ba9142]" />
+                                        <span className="text-[12px] font-semibold" style={{ color: "#ecf3fc" }}>
+                                            Boost Discord
+                                        </span>
+                                    </div>
+                                    {user?.isBoosting ? (
+                                        <CheckIcon className="size-4 text-[#81d875]" />
+                                    ) : (
+                                        <span className="font-mono text-[8px] tracking-[0.8px]" style={{ color: "rgba(159,172,192,0.58)" }}>
+                                            OPTIONAL
+                                        </span>
                                     )}
                                 </div>
+                                <p className="pt-2 text-[11px] leading-4" style={{ color: "#8292a6" }}>
+                                    {user?.isBoosting
+                                        ? "Thanks for boosting the server."
+                                        : "Support the community for extra perks."}
+                                </p>
                             </div>
                         </div>
-                    </div>
-                )}
+                    ) : null}
+                </div>
             </div>
-        </div>
+            <HomeCardCorners color="#ba9142" show />
+        </article>
     );
 }

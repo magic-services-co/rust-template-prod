@@ -4,21 +4,7 @@ import { redirect } from "next/navigation";
 import { backendApi } from "@/lib/api";
 import { LicenseRequiredBlock } from "@/components/license-required-block";
 import { UserLayoutClient } from "./user-layout-client";
-
-if (typeof UserLayoutClient === "undefined") {
-  throw new Error(
-    "[user layout] UserLayoutClient is undefined. Check that ./user-layout-client exports UserLayoutClient."
-  );
-}
-
-type LayoutThemeSettings = {
-  navLinkColor?: string;
-  navLinkHoverColor?: string;
-  navLinkActiveColor?: string;
-  logoImage?: string;
-  backgroundImage?: string;
-  backgroundOpacity?: number;
-};
+import type { LayoutTheme } from "@/lib/layout-theme-defaults";
 
 export const metadata = {};
 
@@ -93,7 +79,7 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
 
   const data = res.ok ? await res.json() : {};
   const navItems = Array.isArray(data.navigationItems) ? data.navigationItems : [];
-  const theme = data.themeSettings as LayoutThemeSettings | undefined;
+  const theme = data.themeSettings as LayoutTheme | undefined;
 
   const safeChildren = children ?? null;
 

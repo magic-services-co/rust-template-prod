@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ClientServerPageContentDynamic } from "@/components/server-page-content-dynamic";
+import { CustomPageView } from "@/components/cms/custom-page-view";
 import { backendApi } from "@/lib/api";
 
 export async function generateMetadata({
@@ -33,12 +33,5 @@ export default async function GeneralPage({
     const page = data.serverPage;
     if (!page || !page.enabled) notFound();
 
-    return (
-        <div className="container pt-40 pb-20">
-            <div className="max-w-4xl mx-auto">
-                <h1 className="text-4xl font-bold mb-4 text-center text-foreground">{page.title}</h1>
-                <ClientServerPageContentDynamic content={page.content} />
-            </div>
-        </div>
-    );
+    return <CustomPageView title={page.title} kicker="PAGE" content={page.content} />;
 }

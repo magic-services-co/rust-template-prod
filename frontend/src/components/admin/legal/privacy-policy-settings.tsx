@@ -34,17 +34,42 @@ const privacySectionSchema = z.object({
 type PrivacySectionFormData = z.infer<typeof privacySectionSchema>;
 
 const defaultSections: PrivacySection[] = [
-  { id: "introduction", title: "1. Introduction", content: "", order: 0 },
-  { id: "information-collection", title: "2. Information We Collect", content: "", order: 1 },
-  { id: "how-we-use", title: "3. How We Use Your Information", content: "", order: 2 },
-  { id: "information-sharing", title: "4. Information Sharing and Disclosure", content: "", order: 3 },
-  { id: "data-security", title: "5. Data Security", content: "", order: 4 },
-  { id: "cookies", title: "6. Cookies and Tracking Technologies", content: "", order: 5 },
-  { id: "third-party", title: "7. Third-Party Services", content: "", order: 6 },
-  { id: "your-rights", title: "8. Your Rights and Choices", content: "", order: 7 },
-  { id: "children-privacy", title: "9. Children's Privacy", content: "", order: 8 },
-  { id: "changes", title: "10. Changes to This Policy", content: "", order: 9 },
-  { id: "contact", title: "11. Contact Us", content: "", order: 10 },
+  {
+    id: "intro",
+    title: "Your data, clearly explained",
+    content: "We collect only what is needed to operate a fair, secure community and deliver the services you choose to use.",
+    order: 0,
+  },
+  {
+    id: "information-we-collect",
+    title: "Information we collect",
+    content: "We process platform identifiers associated with linked Steam or Discord accounts, purchase records, support messages, technical logs, and server activity needed to operate Magic Rust and enforce community rules.",
+    order: 1,
+  },
+  {
+    id: "how-we-use-information",
+    title: "How we use information",
+    content: "Information helps us provide server access, deliver store products, prevent cheating and abuse, answer support requests, measure service performance, and keep the community safe.",
+    order: 2,
+  },
+  {
+    id: "sharing-providers",
+    title: "Sharing & providers",
+    content: "We share information only where necessary with approved payment, hosting, analytics, anti-abuse, and moderation providers. We do not sell personal information or use it for unrelated advertising.",
+    order: 3,
+  },
+  {
+    id: "retention-security",
+    title: "Retention & security",
+    content: "Information is retained only while needed for service operations, fraud prevention, legal obligations, or dispute resolution. We use reasonable technical and organisational safeguards to protect information under our control.",
+    order: 4,
+  },
+  {
+    id: "your-rights-contact",
+    title: "Your rights & contact",
+    content: "You may request access, correction, or deletion of personal information by contacting support. Some information may remain where required by law or necessary to protect the community and enforce server restrictions.",
+    order: 5,
+  },
 ];
 
 export function PrivacyPolicySettings() {

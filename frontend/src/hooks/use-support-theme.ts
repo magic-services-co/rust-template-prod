@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { backendApi } from '@/lib/api';
 import { parsePageTheme } from '@/lib/parse-page-theme';
+import { usePageThemeDraft } from '@/hooks/use-page-theme-draft';
 
 async function fetchSupportTheme(): Promise<Record<string, unknown>> {
   const res = await fetch(backendApi('data?include=pageTheme:support'), {
@@ -22,8 +23,9 @@ export function useSupportTheme() {
     queryFn: fetchSupportTheme,
     staleTime: 60 * 1000,
   });
+  const draft = usePageThemeDraft('support');
   return {
-    data: query.data,
+    data: draft ?? query.data,
     isLoading: query.isLoading,
     error: query.error,
   };

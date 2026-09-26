@@ -5,25 +5,61 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { ColorPicker } from '@/components/admin/theme/color-picker';
+import { HomeThemeInspector } from '@/components/theme/home-theme-inspector';
+import { PageThemeInspector } from '@/components/theme/page-theme-inspector';
+import { LayoutChromeInspector } from '@/components/theme/layout-chrome-inspector';
+import { homeFieldByKey } from '@/lib/home-theme-defaults';
+import { layoutChromeFieldByKey, type LayoutChromeGroupId } from '@/lib/layout-chrome-defaults';
+import { ThemeEditorPagePicker } from '@/components/admin/theme/theme-editor-page-picker';
 import {
-  type ElementEdit,
-  buildDraftEditsCss,
+  THEME_EDITOR_CHROME_PAGES,
+  THEME_EDITOR_CORE_PAGES,
+  isChromeEditorPage,
+  mapCustomServerPages,
+  matchThemeEditorPage,
+  mergeThemeEditorPages,
+  withThemeEditorQuery,
+  type ThemeEditorPageOption,
+} from '@/lib/theme-editor-pages';
+import { getLivePageCatalog, resolveLivePageSlug } from '@/lib/live-page-theme';
+import {
   findBestSelectableElement,
   generateSelector,
-  getComponentType,
   isSelectableElement,
-  isTextEditable,
   pathnameToPageSlug,
-  rgbToHex,
 } from '@/components/theme/theme-editor-dom';
 
+function chromeTargetFromField(field: string | null): LayoutChromeGroupId | null {
+  const group = field ? layoutChromeFieldByKey(field)?.group : undefined;
+  if (group === 'footer' || group === 'nav' || group === 'account') return group;
+  return null;
+}
+
+function isUserMenuTarget(target: HTMLElement): boolean {
+  if (target.closest('.site-user-menu') || target.closest('.site-user-trigger')) return true;
+  const wrapper = target.closest('[data-radix-popper-content-wrapper]');
+  return Boolean(wrapper?.querySelector('.site-user-menu'));
+}
+
+function openUserMenu() {
+  requestAnimationFrame(() => {
+    const trigger = document.querySelector('.site-user-trigger') as HTMLElement | null;
+    if (trigger && !document.querySelector('.site-user-menu')) trigger.click();
+  });
+}
+
+function isEditorChrome(target: HTMLElement | null): boolean {
+  if (!target) return true;
+  if (isUserMenuTarget(target)) return false;
+  return Boolean(
+    target.closest('[data-live-site-editor-ui="true"]') ||
+      target.closest('[data-radix-popper-content-wrapper]') ||
+      target.closest('[data-radix-portal]'),
+  );
+}
+
 const CHROME_STYLE_ID = 'live-site-editor-chrome';
-const DRAFT_STYLE_ID = 'live-site-editor-draft';
 
 function LiveSiteEditorInner() {
   const searchParams = useSearchParams();
@@ -32,17 +68,36 @@ function LiveSiteEditorInner() {
   const active = searchParams.get('theme-editor') === 'true';
   const [allowed, setAllowed] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [unsavedEdits, setUnsavedEdits] = useState<Map<string, ElementEdit>>(new Map());
-  const [selected, setSelected] = useState<{
-    selector: string;
-    componentType: string;
-    type: 'text' | 'component';
-    text: string;
-    styles: Record<string, string>;
-  } | null>(null);
 
   const pageSlug = pathnameToPageSlug(pathname);
+  const liveSlug = resolveLivePageSlug(pathname, pageSlug);
+  const isHome = liveSlug === 'home';
+  const catalog = getLivePageCatalog(liveSlug);
   const clickListenerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const [hoverLabel, setHoverLabel] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [chromeTarget, setChromeTarget] = useState<LayoutChromeGroupId | null>(null);
+  const [editorPages, setEditorPages] = useState<ThemeEditorPageOption[]>([
+    ...THEME_EDITOR_CHROME_PAGES,
+    ...THEME_EDITOR_CORE_PAGES,
+  ]);
+  const currentEditorPage = chromeTarget
+    ? THEME_EDITOR_CHROME_PAGES.find((page) => page.slug === chromeTarget)
+    : matchThemeEditorPage(pathname, editorPages);
+
+  useEffect(() => {
+    if (allowed && active && panelOpen) {
+      document.documentElement.classList.add('site-editor-open');
+    } else {
+      document.documentElement.classList.remove('site-editor-open');
+    }
+    return () => document.documentElement.classList.remove('site-editor-open');
+  }, [allowed, active, panelOpen]);
+
+  useEffect(() => {
+    setActiveField(null);
+    setChromeTarget(null);
+  }, [liveSlug]);
 
   useEffect(() => {
     if (!active || pathname.startsWith('/admin')) return;
@@ -62,23 +117,50 @@ function LiveSiteEditorInner() {
     };
   }, [active, pathname]);
 
-  const applyDraftCss = useCallback(() => {
-    let style = document.getElementById(DRAFT_STYLE_ID) as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement('style');
-      style.id = DRAFT_STYLE_ID;
-      document.head.appendChild(style);
-    }
-    style.textContent = buildDraftEditsCss(pageSlug, unsavedEdits);
-  }, [pageSlug, unsavedEdits]);
-
   useEffect(() => {
-    if (!allowed || !active) return;
-    applyDraftCss();
-  }, [allowed, active, applyDraftCss]);
+    if (!allowed || !active || pathname.startsWith('/admin')) return;
+    let cancelled = false;
+    (async () => {
+      const token = getAuthToken();
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const r = await fetch(backendApi('admin/server-pages'), { credentials: 'include', headers });
+      if (!r.ok || cancelled) return;
+      const pages = await r.json();
+      if (cancelled) return;
+      setEditorPages([...THEME_EDITOR_CHROME_PAGES, ...mergeThemeEditorPages(mapCustomServerPages(pages))]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [allowed, active, pathname]);
+
+  const goToEditorPage = useCallback(
+    (page: ThemeEditorPageOption) => {
+      if (isChromeEditorPage(page)) {
+        const next = (page.slug === 'footer' || page.slug === 'account' ? page.slug : 'nav') as LayoutChromeGroupId;
+        setChromeTarget(next);
+        setActiveField(next === 'account' ? 'userMenuBackground' : null);
+        setPanelOpen(true);
+        requestAnimationFrame(() => {
+          if (next === 'footer') {
+            document.querySelector('.site-footer')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (next === 'account') openUserMenu();
+          }
+        });
+        return;
+      }
+      setChromeTarget(null);
+      if (page.path === pathname) return;
+      setActiveField(null);
+      router.push(withThemeEditorQuery(page.path));
+    },
+    [pathname, router],
+  );
 
   const exitEditor = useCallback(() => {
-    document.getElementById(DRAFT_STYLE_ID)?.remove();
     document.getElementById(CHROME_STYLE_ID)?.remove();
     document.querySelectorAll('.editor-selected, .editor-group-selected').forEach((el) => {
       el.classList.remove('editor-selected', 'editor-group-selected');
@@ -102,162 +184,123 @@ function LiveSiteEditorInner() {
       chrome = document.createElement('style');
       chrome.id = CHROME_STYLE_ID;
       chrome.textContent = `
-        .editor-selected { outline: 2px solid #52525b !important; outline-offset: 2px !important; }
-        .editor-group-selected { outline: 2px solid #10b981 !important; outline-offset: 2px !important; }
+        .editor-selected { outline: 2px solid #ba9142 !important; outline-offset: 3px !important; }
+        .theme-editor-hover { outline: 2px dashed rgba(186,145,66,0.9) !important; outline-offset: 3px !important; cursor: pointer !important; }
+        html.theme-editor-active, html.theme-editor-active * { cursor: default; }
       `;
       document.head.appendChild(chrome);
     }
 
+    document.documentElement.classList.add('theme-editor-active');
+
     const onDocClick = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (!t) return;
-      if (t.closest('[data-live-site-editor-ui="true"]')) return;
+      if (isEditorChrome(t)) return;
+      if (t.closest('[data-copy-chip="true"]')) return;
+
+      const inUserTrigger = Boolean(t.closest('.site-user-trigger'));
+      if (inUserTrigger) {
+        setChromeTarget('account');
+        setActiveField('userMenuBackground');
+        setPanelOpen(true);
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
 
-      let target = findBestSelectableElement(t);
-      if (target.tagName === 'A' || target.closest('a')) {
-        e.preventDefault();
-      }
+      const target = findBestSelectableElement(t);
       if (!isSelectableElement(target)) {
         toast.info('This element cannot be selected');
         return;
       }
 
-      document.querySelectorAll('.editor-selected, .editor-group-selected').forEach((el) => {
-        el.classList.remove('editor-selected', 'editor-group-selected');
+      document.querySelectorAll('.editor-selected').forEach((el) => {
+        el.classList.remove('editor-selected');
       });
 
-      const canEditText = isTextEditable(target);
-      const componentType = getComponentType(target);
-      const selector = generateSelector(target, e.shiftKey);
-
-      const isGroup = selector.startsWith('.');
-      if (isGroup) {
-        document.querySelectorAll(selector).forEach((el) => el.classList.add('editor-group-selected'));
+      const themeField = target.getAttribute('data-theme-field');
+      const inFooter = Boolean(target.closest('.site-footer'));
+      const inUserMenu = Boolean(target.closest('.site-user-menu') || target.closest('.site-user-trigger'));
+      const inHeader = Boolean(target.closest('.site-header'));
+      if (inFooter) {
+        setChromeTarget('footer');
+      } else if (inUserMenu) {
+        setChromeTarget('account');
+      } else if (inHeader) {
+        setChromeTarget('nav');
       } else {
-        target.classList.add('editor-selected');
+        setChromeTarget(chromeTargetFromField(themeField));
       }
 
-      const computed = window.getComputedStyle(target);
-      const styles: Record<string, string> = {
-        backgroundColor: rgbToHex(computed.backgroundColor || ''),
-        color: rgbToHex(computed.color || ''),
-        borderColor: rgbToHex(computed.borderColor || ''),
-      };
+      if (themeField) {
+        setActiveField(themeField);
+        target.classList.add('editor-selected');
+        setPanelOpen(true);
+        return;
+      }
 
-      setSelected({
-        selector,
-        componentType,
-        type: canEditText ? 'text' : 'component',
-        text: canEditText ? target.textContent || '' : '',
-        styles,
-      });
+      const themed = target.closest('[data-theme-field]') as HTMLElement | null;
+      if (themed) {
+        const field = themed.getAttribute('data-theme-field');
+        if (field) setActiveField(field);
+        const inFooter = Boolean(themed.closest('.site-footer'));
+        const inUserMenu = Boolean(themed.closest('.site-user-menu') || themed.closest('.site-user-trigger'));
+        const inHeader = Boolean(themed.closest('.site-header'));
+        if (inFooter) {
+          setChromeTarget('footer');
+        } else if (inUserMenu) {
+          setChromeTarget('account');
+        } else if (inHeader) {
+          setChromeTarget('nav');
+        } else {
+          setChromeTarget(chromeTargetFromField(field));
+        }
+        themed.classList.add('editor-selected');
+        setPanelOpen(true);
+        return;
+      }
+
+      generateSelector(target);
       setPanelOpen(true);
+    };
+
+    const onMouseOver = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t || isEditorChrome(t)) {
+        setHoverLabel(null);
+        return;
+      }
+      const themed = t.closest('[data-theme-field]') as HTMLElement | null;
+      document.querySelectorAll('.theme-editor-hover').forEach((el) => el.classList.remove('theme-editor-hover'));
+      if (!themed) {
+        setHoverLabel(null);
+        return;
+      }
+      themed.classList.add('theme-editor-hover');
+      setHoverLabel({
+        text: themed.getAttribute('data-theme-label') || themed.getAttribute('data-theme-field') || 'Edit',
+        x: e.clientX,
+        y: e.clientY,
+      });
     };
 
     clickListenerRef.current = onDocClick;
     document.addEventListener('click', onDocClick, true);
+    document.addEventListener('mouseover', onMouseOver, true);
 
     return () => {
       document.removeEventListener('click', onDocClick, true);
+      document.removeEventListener('mouseover', onMouseOver, true);
       clickListenerRef.current = null;
+      document.documentElement.classList.remove('theme-editor-active');
       document.getElementById(CHROME_STYLE_ID)?.remove();
-      document.getElementById(DRAFT_STYLE_ID)?.remove();
-      document.querySelectorAll('.editor-selected, .editor-group-selected').forEach((el) => {
-        el.classList.remove('editor-selected', 'editor-group-selected');
+      document.querySelectorAll('.editor-selected, .theme-editor-hover').forEach((el) => {
+        el.classList.remove('editor-selected', 'theme-editor-hover');
       });
     };
   }, [allowed, active, pathname]);
-
-  const updateStyle = (prop: string, value: string) => {
-    if (!selected) return;
-    const key = `${pageSlug}_${selected.selector}`;
-    setUnsavedEdits((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(key);
-      const styles = { ...(existing?.styles || {}), [prop]: value };
-      const hasText = existing?.content !== undefined && existing?.content !== null;
-      const edit: ElementEdit = {
-        id: key,
-        pageSlug,
-        selector: selected.selector,
-        editType: hasText || existing?.editType === 'text' ? 'text' : 'style',
-        content: existing?.content,
-        styles,
-      };
-      next.set(key, edit);
-      return next;
-    });
-    setSelected((s) => (s ? { ...s, styles: { ...s.styles, [prop]: value } } : null));
-
-    try {
-      document.querySelectorAll(selected.selector).forEach((el) => {
-        const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
-        (el as HTMLElement).style.setProperty(cssProp, value, 'important');
-      });
-    } catch {
-      // invalid selector
-    }
-  };
-
-  const updateText = (text: string) => {
-    if (!selected) return;
-    const key = `${pageSlug}_${selected.selector}`;
-    setSelected((s) => (s ? { ...s, text } : null));
-    setUnsavedEdits((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(key);
-      const edit: ElementEdit = {
-        id: key,
-        pageSlug,
-        selector: selected.selector,
-        editType: 'text',
-        content: text,
-        styles: existing?.styles,
-      };
-      next.set(key, edit);
-      return next;
-    });
-    try {
-      document.querySelectorAll(selected.selector).forEach((el) => {
-        (el as HTMLElement).textContent = text;
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleSave = async () => {
-    if (unsavedEdits.size === 0) {
-      toast.message('No changes to save');
-      return;
-    }
-    const token = getAuthToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const edits = Array.from(unsavedEdits.values());
-    const results = await Promise.all(
-      edits.map((edit) =>
-        fetch(backendApi('admin/page-elements'), {
-          method: 'POST',
-          credentials: 'include',
-          headers,
-          body: JSON.stringify(edit),
-        })
-      )
-    );
-    const failed = results.filter((r) => !r.ok).length;
-    if (failed > 0) {
-      toast.error(`Failed to save ${failed} edit(s)`);
-      return;
-    }
-    toast.success(`Saved ${edits.length} change(s)`);
-    setUnsavedEdits(new Map());
-    document.getElementById(DRAFT_STYLE_ID)?.remove();
-    router.refresh();
-  };
 
   if (!active || pathname.startsWith('/admin')) return null;
   if (typeof window !== 'undefined' && window.self !== window.top) return null;
@@ -277,30 +320,55 @@ function LiveSiteEditorInner() {
     );
   }
 
+  const isChrome = isChromeEditorPage(currentEditorPage);
+  const panelTitle = isChrome
+    ? currentEditorPage?.slug === 'footer'
+      ? 'Customize footer'
+      : currentEditorPage?.slug === 'account'
+        ? 'Customize profile dropdown'
+        : 'Customize navigation'
+    : isHome
+      ? 'Customize home'
+      : catalog
+        ? `Customize ${catalog.label.toLowerCase()}`
+        : 'Customize page';
+
   return (
     <>
+      {hoverLabel ? (
+        <div
+          data-live-site-editor-ui="true"
+          className="pointer-events-none fixed z-[9999] rounded-md bg-[#0a0e13] px-2 py-1 text-[11px] font-medium tracking-wide text-[#f0c970] shadow-lg"
+          style={{ left: hoverLabel.x + 12, top: hoverLabel.y + 12 }}
+        >
+          {hoverLabel.text}
+        </div>
+      ) : null}
+
       <div
-        className="fixed bottom-0 left-0 right-0 z-[9998] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg"
+        className="fixed bottom-0 left-0 right-0 z-[9998] border-t bg-background/95 backdrop-filter supports-[backdrop-filter]:bg-background/80 shadow-lg"
         data-live-site-editor-ui="true"
       >
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 max-w-screen-2xl mx-auto">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-medium truncate">Site editor</span>
-            {unsavedEdits.size > 0 && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                {unsavedEdits.size} unsaved
+            <ThemeEditorPagePicker
+              pages={editorPages}
+              selectedSlug={currentEditorPage?.slug ?? pageSlug}
+              onSelect={goToEditorPage}
+            />
+            {activeField ? (
+              <span className="text-xs text-muted-foreground truncate max-w-[28vw]">
+                {isChrome
+                  ? layoutChromeFieldByKey(activeField)?.label || activeField
+                  : isHome
+                    ? homeFieldByKey(activeField)?.label || activeField
+                    : activeField}
               </span>
-            )}
-            {selected && (
-              <span className="text-xs text-muted-foreground truncate max-w-[40vw]">{selected.selector}</span>
-            )}
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setPanelOpen((o) => !o)}>
               {panelOpen ? 'Hide panel' : 'Show panel'}
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={handleSave}>
-              Save changes
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={exitEditor}>
               Exit editor
@@ -309,63 +377,44 @@ function LiveSiteEditorInner() {
         </div>
       </div>
 
-      <Sheet open={panelOpen} onOpenChange={setPanelOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md overflow-y-auto"
+      {panelOpen ? (
+        <aside
           data-live-site-editor-ui="true"
+          className="fixed bottom-14 right-0 top-0 z-[190] flex w-full max-w-[420px] flex-col border-l border-border bg-background p-5 shadow-2xl"
         >
-          <SheetHeader>
-            <SheetTitle>Selected element</SheetTitle>
-          </SheetHeader>
-          {!selected ? (
-            <p className="text-sm text-muted-foreground mt-4">
-              Click any part of the page to select it. Hold Shift while clicking to use a class-based selection when
-              available. Theme colors and typography are in Admin → Theme Editor.
-            </p>
-          ) : (
-            <div className="mt-6 space-y-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Type</p>
-                <p className="text-sm capitalize">{selected.componentType}</p>
-              </div>
-              {selected.type === 'text' && (
-                <div className="space-y-2">
-                  <Label>Text</Label>
-                  <Textarea value={selected.text} onChange={(e) => updateText(e.target.value)} rows={4} />
-                </div>
-              )}
-              <div className="space-y-3">
-                <Label>Quick styles</Label>
-                <ColorPicker label="Text" value={selected.styles.color || '#000000'} onChange={(v) => updateStyle('color', v)} />
-                <ColorPicker
-                  label="Background"
-                  value={selected.styles.backgroundColor || '#000000'}
-                  onChange={(v) => updateStyle('backgroundColor', v)}
-                />
-                <ColorPicker
-                  label="Border"
-                  value={selected.styles.borderColor || '#000000'}
-                  onChange={(v) => updateStyle('borderColor', v)}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  document.querySelectorAll('.editor-selected, .editor-group-selected').forEach((el) => {
-                    el.classList.remove('editor-selected', 'editor-group-selected');
-                  });
-                  setSelected(null);
-                }}
-              >
-                Clear selection
-              </Button>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold">{panelTitle}</p>
+              <p className="text-xs text-muted-foreground">Click the page or edit the fields.</p>
             </div>
-          )}
-        </SheetContent>
-      </Sheet>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setPanelOpen(false)}>
+              Hide
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {isChrome ? (
+              <LayoutChromeInspector
+                focusGroup={
+                  currentEditorPage?.slug === 'footer' || currentEditorPage?.slug === 'account'
+                    ? currentEditorPage.slug
+                    : 'nav'
+                }
+                activeField={activeField}
+                onActiveFieldChange={setActiveField}
+              />
+            ) : isHome ? (
+              <HomeThemeInspector activeField={activeField} onActiveFieldChange={setActiveField} />
+            ) : (
+              <PageThemeInspector
+                key={liveSlug}
+                slug={liveSlug}
+                activeField={activeField}
+                onActiveFieldChange={setActiveField}
+              />
+            )}
+          </div>
+        </aside>
+      ) : null}
     </>
   );
 }

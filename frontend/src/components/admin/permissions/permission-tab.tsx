@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { permissions, PermissionCategory, Permission } from "@/lib/roles";
 import { Role } from "@/types/user";
@@ -84,22 +83,11 @@ export function PermissionTab({ role }: PermissionTabProps) {
     };
 
     return (
-        <ScrollArea className="h-[calc(100vh-13rem)] mt-4 pr-4">
-            <div className="space-y-8">
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pr-3 pb-4">
                 {role.canManage === false && (
                     <div className="rounded-md bg-muted/50 border border-border p-3 text-sm text-muted-foreground">
                         You cannot edit this role&apos;s permissions. You can only manage roles below your highest role.
-                    </div>
-                )}
-                {hasPermissionsChanged && role.canManage !== false && (
-                    <div className="flex justify-end">
-                        <Button
-                            className=""
-                            onClick={handleSaveChanges}
-                            disabled={updatePermissionsMutation.isPending}
-                        >
-                            {updatePermissionsMutation.isPending ? 'Saving...' : 'Save Changes'}
-                        </Button>
                     </div>
                 )}
                 {Object.entries(groupedPermissions).map(([category, categoryPermissions]) => (
@@ -122,17 +110,14 @@ export function PermissionTab({ role }: PermissionTabProps) {
                     </div>
                 ))}
             </div>
-            {hasPermissionsChanged && role.canManage !== false && (
-                <div className="flex justify-end pb-4">
-                    <Button
-                        className="mt-4"
-                        onClick={handleSaveChanges}
-                        disabled={updatePermissionsMutation.isPending}
-                    >
-                        {updatePermissionsMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                </div>
-            )}
-        </ScrollArea>
+            <div className="flex shrink-0 justify-end border-t bg-card pt-4">
+                <Button
+                    onClick={handleSaveChanges}
+                    disabled={updatePermissionsMutation.isPending || role.canManage === false || !hasPermissionsChanged}
+                >
+                    {updatePermissionsMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+            </div>
+        </div>
     );
 }

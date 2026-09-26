@@ -1,28 +1,31 @@
 "use client";
 
 import { useSupportTheme } from "@/hooks/use-support-theme";
-import { withUserDefaults } from "@/lib/user-theme-defaults";
+import { withSupportDefaults } from "@/lib/layout-theme-defaults";
 
 interface SupportThemeProviderProps {
-    children: React.ReactNode;
-    serverTheme?: any;
+  children: React.ReactNode;
+  serverTheme?: Record<string, unknown>;
 }
 
 export function SupportThemeProvider({ children, serverTheme }: SupportThemeProviderProps) {
-    const { data: clientTheme } = useSupportTheme();
-    
-    const theme = withUserDefaults(clientTheme || serverTheme);
-    
-    return (
-        <div 
-            className="min-h-screen"
-            style={{ 
-                backgroundColor: theme?.backgroundColor ?? "transparent",
-                backdropFilter: theme?.blurIntensity ? `blur(${theme.blurIntensity * 10}px)` : undefined,
-                transition: "all 0.3s ease-in-out",
-            }}
-        >
-            {children}
-        </div>
-    );
+  const { data: clientTheme } = useSupportTheme();
+  const theme = withSupportDefaults(clientTheme || serverTheme);
+
+  const surface =
+    !theme.backgroundColor || theme.backgroundColor === "transparent"
+      ? "#05070a"
+      : theme.backgroundColor;
+
+  return (
+    <div
+      className="flex flex-1 flex-col"
+      style={{
+        backgroundColor: surface,
+        backdropFilter: theme.blurIntensity ? `blur(${theme.blurIntensity * 10}px)` : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
 }

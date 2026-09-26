@@ -20,10 +20,24 @@ if [[ ! -d "$ROOT/.git" ]]; then
   exit 1
 fi
 
-echo "Fetching and merging origin/${BRANCH}…"
+REMOTE_URL="$(git remote get-url origin 2>/dev/null || true)"
+if [[ "$REMOTE_URL" == *rust-template-source* ]]; then
+  echo "This checkout is the private source repo. Run update on a rust-template-prod install." >&2
+  exit 1
+fi
+
+echo "Fetching origin/${BRANCH}…"
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull origin "$BRANCH"
+
+if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+  git checkout "$BRANCH"
+else
+  git checkout -B "$BRANCH" "origin/${BRANCH}"
+fi
+
+# Discard local edits to shipped files (do not stash or commit them).
+echo "Resetting to origin/${BRANCH}…"
+git reset --hard "origin/${BRANCH}"
 
 if [[ -f "$ROOT/backend/composer.json" ]]; then
   echo "composer install (backend)…"

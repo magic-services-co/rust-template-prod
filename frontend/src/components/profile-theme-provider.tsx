@@ -6,10 +6,10 @@ import { withUserDefaults } from "@/lib/user-theme-defaults";
 
 interface ProfileThemeProviderProps {
     children: React.ReactNode;
-    serverTheme?: any;
+    serverTheme?: Record<string, unknown>;
 }
 
-const ProfileThemeContext = createContext<any>(null);
+const ProfileThemeContext = createContext<ReturnType<typeof withUserDefaults> | null>(null);
 
 export function ProfileThemeProvider({ children, serverTheme }: ProfileThemeProviderProps) {
     const { data: clientTheme } = useProfileTheme();
@@ -19,29 +19,9 @@ export function ProfileThemeProvider({ children, serverTheme }: ProfileThemeProv
             : serverTheme
     );
 
-    const backgroundStyle = theme.backgroundColor && theme.backgroundColor !== "transparent" ? {
-        backgroundColor: theme.backgroundColor,
-        backgroundImage: theme.backgroundColor.includes("gradient") ? theme.backgroundColor : undefined,
-    } : {};
-
-    const blurStyle = theme.blurIntensity != null && Number.isFinite(theme.blurIntensity) ? {
-        backdropFilter: `blur(${theme.blurIntensity * 10}px)`,
-        WebkitBackdropFilter: `blur(${theme.blurIntensity * 10}px)`,
-    } : {};
-
     return (
         <ProfileThemeContext.Provider value={theme}>
-            <div 
-                className="min-h-screen transition-colors duration-300"
-                style={backgroundStyle}
-            >
-                <div 
-                    className="min-h-screen transition-all duration-300"
-                    style={blurStyle}
-                >
-                    {children}
-                </div>
-            </div>
+            {children}
         </ProfileThemeContext.Provider>
     );
 }
