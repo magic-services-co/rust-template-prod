@@ -96,7 +96,7 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                 </DialogTrigger>
             ) : null}
             <DialogContent
-                className="store-dialog relative flex max-h-[85vh] w-[calc(100%-2rem)] max-w-[760px] flex-col gap-0 overflow-visible border p-0 shadow-[0px_18px_35px_0px_rgba(0,0,0,0.45)] sm:rounded-none"
+                className="store-dialog flex max-h-[85vh] w-[calc(100%-2rem)] max-w-[760px] flex-col gap-0 overflow-visible border p-0 shadow-[0px_18px_35px_0px_rgba(0,0,0,0.45)] sm:rounded-none"
                 style={{
                     backgroundColor: t.sidebarBackground,
                     borderColor: t.sidebarBorder,
@@ -112,6 +112,7 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                     ["--store-dialog-close" as string]: t.sidebarTextColor,
                 }}
             >
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-visible">
                 <div className="flex items-center justify-between px-5 py-3 pr-12">
                     <p className="store-hero-kicker text-[9px] font-bold tracking-[1.62px]">PACKAGE DETAILS</p>
                     {countdown ? (
@@ -171,6 +172,7 @@ export function ProductDialog({ product, trigger, isOpen, setIsOpen, theme }: Pr
                     </div>
                 </div>
                 <HomeCardCorners color="var(--store-pack-accent, #ba9142)" show />
+                </div>
             </DialogContent>
         </Dialog>
     );
