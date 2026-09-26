@@ -1,21 +1,16 @@
 {
-  "version": "2.2.0",
-  "releasedAt": "2026-09-25",
+  "version": "2.2.1",
+  "releasedAt": "2026-09-26",
   "notes": [
-    "Public pages now match the Support and Store look: gold tokens, square cards, and gold L-bracket corners on home, store, support, tickets, profile, bans, linking, maps, servers, leaderboard, and error pages.",
-    "The live theme editor can switch pages (including custom server pages) and customize navigation, the profile photo dropdown, and the footer.",
-    "PayNow paid ranks, wipe automations, and authenticated BattleMetrics requests from 2.1.0 are included for sites still on 2.0."
+    "Template update now hard-resets to Production, finds Composer outside PATH, and skips composer install when vendor is already shipped so Run update can finish on typical servers.",
+    "Profile subscriptions and orders type-check so npm run build no longer fails during update.",
+    "Mobile navigation matches the restyled header: gold menu button, square panel, and the same account block as desktop."
   ],
   "added": [
-    "Live editor controls for nav, profile dropdown, and footer, saved on the layout page theme and global theme settings.",
-    "Cookie preferences banner and modal in the same site style, with one shared consent store.",
-    "PayNow webhook, checkout return, admin gift, and Recheck roles grant or revoke mapped site roles, then sync Discord and Oxide groups.",
-    "Admin → Automation: schedule, map-vote-end, and map-start workflows with power, RCON, delay, and apply-map-winner steps."
+    "Restyled mobile nav with gold L-corners, MENU links, and Sign in / profile actions."
   ],
   "changed": [
-    "Default public theme colors, logo, and legal pages follow the gold-on-dark shell.",
-    "Leaderboard no longer includes the event map section.",
-    "Template self-update refuses to run against the private source remote and hard-resets to origin so installs apply the shipped tree.",
-    "Every BattleMetrics API call sends the stored Bearer token."
+    "Theme and page-element stylesheets load from same-origin /api so browsers stop asking to reach localhost apps.",
+    "Self-update looks for Composer in /usr/local/bin and ~/.local/bin before failing."
   ]
 }

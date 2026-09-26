@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { backendApi } from '@/lib/api';
 import { getAuthToken } from '@/lib/laravel-auth';
+import type { Order, Subscription } from '@/types/store';
 
 export type NavLink = {
   node_id: string;
@@ -236,7 +237,7 @@ export function useOrders() {
       const res = await fetch(backendApi('store/orders'), { headers: authHeaders(), credentials: 'include' });
       if (!res.ok) return [];
       const data = await res.json();
-      return Array.isArray(data?.data) ? data.data : [];
+      return Array.isArray(data?.data) ? (data.data as Order[]) : [];
     },
     staleTime: 60 * 1000,
   });
@@ -246,11 +247,11 @@ export function useOrders() {
 export function useSubscriptions() {
   const query = useQuery({
     queryKey: ['storefront', 'subscriptions'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Subscription[]> => {
       const res = await fetch(backendApi('store/subscriptions'), { headers: authHeaders(), credentials: 'include' });
       if (!res.ok) return [];
       const data = await res.json();
-      return Array.isArray(data?.data) ? data.data : [];
+      return Array.isArray(data?.data) ? (data.data as Subscription[]) : [];
     },
     staleTime: 60 * 1000,
   });

@@ -204,7 +204,7 @@ export default function Subscriptions({ serverTheme }: SubscriptionsProps) {
 
     const filtered = React.useMemo(() => {
         const q = search.trim().toLowerCase()
-        const rows = isSuccess ? subscriptions : []
+        const rows: Subscription[] = isSuccess ? subscriptions ?? [] : []
         return rows.filter((row) => {
             const status = String(row.status ?? "").toLowerCase()
             if (statusFilter !== "all" && status !== statusFilter) return false

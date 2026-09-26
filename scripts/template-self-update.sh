@@ -39,9 +39,42 @@ fi
 echo "Resetting to origin/${BRANCH}…"
 git reset --hard "origin/${BRANCH}"
 
+resolve_bin() {
+  local name="$1"
+  shift
+  local candidate
+  for candidate in "$@"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  candidate="$(command -v "$name" 2>/dev/null || true)"
+  if [[ -n "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  return 1
+}
+
+COMPOSER_BIN="$(resolve_bin composer \
+  "${COMPOSER:-}" \
+  "${HOME}/.local/bin/composer" \
+  /root/.local/bin/composer \
+  /usr/local/bin/composer \
+  /usr/bin/composer \
+  || true)"
+
 if [[ -f "$ROOT/backend/composer.json" ]]; then
-  echo "composer install (backend)…"
-  (cd "$ROOT/backend" && composer install --no-dev --optimize-autoloader --no-interaction)
+  if [[ -n "$COMPOSER_BIN" ]]; then
+    echo "composer install (backend)…"
+    (cd "$ROOT/backend" && "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction)
+  elif [[ -f "$ROOT/backend/vendor/autoload.php" ]]; then
+    echo "composer not on PATH; shipped vendor/ is present, skipping composer install."
+  else
+    echo "composer is not installed (try: curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer)." >&2
+    exit 1
+  fi
 fi
 
 if [[ -f "$ROOT/backend/artisan" ]]; then
@@ -51,9 +84,19 @@ if [[ -f "$ROOT/backend/artisan" ]]; then
   php "$ROOT/backend/artisan" cache:clear
 fi
 
+NPM_BIN="$(resolve_bin npm \
+  "${NPM:-}" \
+  /usr/local/bin/npm \
+  /usr/bin/npm \
+  || true)"
+
 if [[ -f "$ROOT/frontend/package.json" ]]; then
+  if [[ -z "$NPM_BIN" ]]; then
+    echo "npm is not installed." >&2
+    exit 1
+  fi
   echo "npm ci && npm run build (frontend)…"
-  (cd "$ROOT/frontend" && npm ci && npm run build)
+  (cd "$ROOT/frontend" && "$NPM_BIN" ci && "$NPM_BIN" run build)
 fi
 
 echo "Self-update finished."

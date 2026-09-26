@@ -42,6 +42,10 @@ function isUserMenuTarget(target: HTMLElement): boolean {
   return Boolean(wrapper?.querySelector('.site-user-menu'));
 }
 
+function isMobileNavTarget(target: HTMLElement): boolean {
+  return Boolean(target.closest('.site-mobile-nav') || target.closest('.site-mobile-trigger'));
+}
+
 function openUserMenu() {
   requestAnimationFrame(() => {
     const trigger = document.querySelector('.site-user-trigger') as HTMLElement | null;
@@ -51,7 +55,7 @@ function openUserMenu() {
 
 function isEditorChrome(target: HTMLElement | null): boolean {
   if (!target) return true;
-  if (isUserMenuTarget(target)) return false;
+  if (isUserMenuTarget(target) || isMobileNavTarget(target)) return false;
   return Boolean(
     target.closest('[data-live-site-editor-ui="true"]') ||
       target.closest('[data-radix-popper-content-wrapper]') ||
@@ -206,6 +210,13 @@ function LiveSiteEditorInner() {
         setPanelOpen(true);
         return;
       }
+      const inMobileTrigger = Boolean(t.closest('.site-mobile-trigger'));
+      if (inMobileTrigger) {
+        setChromeTarget('nav');
+        setActiveField('navLinkColor');
+        setPanelOpen(true);
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
@@ -223,13 +234,14 @@ function LiveSiteEditorInner() {
       const themeField = target.getAttribute('data-theme-field');
       const inFooter = Boolean(target.closest('.site-footer'));
       const inUserMenu = Boolean(target.closest('.site-user-menu') || target.closest('.site-user-trigger'));
+      const inMobileNav = Boolean(target.closest('.site-mobile-nav') || target.closest('.site-mobile-trigger'));
       const inHeader = Boolean(target.closest('.site-header'));
       if (inFooter) {
         setChromeTarget('footer');
       } else if (inUserMenu) {
         setChromeTarget('account');
-      } else if (inHeader) {
-        setChromeTarget('nav');
+      } else if (inMobileNav || inHeader) {
+        setChromeTarget(chromeTargetFromField(themeField) || 'nav');
       } else {
         setChromeTarget(chromeTargetFromField(themeField));
       }
@@ -247,13 +259,14 @@ function LiveSiteEditorInner() {
         if (field) setActiveField(field);
         const inFooter = Boolean(themed.closest('.site-footer'));
         const inUserMenu = Boolean(themed.closest('.site-user-menu') || themed.closest('.site-user-trigger'));
+        const inMobileNav = Boolean(themed.closest('.site-mobile-nav') || themed.closest('.site-mobile-trigger'));
         const inHeader = Boolean(themed.closest('.site-header'));
         if (inFooter) {
           setChromeTarget('footer');
         } else if (inUserMenu) {
           setChromeTarget('account');
-        } else if (inHeader) {
-          setChromeTarget('nav');
+        } else if (inMobileNav || inHeader) {
+          setChromeTarget(chromeTargetFromField(field) || 'nav');
         } else {
           setChromeTarget(chromeTargetFromField(field));
         }

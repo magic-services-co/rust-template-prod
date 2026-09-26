@@ -151,7 +151,7 @@ export default function Transactions({ serverTheme: _serverTheme }: Transactions
 
     const filtered = React.useMemo(() => {
         const q = search.trim().toLowerCase()
-        const rows = orderHistory.isSuccess ? orderHistory.data : []
+        const rows: Order[] = orderHistory.isSuccess ? orderHistory.data ?? [] : []
         return rows.filter((order) => {
             const status = String(order.status ?? "").toLowerCase()
             if (statusFilter !== "all" && status !== statusFilter) return false

@@ -123,8 +123,8 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href={faviconUrl} />
-        <link rel="stylesheet" href={`${backendApi("admin/theme/styles")}?v=${timestamp}`} />
-        <link rel="stylesheet" href={`${backendApi("admin/page-elements/styles")}?v=${timestamp}`} />
+        <link rel="stylesheet" href={`/api/admin/theme/styles?v=${timestamp}`} />
+        <link rel="stylesheet" href={`/api/admin/page-elements/styles?v=${timestamp}`} />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ClientThemeInjector />
