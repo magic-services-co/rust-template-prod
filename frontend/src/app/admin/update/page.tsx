@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { backendApi } from "@/lib/api";
 import { getAuthToken } from "@/lib/laravel-auth";
@@ -11,6 +12,16 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type UpdateStatus = {
+  running?: boolean;
+  pid?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  exitCode?: number | null;
+  ok?: boolean;
+  log?: string;
+};
 
 type ReleasePayload = {
   currentVersion?: string;
@@ -26,6 +37,7 @@ type ReleasePayload = {
   latestRemoved?: string[];
   manifestUrl?: string;
   autoUpdateTemplate?: boolean;
+  update?: UpdateStatus;
 };
 
 function ChangelogSection({
@@ -52,6 +64,8 @@ function ChangelogSection({
 
 export default function AdminUpdatePage() {
   const queryClient = useQueryClient();
+  const logRef = useRef<HTMLPreElement>(null);
+  const wasRunning = useRef(false);
 
   const releaseQuery = useQuery({
     queryKey: ["admin", "system", "release"],
@@ -64,6 +78,40 @@ export default function AdminUpdatePage() {
       return (await res.json()) as ReleasePayload;
     },
   });
+
+  const statusQuery = useQuery({
+    queryKey: ["admin", "system", "update-status"],
+    queryFn: async (): Promise<UpdateStatus> => {
+      const res = await fetch(backendApi("admin/system/update"), {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) throw new Error("status");
+      return (await res.json()) as UpdateStatus;
+    },
+    refetchInterval: (query) => (query.state.data?.running ? 1500 : false),
+  });
+
+  const status = statusQuery.data;
+  const running = !!status?.running;
+
+  useEffect(() => {
+    if (running) wasRunning.current = true;
+    if (wasRunning.current && status && !running) {
+      wasRunning.current = false;
+      if (status.ok) {
+        toast.success("Update finished.");
+      } else {
+        toast.error(status.exitCode != null ? `Update failed (exit ${status.exitCode}).` : "Update failed.");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["admin", "system", "release"] });
+    }
+  }, [running, status, queryClient]);
+
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [status?.log]);
 
   const autoMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -105,14 +153,11 @@ export default function AdminUpdatePage() {
       if (!res.ok) {
         throw new Error((body as { message?: string }).message ?? "Update failed");
       }
-      return body as { output?: string };
+      return body as { message?: string };
     },
-    onSuccess: (data) => {
-      toast.success("Update finished.");
-      if (data.output) {
-        toast.message("Output", { description: data.output.slice(0, 2000) });
-      }
-      void queryClient.invalidateQueries({ queryKey: ["admin", "system", "release"] });
+    onSuccess: () => {
+      toast.message("Update started. Live log is below — you can refresh this page.");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "system", "update-status"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -123,6 +168,7 @@ export default function AdminUpdatePage() {
     (r?.latestAdded?.length ?? 0) > 0 ||
     (r?.latestChanged?.length ?? 0) > 0 ||
     (r?.latestRemoved?.length ?? 0) > 0;
+  const showLog = running || Boolean(status?.log);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -204,15 +250,34 @@ export default function AdminUpdatePage() {
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              disabled={updateMutation.isPending || !r?.updateAvailable || !!r?.manifestFetchError}
+              disabled={updateMutation.isPending || running || !r?.updateAvailable || !!r?.manifestFetchError}
               onClick={() => updateMutation.mutate()}
             >
-              {updateMutation.isPending ? "Running update…" : "Run update now"}
+              {running || updateMutation.isPending ? "Running update…" : "Run update now"}
             </Button>
-            {!r?.updateAvailable && !r?.manifestFetchError && (
+            {running && (
+              <p className="text-muted-foreground text-xs">
+                Update is running in the background. You can refresh this page — the log will keep updating.
+              </p>
+            )}
+            {!running && !r?.updateAvailable && !r?.manifestFetchError && (
               <p className="text-muted-foreground text-xs">Already on the latest published version.</p>
             )}
           </div>
+
+          {showLog && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {running ? "Live output" : "Last update output"}
+              </p>
+              <pre
+                ref={logRef}
+                className="bg-muted/50 max-h-80 overflow-auto rounded-md border border-border/60 p-3 font-mono text-[11px] leading-5 whitespace-pre-wrap"
+              >
+                {status?.log?.trim() ? status.log : "Waiting for output…"}
+              </pre>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,12 +1,14 @@
 {
-  "version": "2.2.6",
+  "version": "2.2.7",
   "releasedAt": "2026-09-28",
   "notes": [
-    "Frontend package.json version now matches the release manifest so npm and /admin/update show the same semver."
+    "Template updates run in the background with a live log on /admin/update, so refreshing no longer freezes the site behind a stuck PHP worker."
   ],
-  "added": [],
+  "added": [
+    "Live update log on Template update that survives page refresh."
+  ],
   "changed": [
-    "Release commits bump config/release.json and frontend/package.json together."
+    "Run update starts the script in the background instead of blocking the HTTP request for the whole npm build."
   ],
   "removed": []
 }
