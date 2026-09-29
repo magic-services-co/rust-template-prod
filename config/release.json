@@ -1,12 +1,12 @@
 {
-  "version": "2.2.5",
+  "version": "2.2.6",
   "releasedAt": "2026-09-28",
   "notes": [
-    "Run update no longer dies with HOME unbound when PHP-FPM has no home directory, so composer/npm can finish after the git reset."
+    "Frontend package.json version now matches the release manifest so npm and /admin/update show the same semver."
   ],
   "added": [],
   "changed": [
-    "Self-update sets HOME and PATH when the web updater runs without them."
+    "Release commits bump config/release.json and frontend/package.json together."
   ],
   "removed": []
 }
