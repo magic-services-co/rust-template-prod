@@ -1,12 +1,12 @@
 {
-  "version": "2.2.4",
+  "version": "2.2.5",
   "releasedAt": "2026-09-28",
   "notes": [
-    "Template update now keeps installed addons (and their enabled state) while replacing every other shipped file."
+    "Run update no longer dies with HOME unbound when PHP-FPM has no home directory, so composer/npm can finish after the git reset."
   ],
   "added": [],
   "changed": [
-    "Self-update saves backend Modules and frontend addon files, hard-resets to Production, then restores those addons."
+    "Self-update sets HOME and PATH when the web updater runs without them."
   ],
   "removed": []
 }

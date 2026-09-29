@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+HOME="${HOME:-/root}"
+export HOME
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
