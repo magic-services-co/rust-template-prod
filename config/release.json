@@ -1,14 +1,12 @@
 {
-  "version": "2.2.7",
+  "version": "2.2.8",
   "releasedAt": "2026-09-28",
   "notes": [
-    "Template updates run in the background with a live log on /admin/update, so refreshing no longer freezes the site behind a stuck PHP worker."
+    "IonCube encode output folders are gitignored so they never show up as local changes during updates."
   ],
-  "added": [
-    "Live update log on Template update that survives page refresh."
-  ],
+  "added": [],
   "changed": [
-    "Run update starts the script in the background instead of blocking the HTTP request for the whole npm build."
+    ".gitignore now covers .encode-license-out and .encode-release-out."
   ],
   "removed": []
 }
