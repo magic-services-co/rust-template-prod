@@ -26,6 +26,144 @@ if [[ "$REMOTE_URL" == *rust-template-source* ]]; then
   exit 1
 fi
 
+is_shipped_backend_addon() {
+  case "$1" in
+    ExampleAddon) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_shipped_frontend_addon_page() {
+  case "$1" in
+    example-addon) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_shipped_frontend_addon_component() {
+  case "$1" in
+    example-addon-admin-demo.tsx) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+save_installed_addons() {
+  local backup="$1"
+  mkdir -p "$backup/Modules" "$backup/frontend-admin-addons" "$backup/frontend-addon-components" "$backup/frontend-addon-src"
+
+  if [[ -d "$ROOT/backend/Modules" ]]; then
+    local dir name
+    for dir in "$ROOT/backend/Modules"/*; do
+      [[ -d "$dir" ]] || continue
+      name="$(basename "$dir")"
+      if is_shipped_backend_addon "$name"; then
+        continue
+      fi
+      cp -a "$dir" "$backup/Modules/$name"
+    done
+  fi
+
+  if [[ -f "$ROOT/backend/modules_statuses.json" ]]; then
+    cp -a "$ROOT/backend/modules_statuses.json" "$backup/modules_statuses.json"
+  fi
+
+  if [[ -d "$ROOT/frontend/src/app/admin/addons" ]]; then
+    local dir name
+    for dir in "$ROOT/frontend/src/app/admin/addons"/*; do
+      [[ -e "$dir" ]] || continue
+      name="$(basename "$dir")"
+      if is_shipped_frontend_addon_page "$name"; then
+        continue
+      fi
+      cp -a "$dir" "$backup/frontend-admin-addons/$name"
+    done
+  fi
+
+  if [[ -d "$ROOT/frontend/src/components/addons" ]]; then
+    local file name
+    for file in "$ROOT/frontend/src/components/addons"/*; do
+      [[ -e "$file" ]] || continue
+      name="$(basename "$file")"
+      if is_shipped_frontend_addon_component "$name"; then
+        continue
+      fi
+      cp -a "$file" "$backup/frontend-addon-components/$name"
+    done
+  fi
+
+  if [[ -d "$ROOT/frontend/src/addons" ]]; then
+    local file name
+    for file in "$ROOT/frontend/src/addons"/*; do
+      [[ -e "$file" ]] || continue
+      name="$(basename "$file")"
+      if [[ "$name" == "registry.ts" ]]; then
+        continue
+      fi
+      cp -a "$file" "$backup/frontend-addon-src/$name"
+    done
+  fi
+}
+
+restore_installed_addons() {
+  local backup="$1"
+  local dir name file
+
+  shopt -s nullglob
+  for dir in "$backup/Modules"/*; do
+    [[ -d "$dir" ]] || continue
+    name="$(basename "$dir")"
+    mkdir -p "$ROOT/backend/Modules"
+    rm -rf "$ROOT/backend/Modules/$name"
+    cp -a "$dir" "$ROOT/backend/Modules/$name"
+  done
+
+  for dir in "$backup/frontend-admin-addons"/*; do
+    [[ -e "$dir" ]] || continue
+    name="$(basename "$dir")"
+    mkdir -p "$ROOT/frontend/src/app/admin/addons"
+    rm -rf "$ROOT/frontend/src/app/admin/addons/$name"
+    cp -a "$dir" "$ROOT/frontend/src/app/admin/addons/$name"
+  done
+
+  for file in "$backup/frontend-addon-components"/*; do
+    [[ -e "$file" ]] || continue
+    name="$(basename "$file")"
+    mkdir -p "$ROOT/frontend/src/components/addons"
+    rm -rf "$ROOT/frontend/src/components/addons/$name"
+    cp -a "$file" "$ROOT/frontend/src/components/addons/$name"
+  done
+
+  for file in "$backup/frontend-addon-src"/*; do
+    [[ -e "$file" ]] || continue
+    name="$(basename "$file")"
+    mkdir -p "$ROOT/frontend/src/addons"
+    rm -rf "$ROOT/frontend/src/addons/$name"
+    cp -a "$file" "$ROOT/frontend/src/addons/$name"
+  done
+  shopt -u nullglob
+
+  if [[ -f "$backup/modules_statuses.json" && -f "$ROOT/backend/modules_statuses.json" ]]; then
+    php -r '
+      $dest = $argv[1];
+      $savedPath = $argv[2];
+      $modulesDir = $argv[3];
+      $base = json_decode((string) file_get_contents($dest), true);
+      $saved = json_decode((string) file_get_contents($savedPath), true);
+      if (!is_array($base)) $base = [];
+      if (!is_array($saved)) $saved = [];
+      foreach ($saved as $name => $enabled) {
+        if (!is_string($name) || $name === "") continue;
+        if (is_dir($modulesDir . DIRECTORY_SEPARATOR . $name)) {
+          $base[$name] = (bool) $enabled;
+        }
+      }
+      file_put_contents($dest, json_encode($base, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    ' "$ROOT/backend/modules_statuses.json" "$backup/modules_statuses.json" "$ROOT/backend/Modules"
+  elif [[ -f "$backup/modules_statuses.json" ]]; then
+    cp -a "$backup/modules_statuses.json" "$ROOT/backend/modules_statuses.json"
+  fi
+}
+
 echo "Fetching origin/${BRANCH}…"
 git fetch origin "$BRANCH"
 
@@ -35,9 +173,19 @@ else
   git checkout -B "$BRANCH" "origin/${BRANCH}"
 fi
 
-# Discard local edits to shipped files (do not stash or commit them).
+ADDONS_BACKUP="$(mktemp -d)"
+cleanup_addons_backup() { rm -rf "$ADDONS_BACKUP"; }
+trap cleanup_addons_backup EXIT
+
+echo "Saving installed addons…"
+save_installed_addons "$ADDONS_BACKUP"
+
+# Discard local edits to shipped files. Installed addons are restored after reset.
 echo "Resetting to origin/${BRANCH}…"
 git reset --hard "origin/${BRANCH}"
+
+echo "Restoring installed addons…"
+restore_installed_addons "$ADDONS_BACKUP"
 
 resolve_bin() {
   local name="$1"

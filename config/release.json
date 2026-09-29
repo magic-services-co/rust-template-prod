@@ -1,12 +1,12 @@
 {
-  "version": "2.2.3",
-  "releasedAt": "2026-09-26",
+  "version": "2.2.4",
+  "releasedAt": "2026-09-28",
   "notes": [
-    "Store package details now open as a centered overlay instead of appearing at the bottom of the page."
+    "Template update now keeps installed addons (and their enabled state) while replacing every other shipped file."
   ],
   "added": [],
   "changed": [
-    "The DETAILS dialog on store packages stays fixed in the viewport so it no longer drops into page flow."
+    "Self-update saves backend Modules and frontend addon files, hard-resets to Production, then restores those addons."
   ],
   "removed": []
 }
